@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function role(r) {
+      return signedIn() && myProfile().role == r;
+    }
+
+    function admin() { return role("admin"); }
+    function driver() { return role("driver"); }
+    function recipient() { return role("recipient"); }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || admin());
+      // A criação inicial do perfil deve ser feita pelo administrador no Firebase Console.
+      // Não permita que um usuário transforme a própria conta em admin.
+      allow create: if admin();
+      allow update: if admin() || (request.auth.uid == uid &&
+        request.resource.data.role == resource.data.role);
+      allow delete: if admin();
+    }
+
+    match /households/{id} {
+      allow read: if admin() || driver();
+      allow create, update, delete: if admin();
+    }
+
+    match /deliveries/{id} {
+      allow read: if admin()
+        || (driver() && resource.data.driverUid == request.auth.uid)
+        || (recipient() && resource.data.recipientPhone == myProfile().phone);
+
+      allow create: if admin();
+
+      // O motorista só pode finalizar uma entrega atribuída a ele.
+      // Depois de concluída/ausente, o registro fica imutável para o motorista.
+      allow update: if driver()
+        && resource.data.driverUid == request.auth.uid
+        && resource.data.status == "scheduled"
+        && request.resource.data.status in ["completed","absent"]
+        && request.resource.data.completedBy == request.auth.uid;
+
+      allow delete: if admin();
+    }
+
+    match /auditLogs/{id} {
+      allow read: if admin();
+      allow create: if admin() || driver();
+      allow update, delete: if false;
+    }
+  }
+}
