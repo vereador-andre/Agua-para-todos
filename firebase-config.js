@@ -3,10 +3,10 @@
 // NUNCA coloque aqui uma chave privada/service account. Este arquivo contém apenas a configuração pública do app.
 
 export const firebaseConfig = {
-  apiKey: "COLE_AQUI",
-  authDomain: "COLE_AQUI.firebaseapp.com",
-  projectId: "COLE_AQUI",
-  storageBucket: "COLE_AQUI.firebasestorage.app",
-  messagingSenderId: "COLE_AQUI",
-  appId: "COLE_AQUI"
+  apiKey: "AIzaSyBuftlms0LcdZrM9dpcf5wIk7eWjK3_o4A",
+  authDomain: "agua-para-todos-19454.firebaseapp.com",
+  projectId: "agua-para-todos-19454",
+  storageBucket: "agua-para-todos-19454.firebasestorage.app",
+  messagingSenderId: "799145802902",
+  appId: "1:799145802902:web:b40f090db609b71c3696b7"
 };
