@@ -58,10 +58,7 @@ onAuthStateChanged(auth, async user=>{
     $("userName").textContent=state.profile.name||user.email;
     $("userRole").textContent=roleLabel(state.profile.role);
     await renderByRole();
-  }catch(e){
-  console.error(e);
-  alert("ERRO FIREBASE: " + e.code + "\n" + e.message);
-}
+  }catch(e){ console.error(e); toast("Erro ao carregar seu perfil."); }
 });
 function roleLabel(r){return ({admin:"Administrador",driver:"Motorista",recipient:"Beneficiário"})[r]||r||"Usuário"}
 
