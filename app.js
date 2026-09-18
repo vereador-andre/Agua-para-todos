@@ -196,14 +196,17 @@ onAuthStateChanged(auth, async user => {
     state.user = null;
     state.profile = null;
 
-    if ($("loginView"))
+    if ($("loginView")) {
       $("loginView").classList.remove("hidden");
+    }
 
-    if ($("appView"))
+    if ($("appView")) {
       $("appView").classList.add("hidden");
+    }
 
-    if ($("logoutBtn"))
+    if ($("logoutBtn")) {
       $("logoutBtn").classList.add("hidden");
+    }
 
     return;
   }
@@ -211,14 +214,17 @@ onAuthStateChanged(auth, async user => {
 
   state.user = user;
 
-  if ($("loginView"))
+  if ($("loginView")) {
     $("loginView").classList.add("hidden");
+  }
 
-  if ($("appView"))
+  if ($("appView")) {
     $("appView").classList.remove("hidden");
+  }
 
-  if ($("logoutBtn"))
+  if ($("logoutBtn")) {
     $("logoutBtn").classList.remove("hidden");
+  }
 
   if ($("connectionStatus")) {
 
@@ -332,8 +338,9 @@ async function renderByRole() {
 
   if (state.profile.role === "admin") {
 
-    if ($("adminPanel"))
+    if ($("adminPanel")) {
       $("adminPanel").classList.remove("hidden");
+    }
 
     await renderAdmin();
 
@@ -342,8 +349,9 @@ async function renderByRole() {
 
   if (state.profile.role === "driver") {
 
-    if ($("driverPanel"))
+    if ($("driverPanel")) {
       $("driverPanel").classList.remove("hidden");
+    }
 
     await renderDriver();
 
@@ -352,8 +360,9 @@ async function renderByRole() {
 
   if (state.profile.role === "recipient") {
 
-    if ($("recipientPanel"))
+    if ($("recipientPanel")) {
       $("recipientPanel").classList.remove("hidden");
+    }
 
     await renderRecipient();
 
@@ -535,9 +544,7 @@ async function renderAdmin() {
 
 
     document
-      .querySelectorAll(
-        "[data-edit-household]"
-      )
+      .querySelectorAll("[data-edit-household]")
       .forEach(button => {
 
         button.onclick = () =>
@@ -548,15 +555,8 @@ async function renderAdmin() {
       });
 
 
-    /* NOVO:
-       Botão para visualizar detalhes
-       de cada entrega.
-    */
-
     document
-      .querySelectorAll(
-        "[data-view-delivery]"
-      )
+      .querySelectorAll("[data-view-delivery]")
       .forEach(button => {
 
         button.onclick = () =>
@@ -711,7 +711,7 @@ function deliveryCard(d) {
         </h3>
 
         <span class="pill ${esc(
-          d.status
+          d.status || ""
         )}">
 
           ${statusLabel(d.status)}
@@ -749,7 +749,6 @@ function deliveryCard(d) {
 
       ${
         d.completedAt
-
           ? `
 
             <p>
@@ -767,7 +766,6 @@ function deliveryCard(d) {
             </p>
 
           `
-
           : ""
       }
 
@@ -775,6 +773,7 @@ function deliveryCard(d) {
       <div class="actions">
 
         <button
+          type="button"
           class="secondary"
           data-view-delivery="${d.id}">
           Ver detalhes
@@ -793,238 +792,298 @@ function deliveryCard(d) {
    DETALHES DA ENTREGA
 ========================= */
 
-function showDeliveryDetails(id) {
+async function showDeliveryDetails(id) {
 
-  const d =
-    state.deliveries.find(
-      x => x.id === id
+  try {
+
+    const deliveryRef =
+      doc(
+        db,
+        "deliveries",
+        id
+      );
+
+
+    const snapshot =
+      await getDoc(
+        deliveryRef
+      );
+
+
+    if (!snapshot.exists()) {
+
+      toast(
+        "Esta entrega não foi encontrada."
+      );
+
+      return;
+    }
+
+
+    const d = {
+      id: snapshot.id,
+      ...snapshot.data()
+    };
+
+
+    let evidenceHtml = "";
+
+
+    if (d.signatureData) {
+
+      evidenceHtml += `
+
+        <div class="item">
+
+          <h3>
+            Assinatura do beneficiário
+          </h3>
+
+          <img
+            src="${esc(d.signatureData)}"
+            alt="Assinatura do beneficiário"
+            style="
+              width:100%;
+              max-width:500px;
+              min-height:120px;
+              object-fit:contain;
+              border:1px solid #ddd;
+              border-radius:10px;
+              background:#fff;
+              display:block;
+            ">
+
+        </div>
+
+      `;
+
+    }
+
+
+    if (d.photoUrl) {
+
+      evidenceHtml += `
+
+        <div class="item">
+
+          <h3>
+            Foto da entrega
+          </h3>
+
+          <img
+            src="${esc(d.photoUrl)}"
+            alt="Foto da entrega"
+            style="
+              width:100%;
+              max-width:500px;
+              border-radius:10px;
+              display:block;
+            ">
+
+        </div>
+
+      `;
+
+    }
+
+
+    openModal(`
+
+      <h2>
+        Detalhes da entrega
+      </h2>
+
+
+      <div class="notice">
+
+        <b>Status:</b>
+        ${esc(statusLabel(d.status))}
+
+      </div>
+
+
+      <div class="item">
+
+        <h3>
+          Beneficiário
+        </h3>
+
+        <p>
+          <b>Nome:</b>
+          ${esc(d.recipientName || "—")}
+        </p>
+
+        <p>
+          <b>Telefone:</b>
+          ${esc(d.recipientPhone || "—")}
+        </p>
+
+      </div>
+
+
+      <div class="item">
+
+        <h3>
+          Local do abastecimento
+        </h3>
+
+        <p>
+          <b>Comunidade:</b>
+          ${esc(d.community || "—")}
+        </p>
+
+        <p>
+          <b>Endereço:</b>
+          ${esc(d.address || "—")}
+        </p>
+
+      </div>
+
+
+      <div class="item">
+
+        <h3>
+          Programação
+        </h3>
+
+        <p>
+          <b>Data programada:</b>
+          ${dateOnly(d.scheduledDate)}
+        </p>
+
+        <p>
+          <b>Quantidade planejada:</b>
+          ${esc(d.plannedLiters || "—")} L
+        </p>
+
+        <p>
+          <b>Motorista:</b>
+          ${esc(d.driverName || "—")}
+        </p>
+
+        <p>
+          <b>UID do motorista:</b>
+          ${esc(d.driverUid || "—")}
+        </p>
+
+      </div>
+
+
+      <div class="item">
+
+        <h3>
+          Registro do fornecimento
+        </h3>
+
+        <p>
+          <b>Quantidade realmente entregue:</b>
+          ${
+            d.receivedLiters !== undefined &&
+            d.receivedLiters !== null
+              ? esc(d.receivedLiters) + " L"
+              : "Ainda não registrada"
+          }
+        </p>
+
+        <p>
+          <b>Beneficiário presente:</b>
+          ${
+            d.recipientPresent === true
+              ? "Sim"
+              : d.recipientPresent === false
+                ? "Não"
+                : "Não informado"
+          }
+        </p>
+
+        <p>
+          <b>Data e hora da confirmação:</b>
+          ${fmtDate(d.completedAt)}
+        </p>
+
+        <p>
+          <b>UID de quem registrou:</b>
+          ${esc(d.completedBy || "—")}
+        </p>
+
+      </div>
+
+
+      <div class="item">
+
+        <h3>
+          Observação
+        </h3>
+
+        <p>
+          ${esc(
+            d.note ||
+            "Nenhuma observação registrada."
+          )}
+        </p>
+
+      </div>
+
+
+      ${evidenceHtml}
+
+
+      <div class="item">
+
+        <h3>
+          Controle do registro
+        </h3>
+
+        <p>
+          <b>ID da entrega:</b>
+          ${esc(d.id)}
+        </p>
+
+        <p>
+          <b>Criada em:</b>
+          ${fmtDate(d.createdAt)}
+        </p>
+
+        <p>
+          <b>Criada pelo UID:</b>
+          ${esc(d.createdBy || "—")}
+        </p>
+
+      </div>
+
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          id="closeDeliveryDetails">
+          Fechar
+        </button>
+
+      </div>
+
+    `);
+
+
+    if ($("closeDeliveryDetails")) {
+
+      $("closeDeliveryDetails").onclick =
+        closeModal;
+
+    }
+
+
+  } catch (error) {
+
+    console.error(
+      "Erro ao carregar detalhes da entrega:",
+      error
     );
-
-
-  if (!d) {
 
     toast(
-      "Entrega não encontrada."
+      "Não foi possível carregar os detalhes da entrega."
     );
-
-    return;
-  }
-
-
-  const status =
-    statusLabel(d.status);
-
-
-  const hasSignature =
-    !!d.signatureData;
-
-
-  const hasPhoto =
-    !!d.photoUrl;
-
-
-  openModal(`
-
-    <h2>
-      Detalhes da entrega
-    </h2>
-
-
-    <div class="notice">
-
-      <b>Status:</b>
-      ${esc(status)}
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Beneficiário</h3>
-
-      <p>
-        <b>Nome:</b>
-        ${esc(d.recipientName || "—")}
-      </p>
-
-      <p>
-        <b>Telefone:</b>
-        ${esc(d.recipientPhone || "—")}
-      </p>
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Local do abastecimento</h3>
-
-      <p>
-        <b>Comunidade:</b>
-        ${esc(d.community || "—")}
-      </p>
-
-      <p>
-        <b>Endereço:</b>
-        ${esc(d.address || "—")}
-      </p>
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Programação</h3>
-
-      <p>
-        <b>Data programada:</b>
-        ${dateOnly(d.scheduledDate)}
-      </p>
-
-      <p>
-        <b>Quantidade planejada:</b>
-        ${esc(d.plannedLiters || "—")} L
-      </p>
-
-      <p>
-        <b>Motorista:</b>
-        ${esc(d.driverName || "—")}
-      </p>
-
-      <p>
-        <b>UID do motorista:</b>
-        ${esc(d.driverUid || "—")}
-      </p>
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Registro da entrega</h3>
-
-      <p>
-        <b>Quantidade realmente registrada:</b>
-        ${
-          d.receivedLiters != null
-            ? `${esc(d.receivedLiters)} L`
-            : "Não registrada"
-        }
-      </p>
-
-      <p>
-        <b>Beneficiário presente:</b>
-        ${
-          d.recipientPresent === true
-            ? "Sim"
-            : d.recipientPresent === false
-              ? "Não"
-              : "Não informado"
-        }
-      </p>
-
-      <p>
-        <b>Data e hora da confirmação:</b>
-        ${fmtDate(d.completedAt)}
-      </p>
-
-      <p>
-        <b>Registrado por UID:</b>
-        ${esc(d.completedBy || "—")}
-      </p>
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Observações</h3>
-
-      <p>
-        ${esc(d.note || "Nenhuma observação registrada.")}
-      </p>
-
-    </div>
-
-
-    ${
-      hasSignature
-
-        ? `
-
-          <div class="item">
-
-            <h3>
-              Assinatura do beneficiário
-            </h3>
-
-            <img
-              src="${esc(d.signatureData)}"
-              alt="Assinatura do beneficiário"
-              style="
-                width:100%;
-                max-width:500px;
-                border:1px solid #ddd;
-                border-radius:10px;
-                background:#fff;
-                display:block;
-              ">
-
-          </div>
-
-        `
-
-        : ""
-    }
-
-
-    ${
-      hasPhoto
-
-        ? `
-
-          <div class="item">
-
-            <h3>
-              Foto da ocorrência
-            </h3>
-
-            <img
-              src="${esc(d.photoUrl)}"
-              alt="Foto da entrega"
-              style="
-                width:100%;
-                max-width:500px;
-                border-radius:10px;
-                display:block;
-              ">
-
-          </div>
-
-        `
-
-        : ""
-    }
-
-
-    <div class="actions">
-
-      <button
-        type="button"
-        class="secondary"
-        id="closeDeliveryDetails">
-        Fechar
-      </button>
-
-    </div>
-
-  `);
-
-
-  if ($("closeDeliveryDetails")) {
-
-    $("closeDeliveryDetails").onclick =
-      closeModal;
 
   }
 
@@ -2525,8 +2584,9 @@ function isBlankCanvas(c) {
     i += 4
   ) {
 
-    if (data[i] > 0)
+    if (data[i] > 0) {
       return false;
+    }
 
   }
 
@@ -2557,7 +2617,7 @@ async function renderRecipient() {
     );
 
 
-  let ds =
+  const ds =
     await getDocs(q)
       .catch(
         error => {
