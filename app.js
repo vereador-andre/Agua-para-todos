@@ -557,6 +557,25 @@ async function renderAdmin() {
       });
 
 
+    /*
+      Botão para visualizar os detalhes
+      de cada entrega.
+    */
+
+    document
+      .querySelectorAll(
+        "[data-view-delivery]"
+      )
+      .forEach(button => {
+
+        button.onclick = () =>
+          showDeliveryDetails(
+            button.dataset.viewDelivery
+          );
+
+      });
+
+
   } catch (error) {
 
     console.error(
@@ -761,9 +780,335 @@ function deliveryCard(d) {
           : ""
       }
 
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          data-view-delivery="${esc(d.id)}">
+          Ver detalhes
+        </button>
+
+      </div>
+
     </div>
 
   `;
+
+}
+
+
+/* =========================
+   DETALHES DA ENTREGA
+========================= */
+
+async function showDeliveryDetails(id) {
+
+  try {
+
+    /*
+      Busca novamente no Firestore para garantir
+      que o administrador veja os dados mais atuais.
+    */
+
+    const deliveryRef =
+      doc(
+        db,
+        "deliveries",
+        id
+      );
+
+
+    const deliverySnapshot =
+      await getDoc(
+        deliveryRef
+      );
+
+
+    if (!deliverySnapshot.exists()) {
+
+      toast(
+        "Entrega não encontrada."
+      );
+
+      return;
+    }
+
+
+    const d = {
+      id: deliverySnapshot.id,
+      ...deliverySnapshot.data()
+    };
+
+
+    const presentText =
+      d.recipientPresent === true
+        ? "Sim"
+        : d.recipientPresent === false
+          ? "Não"
+          : "Não informado";
+
+
+    const signatureHtml =
+      d.signatureData
+        ? `
+          <div style="margin-top:18px;">
+            <h3>Assinatura do beneficiário</h3>
+
+            <div
+              style="
+                background:#ffffff;
+                border:1px solid #ddd;
+                border-radius:10px;
+                padding:10px;
+              ">
+
+              <img
+                src="${esc(d.signatureData)}"
+                alt="Assinatura do beneficiário"
+                style="
+                  display:block;
+                  width:100%;
+                  max-width:500px;
+                  height:auto;
+                  background:#fff;
+                ">
+
+            </div>
+          </div>
+        `
+        : "";
+
+
+    const photoHtml =
+      d.photoUrl
+        ? `
+          <div style="margin-top:18px;">
+
+            <h3>
+              Foto de comprovação
+            </h3>
+
+            <div
+              style="
+                background:#ffffff;
+                border:1px solid #ddd;
+                border-radius:10px;
+                padding:10px;
+              ">
+
+              <img
+                src="${esc(d.photoUrl)}"
+                alt="Foto de comprovação da entrega"
+                style="
+                  display:block;
+                  width:100%;
+                  max-width:600px;
+                  height:auto;
+                  border-radius:8px;
+                ">
+
+              <p style="margin-top:10px;">
+                <a
+                  href="${esc(d.photoUrl)}"
+                  target="_blank"
+                  rel="noopener noreferrer">
+                  Abrir foto em tamanho maior
+                </a>
+              </p>
+
+            </div>
+
+          </div>
+        `
+        : "";
+
+
+    openModal(`
+
+      <h2>
+        Detalhes da entrega
+      </h2>
+
+
+      <div class="notice">
+
+        <b>Situação:</b>
+        ${esc(statusLabel(d.status))}
+
+      </div>
+
+
+      <div class="item">
+
+        <h3>
+          Beneficiário
+        </h3>
+
+        <p>
+          <b>Nome:</b>
+          ${esc(d.recipientName || "—")}
+        </p>
+
+        <p>
+          <b>Telefone:</b>
+          ${esc(d.recipientPhone || "—")}
+        </p>
+
+      </div>
+
+
+      <div class="item">
+
+        <h3>
+          Local do abastecimento
+        </h3>
+
+        <p>
+          <b>Comunidade:</b>
+          ${esc(d.community || "—")}
+        </p>
+
+        <p>
+          <b>Endereço / referência:</b>
+          ${esc(d.address || "—")}
+        </p>
+
+      </div>
+
+
+      <div class="item">
+
+        <h3>
+          Programação
+        </h3>
+
+        <p>
+          <b>Data programada:</b>
+          ${esc(d.scheduledDate || "—")}
+        </p>
+
+        <p>
+          <b>Quantidade planejada:</b>
+          ${esc(d.plannedLiters || "—")} L
+        </p>
+
+        <p>
+          <b>Motorista:</b>
+          ${esc(d.driverName || "—")}
+        </p>
+
+        <p>
+          <b>UID do motorista:</b>
+          ${esc(d.driverUid || "—")}
+        </p>
+
+      </div>
+
+
+      <div class="item">
+
+        <h3>
+          Resultado do abastecimento
+        </h3>
+
+        <p>
+          <b>Quantidade realmente entregue:</b>
+          ${
+            d.receivedLiters !== undefined &&
+            d.receivedLiters !== null
+              ? `${esc(d.receivedLiters)} L`
+              : "Ainda não registrada"
+          }
+        </p>
+
+        <p>
+          <b>Beneficiário presente:</b>
+          ${presentText}
+        </p>
+
+        <p>
+          <b>Data/hora da conclusão:</b>
+          ${fmtDate(d.completedAt)}
+        </p>
+
+        <p>
+          <b>UID de quem registrou:</b>
+          ${esc(d.completedBy || "—")}
+        </p>
+
+        <p>
+          <b>Observação:</b>
+          ${esc(d.note || "Nenhuma")}
+        </p>
+
+      </div>
+
+
+      ${signatureHtml}
+
+      ${photoHtml}
+
+
+      <div class="item">
+
+        <h3>
+          Controle do registro
+        </h3>
+
+        <p>
+          <b>ID da entrega:</b>
+          ${esc(d.id)}
+        </p>
+
+        <p>
+          <b>Criada em:</b>
+          ${fmtDate(d.createdAt)}
+        </p>
+
+        <p>
+          <b>Criada pelo UID:</b>
+          ${esc(d.createdBy || "—")}
+        </p>
+
+      </div>
+
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="primary"
+          id="closeDeliveryDetails">
+          Fechar
+        </button>
+
+      </div>
+
+    `);
+
+
+    if ($("closeDeliveryDetails")) {
+
+      $("closeDeliveryDetails").onclick =
+        closeModal;
+
+    }
+
+
+  } catch (error) {
+
+    console.error(
+      "Erro ao carregar detalhes da entrega:",
+      error
+    );
+
+    toast(
+      "Não foi possível carregar os detalhes da entrega."
+    );
+
+  }
 
 }
 
