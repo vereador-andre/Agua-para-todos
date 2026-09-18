@@ -3,61 +3,196 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+
   <meta name="theme-color" content="#0D2B5C">
-  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="description" content="Controle seguro do abastecimento rural - Água para Todos">
+
+  <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./styles.css">
+
   <title>Água para Todos</title>
-  <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
+
   <header class="topbar">
     <div>
       <div class="brand">ÁGUA <span>PARA TODOS</span></div>
       <small>Controle seguro do abastecimento rural</small>
     </div>
-    <button id="logoutBtn" class="ghost hidden">Sair</button>
+
+    <button id="logoutBtn" class="ghost hidden">
+      Sair
+    </button>
   </header>
 
   <main class="container">
+
     <section id="loginView" class="card auth-card">
+
       <h1>Água para Todos</h1>
-      <p>Entre com sua conta para registrar ou acompanhar o fornecimento de água.</p>
+
+      <p>
+        Entre com sua conta para registrar ou acompanhar
+        o fornecimento de água.
+      </p>
+
       <form id="loginForm">
-        <label>E-mail
-          <input id="loginEmail" type="email" autocomplete="email" required>
+
+        <label>
+          E-mail
+          <input
+            id="loginEmail"
+            type="email"
+            autocomplete="email"
+            required
+          >
         </label>
-        <label>Senha
-          <input id="loginPassword" type="password" autocomplete="current-password" required>
+
+        <label>
+          Senha
+          <input
+            id="loginPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+          >
         </label>
-        <button class="primary" type="submit">Entrar</button>
+
+        <button
+          class="primary"
+          type="submit"
+        >
+          Entrar
+        </button>
+
       </form>
-      <div id="loginMsg" class="message"></div>
+
+      <div
+        id="loginMsg"
+        class="message"
+      ></div>
+
     </section>
 
-    <section id="appView" class="hidden">
+
+    <section
+      id="appView"
+      class="hidden"
+    >
+
       <div class="welcome card">
+
         <div>
-          <strong id="userName">Usuário</strong>
-          <span id="userRole" class="badge"></span>
+
+          <strong id="userName">
+            Usuário
+          </strong>
+
+          <span
+            id="userRole"
+            class="badge"
+          ></span>
+
         </div>
-        <span id="connectionStatus" class="status">Conectando…</span>
+
+        <span
+          id="connectionStatus"
+          class="status"
+        >
+          Conectando…
+        </span>
+
       </div>
 
-      <div id="adminPanel" class="hidden"></div>
-      <div id="driverPanel" class="hidden"></div>
-      <div id="recipientPanel" class="hidden"></div>
+
+      <div
+        id="adminPanel"
+        class="hidden"
+      ></div>
+
+      <div
+        id="driverPanel"
+        class="hidden"
+      ></div>
+
+      <div
+        id="recipientPanel"
+        class="hidden"
+      ></div>
+
     </section>
+
   </main>
 
-  <div id="modal" class="modal hidden">
+
+  <div
+    id="modal"
+    class="modal hidden"
+  >
+
     <div class="modal-box">
-      <button id="closeModal" class="close">×</button>
-      <div id="modalContent"></div>
+
+      <button
+        id="closeModal"
+        class="close"
+      >
+        ×
+      </button>
+
+      <div
+        id="modalContent"
+      ></div>
+
     </div>
+
   </div>
 
-  <div id="toast" class="toast"></div>
 
-  <script type="module" src="app.js"></script>
+  <div
+    id="toast"
+    class="toast"
+  ></div>
+
+
+  <script type="module" src="./app.js"></script>
+
+
+  <!--
+    Registro do Service Worker.
+    Ele permite que o aplicativo carregue
+    mesmo quando o aparelho estiver sem internet.
+  -->
+
+  <script>
+    if ("serviceWorker" in navigator) {
+
+      window.addEventListener("load", () => {
+
+        navigator.serviceWorker
+          .register("./sw.js")
+          .then((registration) => {
+
+            console.log(
+              "Service Worker registrado:",
+              registration.scope
+            );
+
+          })
+          .catch((error) => {
+
+            console.error(
+              "Erro ao registrar Service Worker:",
+              error
+            );
+
+          });
+
+      });
+
+    }
+  </script>
+
 </body>
 </html>
