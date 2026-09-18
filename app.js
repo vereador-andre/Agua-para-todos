@@ -1,4 +1,3 @@
-```javascript
 import {
   auth,
   db,
@@ -370,6 +369,12 @@ async function renderAdmin() {
 
   try {
 
+    /*
+      Carrega todas as famílias.
+      A ordenação será feita no navegador,
+      evitando dependência de índice do Firestore.
+    */
+
     const householdSnapshot =
       await getDocs(
         collection(db, "households")
@@ -390,6 +395,10 @@ async function renderAdmin() {
             )
         );
 
+
+    /*
+      Carrega as entregas.
+    */
 
     const deliverySnapshot =
       await getDocs(
@@ -543,25 +552,6 @@ async function renderAdmin() {
         button.onclick = () =>
           showEditHouseholdForm(
             button.dataset.editHousehold
-          );
-
-      });
-
-
-    /* NOVO:
-       Botão para visualizar detalhes
-       de cada entrega.
-    */
-
-    document
-      .querySelectorAll(
-        "[data-view-delivery]"
-      )
-      .forEach(button => {
-
-        button.onclick = () =>
-          showDeliveryDetails(
-            button.dataset.viewDelivery
           );
 
       });
@@ -771,269 +761,12 @@ function deliveryCard(d) {
           : ""
       }
 
-
-      <div class="actions">
-
-        <button
-          class="secondary"
-          data-view-delivery="${d.id}">
-          Ver detalhes
-        </button>
-
-      </div>
-
     </div>
 
   `;
 
 }
 
-
-/* =========================
-   DETALHES DA ENTREGA
-========================= */
-
-function showDeliveryDetails(id) {
-
-  const d =
-    state.deliveries.find(
-      x => x.id === id
-    );
-
-
-  if (!d) {
-
-    toast(
-      "Entrega não encontrada."
-    );
-
-    return;
-  }
-
-
-  const status =
-    statusLabel(d.status);
-
-
-  const hasSignature =
-    !!d.signatureData;
-
-
-  const hasPhoto =
-    !!d.photoUrl;
-
-
-  openModal(`
-
-    <h2>
-      Detalhes da entrega
-    </h2>
-
-
-    <div class="notice">
-
-      <b>Status:</b>
-      ${esc(status)}
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Beneficiário</h3>
-
-      <p>
-        <b>Nome:</b>
-        ${esc(d.recipientName || "—")}
-      </p>
-
-      <p>
-        <b>Telefone:</b>
-        ${esc(d.recipientPhone || "—")}
-      </p>
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Local do abastecimento</h3>
-
-      <p>
-        <b>Comunidade:</b>
-        ${esc(d.community || "—")}
-      </p>
-
-      <p>
-        <b>Endereço:</b>
-        ${esc(d.address || "—")}
-      </p>
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Programação</h3>
-
-      <p>
-        <b>Data programada:</b>
-        ${dateOnly(d.scheduledDate)}
-      </p>
-
-      <p>
-        <b>Quantidade planejada:</b>
-        ${esc(d.plannedLiters || "—")} L
-      </p>
-
-      <p>
-        <b>Motorista:</b>
-        ${esc(d.driverName || "—")}
-      </p>
-
-      <p>
-        <b>UID do motorista:</b>
-        ${esc(d.driverUid || "—")}
-      </p>
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Registro da entrega</h3>
-
-      <p>
-        <b>Quantidade realmente registrada:</b>
-        ${
-          d.receivedLiters != null
-            ? `${esc(d.receivedLiters)} L`
-            : "Não registrada"
-        }
-      </p>
-
-      <p>
-        <b>Beneficiário presente:</b>
-        ${
-          d.recipientPresent === true
-            ? "Sim"
-            : d.recipientPresent === false
-              ? "Não"
-              : "Não informado"
-        }
-      </p>
-
-      <p>
-        <b>Data e hora da confirmação:</b>
-        ${fmtDate(d.completedAt)}
-      </p>
-
-      <p>
-        <b>Registrado por UID:</b>
-        ${esc(d.completedBy || "—")}
-      </p>
-
-    </div>
-
-
-    <div class="item">
-
-      <h3>Observações</h3>
-
-      <p>
-        ${esc(d.note || "Nenhuma observação registrada.")}
-      </p>
-
-    </div>
-
-
-    ${
-      hasSignature
-
-        ? `
-
-          <div class="item">
-
-            <h3>
-              Assinatura do beneficiário
-            </h3>
-
-            <img
-              src="${esc(d.signatureData)}"
-              alt="Assinatura do beneficiário"
-              style="
-                width:100%;
-                max-width:500px;
-                border:1px solid #ddd;
-                border-radius:10px;
-                background:#fff;
-                display:block;
-              ">
-
-          </div>
-
-        `
-
-        : ""
-    }
-
-
-    ${
-      hasPhoto
-
-        ? `
-
-          <div class="item">
-
-            <h3>
-              Foto da ocorrência
-            </h3>
-
-            <img
-              src="${esc(d.photoUrl)}"
-              alt="Foto da entrega"
-              style="
-                width:100%;
-                max-width:500px;
-                border-radius:10px;
-                display:block;
-              ">
-
-          </div>
-
-        `
-
-        : ""
-    }
-
-
-    <div class="actions">
-
-      <button
-        type="button"
-        class="secondary"
-        id="closeDeliveryDetails">
-        Fechar
-      </button>
-
-    </div>
-
-  `);
-
-
-  if ($("closeDeliveryDetails")) {
-
-    $("closeDeliveryDetails").onclick =
-      closeModal;
-
-  }
-
-}
-
-
-/* =========================
-   STATUS
-========================= */
 
 function statusLabel(s) {
 
@@ -2701,4 +2434,3 @@ function recipientCard(d) {
   `;
 
 }
-```
