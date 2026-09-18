@@ -88,28 +88,127 @@ async function renderByRole(){
 async function renderAdmin(){
   const hs=await getDocs(query(collection(db,"households"),orderBy("name")));
   state.households=hs.docs.map(d=>({id:d.id,...d.data()}));
-  const ds=await getDocs(query(collection(db,"deliveries"),orderBy("scheduledDate","desc"),limit(100)));
+
+  const ds=await getDocs(
+    query(
+      collection(db,"deliveries"),
+      orderBy("scheduledDate","desc"),
+      limit(100)
+    )
+  );
+
   state.deliveries=ds.docs.map(d=>({id:d.id,...d.data()}));
+
   const pending=state.deliveries.filter(x=>x.status==="scheduled").length;
   const done=state.deliveries.filter(x=>x.status==="completed").length;
+
   $("adminPanel").innerHTML=`
     <div class="card">
-      <div class="panel-title"><h2>Painel administrativo</h2><div class="actions">
-        <button class="primary" id="newHousehold">+ Cadastrar família</button>
-        <button class="yellow" id="newDelivery">+ Programar entrega</button>
-      </div></div>
+      <div class="panel-title">
+        <h2>Painel administrativo</h2>
+        <div class="actions">
+          <button class="primary" id="newHousehold">
+            + Cadastrar família
+          </button>
+
+          <button class="yellow" id="newDelivery">
+            + Programar entrega
+          </button>
+        </div>
+      </div>
+
       <div class="stats">
-        <div class="stat"><b>${state.households.length}</b> famílias</div>
-        <div class="stat"><b>${pending}</b> programadas</div>
-        <div class="stat"><b>${done}</b> concluídas</div>
+        <div class="stat">
+          <b>${state.households.length}</b> famílias
+        </div>
+
+        <div class="stat">
+          <b>${pending}</b> programadas
+        </div>
+
+        <div class="stat">
+          <b>${done}</b> concluídas
+        </div>
       </div>
     </div>
-    <div class="card"><div class="panel-title"><h2>Últimas entregas</h2></div>
-      <div class="grid">${state.deliveries.slice(0,30).map(deliveryCard).join("")||"<p class='small'>Nenhuma entrega registrada.</p>"}</div>
+
+    <div class="card">
+      <div class="panel-title">
+        <h2>Famílias cadastradas</h2>
+      </div>
+
+      <div class="grid">
+        ${
+          state.households.map(householdCard).join("")
+          || "<p class='small'>Nenhuma família cadastrada.</p>"
+        }
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="panel-title">
+        <h2>Últimas entregas</h2>
+      </div>
+
+      <div class="grid">
+        ${
+          state.deliveries.slice(0,30).map(deliveryCard).join("")
+          || "<p class='small'>Nenhuma entrega registrada.</p>"
+        }
+      </div>
     </div>
   `;
+
   $("newHousehold").onclick=showHouseholdForm;
   $("newDelivery").onclick=showDeliveryForm;
+
+  document
+    .querySelectorAll("[data-edit-household]")
+    .forEach(button=>{
+      button.onclick=()=>showEditHouseholdForm(button.dataset.editHousehold);
+    });
+}
+function householdCard(h){
+  return `
+    <div class="item">
+
+      <div class="row">
+        <h3>${esc(h.name || "Sem nome")}</h3>
+
+        <span class="pill ${h.active===false ? "cancelled" : "completed"}">
+          ${h.active===false ? "Inativa" : "Ativa"}
+        </span>
+      </div>
+
+      <p>
+        <b>Telefone:</b> ${esc(h.phone || "—")}
+        ${h.cpf ? ` · <b>CPF:</b> ${esc(h.cpf)}` : ""}
+      </p>
+
+      <p>
+        <b>Comunidade:</b> ${esc(h.community || "—")}
+      </p>
+
+      <p>
+        <b>Endereço:</b> ${esc(h.address || "—")}
+      </p>
+
+      <p>
+        <b>Pessoas:</b> ${esc(h.people || "—")}
+        · <b>Frequência:</b> ${esc(h.frequency || "—")}
+        · <b>Litros:</b> ${esc(h.defaultLiters || "—")} L
+      </p>
+
+      <div class="actions">
+        <button
+          class="secondary"
+          data-edit-household="${h.id}">
+          Editar cadastro
+        </button>
+      </div>
+
+    </div>
+  `;
 }
 function deliveryCard(d){
   return `<div class="item"><div class="row"><h3>${esc(d.recipientName||"Beneficiário")}</h3><span class="pill ${esc(d.status)}">${statusLabel(d.status)}</span></div>
@@ -120,28 +219,174 @@ function deliveryCard(d){
 }
 function statusLabel(s){return ({scheduled:"Programada",completed:"Concluída",absent:"Ninguém no local",cancelled:"Cancelada"})[s]||s||"—"}
 
-function showHouseholdForm(){
-  openModal(`<h2>Nova família / imóvel</h2>
-  <form id="householdForm">
-    <label>Nome do responsável<input id="hName" required></label>
-    <label>CPF (opcional)<input id="hCpf" inputmode="numeric"></label>
-    <label>Telefone<input id="hPhone" required></label>
-    <label>Comunidade / zona rural<input id="hCommunity" required></label>
-    <label>Endereço / referência<input id="hAddress" required></label>
-    <label>Quantidade de pessoas<input id="hPeople" type="number" min="1" required></label>
-    <label>Frequência<select id="hFreq"><option>Semanal</option><option>Quinzenal</option><option>Mensal</option><option>Conforme necessidade</option></select></label>
-    <label>Litros programados por entrega<input id="hLiters" type="number" min="1" required></label>
-    <button class="primary">Salvar família</button>
-  </form>`);
-  $("householdForm").onsubmit=async e=>{
+function showEditHouseholdForm(id){
+  const h=state.households.find(x=>x.id===id);
+
+  if(!h){
+    toast("Família não encontrada.");
+    return;
+  }
+
+  openModal(`
+    <h2>Editar família / imóvel</h2>
+
+    <form id="editHouseholdForm">
+
+      <label>
+        Nome do responsável
+        <input
+          id="ehName"
+          value="${esc(h.name || "")}"
+          required>
+      </label>
+
+      <label>
+        CPF
+        <input
+          id="ehCpf"
+          inputmode="numeric"
+          value="${esc(h.cpf || "")}">
+      </label>
+
+      <label>
+        Telefone
+        <input
+          id="ehPhone"
+          value="${esc(h.phone || "")}"
+          required>
+      </label>
+
+      <label>
+        Comunidade / zona rural
+        <input
+          id="ehCommunity"
+          value="${esc(h.community || "")}"
+          required>
+      </label>
+
+      <label>
+        Endereço / referência
+        <input
+          id="ehAddress"
+          value="${esc(h.address || "")}"
+          required>
+      </label>
+
+      <label>
+        Quantidade de pessoas
+        <input
+          id="ehPeople"
+          type="number"
+          min="1"
+          value="${esc(h.people || 1)}"
+          required>
+      </label>
+
+      <label>
+        Frequência
+
+        <select id="ehFreq">
+          <option ${h.frequency==="Semanal" ? "selected" : ""}>
+            Semanal
+          </option>
+
+          <option ${h.frequency==="Quinzenal" ? "selected" : ""}>
+            Quinzenal
+          </option>
+
+          <option ${h.frequency==="Mensal" ? "selected" : ""}>
+            Mensal
+          </option>
+
+          <option ${h.frequency==="Conforme necessidade" ? "selected" : ""}>
+            Conforme necessidade
+          </option>
+        </select>
+      </label>
+
+      <label>
+        Litros programados por entrega
+        <input
+          id="ehLiters"
+          type="number"
+          min="1"
+          value="${esc(h.defaultLiters || "")}"
+          required>
+      </label>
+
+      <label>
+        Situação
+
+        <select id="ehActive">
+
+          <option value="true" ${h.active!==false ? "selected" : ""}>
+            Ativa
+          </option>
+
+          <option value="false" ${h.active===false ? "selected" : ""}>
+            Inativa
+          </option>
+
+        </select>
+      </label>
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          id="cancelEdit">
+          Cancelar
+        </button>
+
+        <button
+          type="submit"
+          class="primary">
+          Salvar alterações
+        </button>
+
+      </div>
+
+    </form>
+  `);
+
+  $("cancelEdit").onclick=closeModal;
+
+  $("editHouseholdForm").onsubmit=async e=>{
     e.preventDefault();
-    await addDoc(collection(db,"households"),{
-      name:$("hName").value.trim(),cpf:$("hCpf").value.trim(),phone:$("hPhone").value.trim(),
-      community:$("hCommunity").value.trim(),address:$("hAddress").value.trim(),
-      people:Number($("hPeople").value),frequency:$("hFreq").value,defaultLiters:Number($("hLiters").value),
-      active:true,createdAt:serverTimestamp(),createdBy:state.user.uid
-    });
-    closeModal(); toast("Família cadastrada."); await renderAdmin();
+
+    try{
+
+      await updateDoc(
+        doc(db,"households",id),
+        {
+          name:$("ehName").value.trim(),
+          cpf:$("ehCpf").value.trim(),
+          phone:$("ehPhone").value.trim(),
+          community:$("ehCommunity").value.trim(),
+          address:$("ehAddress").value.trim(),
+          people:Number($("ehPeople").value),
+          frequency:$("ehFreq").value,
+          defaultLiters:Number($("ehLiters").value),
+          active:$("ehActive").value==="true",
+          updatedAt:serverTimestamp(),
+          updatedBy:state.user.uid
+        }
+      );
+
+      closeModal();
+
+      toast("Cadastro atualizado.");
+
+      await renderAdmin();
+
+    }catch(error){
+
+      console.error(error);
+
+      toast("Não foi possível atualizar o cadastro.");
+
+    }
   };
 }
 async function showDeliveryForm(){
