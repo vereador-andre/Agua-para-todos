@@ -39,9 +39,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 
-/* =========================
-   ESTADO DO APLICATIVO
-========================= */
+/* =========================================================
+   ESTADO
+========================================================= */
 
 const $ = (id) => document.getElementById(id);
 
@@ -50,31 +50,29 @@ const state = {
   profile: null,
   households: [],
   deliveries: [],
-  drivers: []
+  drivers: [],
+  users: []
 };
 
 
-/* =========================
+/* =========================================================
    FIREBASE SECUNDÁRIO
-   USADO PARA CADASTRAR MOTORISTAS
-========================= */
+   USADO PARA CRIAR MOTORISTAS SEM DESCONECTAR O ADMIN
+========================================================= */
 
 let secondaryApp = null;
 let secondaryAuth = null;
 
-
 try {
 
-  secondaryApp =
-    initializeApp(
-      firebaseConfig,
-      "DriverRegistrationApp"
-    );
+  secondaryApp = initializeApp(
+    firebaseConfig,
+    "DriverRegistrationApp"
+  );
 
-  secondaryAuth =
-    getAuth(
-      secondaryApp
-    );
+  secondaryAuth = getAuth(
+    secondaryApp
+  );
 
 } catch (error) {
 
@@ -86,9 +84,9 @@ try {
 }
 
 
-/* =========================
+/* =========================================================
    CACHE OFFLINE
-========================= */
+========================================================= */
 
 const OFFLINE_DB_NAME =
   "agua-para-todos-offline";
@@ -111,12 +109,10 @@ function openOfflineDB() {
           OFFLINE_DB_VERSION
         );
 
-
       request.onupgradeneeded = () => {
 
         const localDb =
           request.result;
-
 
         if (
           !localDb.objectStoreNames.contains(
@@ -135,7 +131,6 @@ function openOfflineDB() {
 
       };
 
-
       request.onsuccess = () => {
 
         resolve(
@@ -143,7 +138,6 @@ function openOfflineDB() {
         );
 
       };
-
 
       request.onerror = () => {
 
@@ -170,7 +164,6 @@ function prepareDeliveryForCache(d) {
     ...d
   };
 
-
   if (
     local.createdAt &&
     typeof local.createdAt.toDate === "function"
@@ -182,7 +175,6 @@ function prepareDeliveryForCache(d) {
         .toISOString();
 
   }
-
 
   if (
     local.completedAt &&
@@ -196,6 +188,17 @@ function prepareDeliveryForCache(d) {
 
   }
 
+  if (
+    local.updatedAt &&
+    typeof local.updatedAt.toDate === "function"
+  ) {
+
+    local.updatedAt =
+      local.updatedAt
+        .toDate()
+        .toISOString();
+
+  }
 
   return local;
 
@@ -211,7 +214,6 @@ async function saveDriverDeliveriesToCache(
     const localDb =
       await openOfflineDB();
 
-
     await new Promise(
       (resolve, reject) => {
 
@@ -221,12 +223,10 @@ async function saveDriverDeliveriesToCache(
             "readwrite"
           );
 
-
         const store =
           tx.objectStore(
             DELIVERY_CACHE_STORE
           );
-
 
         deliveries.forEach(
           delivery => {
@@ -240,13 +240,11 @@ async function saveDriverDeliveriesToCache(
           }
         );
 
-
         tx.oncomplete = () => {
 
           resolve();
 
         };
-
 
         tx.onerror = () => {
 
@@ -255,7 +253,6 @@ async function saveDriverDeliveriesToCache(
           );
 
         };
-
 
         tx.onabort = () => {
 
@@ -268,15 +265,7 @@ async function saveDriverDeliveriesToCache(
       }
     );
 
-
     localDb.close();
-
-
-    console.log(
-      "Entregas salvas no cache offline:",
-      deliveries.length
-    );
-
 
   } catch (error) {
 
@@ -299,7 +288,6 @@ async function getCachedDriverDeliveries(
     const localDb =
       await openOfflineDB();
 
-
     const result =
       await new Promise(
         (resolve, reject) => {
@@ -310,16 +298,13 @@ async function getCachedDriverDeliveries(
               "readonly"
             );
 
-
           const store =
             tx.objectStore(
               DELIVERY_CACHE_STORE
             );
 
-
           const request =
             store.getAll();
-
 
           request.onsuccess = () => {
 
@@ -328,7 +313,6 @@ async function getCachedDriverDeliveries(
             );
 
           };
-
 
           request.onerror = () => {
 
@@ -341,18 +325,14 @@ async function getCachedDriverDeliveries(
         }
       );
 
-
     localDb.close();
 
-
     return result
-
       .filter(
         delivery =>
           delivery.driverUid ===
           driverUid
       )
-
       .sort(
         (a, b) =>
           String(
@@ -363,7 +343,6 @@ async function getCachedDriverDeliveries(
             )
           )
       );
-
 
   } catch (error) {
 
@@ -379,9 +358,9 @@ async function getCachedDriverDeliveries(
 }
 
 
-/* =========================
+/* =========================================================
    PERFIL OFFLINE
-========================= */
+========================================================= */
 
 function saveProfileToCache(
   userUid,
@@ -394,12 +373,6 @@ function saveProfileToCache(
       `aguaParaTodosProfile_${userUid}`,
       JSON.stringify(profile)
     );
-
-
-    console.log(
-      "Perfil salvo no cache local."
-    );
-
 
   } catch (error) {
 
@@ -424,13 +397,11 @@ function getProfileFromCache(
         `aguaParaTodosProfile_${userUid}`
       );
 
-
     if (!saved) {
 
       return null;
 
     }
-
 
     return JSON.parse(saved);
 
@@ -448,22 +419,16 @@ function getProfileFromCache(
 }
 
 
-/* =========================
-   STATUS DA CONEXÃO
-========================= */
+/* =========================================================
+   CONEXÃO
+========================================================= */
 
 function updateConnectionStatus() {
 
   const el =
     $("connectionStatus");
 
-
-  if (!el) {
-
-    return;
-
-  }
-
+  if (!el) return;
 
   if (navigator.onLine) {
 
@@ -487,25 +452,22 @@ function updateConnectionStatus() {
 
 }
 
-
 window.addEventListener(
   "online",
   updateConnectionStatus
 );
-
 
 window.addEventListener(
   "offline",
   updateConnectionStatus
 );
 
-
 updateConnectionStatus();
 
 
-/* =========================
+/* =========================================================
    EVENTOS PRINCIPAIS
-========================= */
+========================================================= */
 
 if ($("logoutBtn")) {
 
@@ -514,7 +476,6 @@ if ($("logoutBtn")) {
 
 }
 
-
 if ($("closeModal")) {
 
   $("closeModal").onclick =
@@ -522,14 +483,14 @@ if ($("closeModal")) {
 
 }
 
-
 if ($("modal")) {
 
   $("modal").onclick =
     e => {
 
       if (
-        e.target.id === "modal"
+        e.target.id ===
+        "modal"
       ) {
 
         closeModal();
@@ -541,23 +502,20 @@ if ($("modal")) {
 }
 
 
-/* =========================
+/* =========================================================
    FUNÇÕES GERAIS
-========================= */
+========================================================= */
 
 function toast(msg) {
 
   if (!$("toast")) return;
 
-
   $("toast").textContent =
     msg;
-
 
   $("toast").classList.add(
     "show"
   );
-
 
   setTimeout(() => {
 
@@ -615,12 +573,10 @@ function fmtDate(ts) {
 
   if (!ts) return "—";
 
-
   const d =
     ts.toDate
       ? ts.toDate()
       : new Date(ts);
-
 
   return d.toLocaleString(
     "pt-BR"
@@ -633,7 +589,6 @@ function dateOnly(v) {
 
   if (!v) return "—";
 
-
   return new Date(
     v + "T12:00:00"
   ).toLocaleDateString(
@@ -643,9 +598,9 @@ function dateOnly(v) {
 }
 
 
-/* =========================
+/* =========================================================
    LOGIN
-========================= */
+========================================================= */
 
 if ($("loginForm")) {
 
@@ -654,10 +609,8 @@ if ($("loginForm")) {
 
       e.preventDefault();
 
-
       $("loginMsg").textContent =
         "";
-
 
       try {
 
@@ -670,14 +623,12 @@ if ($("loginForm")) {
             .value
         );
 
-
       } catch (err) {
 
         console.error(
           "Erro no login:",
           err
         );
-
 
         $("loginMsg").textContent =
           friendlyAuthError(err);
@@ -716,16 +667,15 @@ function friendlyAuthError(err) {
 
   };
 
-
   return m[err.code] ||
     "Não foi possível entrar. Verifique os dados.";
 
 }
 
 
-/* =========================
+/* =========================================================
    AUTENTICAÇÃO
-========================= */
+========================================================= */
 
 onAuthStateChanged(
   auth,
@@ -736,65 +686,48 @@ onAuthStateChanged(
       state.user = null;
       state.profile = null;
 
-
       if ($("loginView"))
         $("loginView")
           .classList
           .remove("hidden");
-
 
       if ($("appView"))
         $("appView")
           .classList
           .add("hidden");
 
-
       if ($("logoutBtn"))
         $("logoutBtn")
           .classList
           .add("hidden");
 
-
       return;
 
     }
 
-
     state.user =
       user;
-
 
     if ($("loginView"))
       $("loginView")
         .classList
         .add("hidden");
 
-
     if ($("appView"))
       $("appView")
         .classList
         .remove("hidden");
-
 
     if ($("logoutBtn"))
       $("logoutBtn")
         .classList
         .remove("hidden");
 
-
     updateConnectionStatus();
-
 
     try {
 
-      console.log(
-        "Usuário autenticado:",
-        user.uid
-      );
-
-
       let profile = null;
-
 
       try {
 
@@ -807,14 +740,12 @@ onAuthStateChanged(
             )
           );
 
-
         if (p.exists()) {
 
           profile = {
             id: p.id,
             ...p.data()
           };
-
 
           saveProfileToCache(
             user.uid,
@@ -826,12 +757,11 @@ onAuthStateChanged(
       } catch (firebaseError) {
 
         console.warn(
-          "Não foi possível carregar o perfil do Firebase. Tentando cache local.",
+          "Não foi possível carregar o perfil do Firebase.",
           firebaseError
         );
 
       }
-
 
       if (!profile) {
 
@@ -842,34 +772,18 @@ onAuthStateChanged(
 
       }
 
-
       if (!profile) {
-
-        console.error(
-          "Perfil não encontrado para UID:",
-          user.uid
-        );
-
 
         toast(
           "Usuário autenticado, mas sem perfil cadastrado."
         );
 
-
         return;
 
       }
 
-
       state.profile =
         profile;
-
-
-      console.log(
-        "Perfil carregado:",
-        state.profile
-      );
-
 
       if ($("userName")) {
 
@@ -878,7 +792,6 @@ onAuthStateChanged(
           user.email;
 
       }
-
 
       if ($("userRole")) {
 
@@ -889,9 +802,7 @@ onAuthStateChanged(
 
       }
 
-
       await renderByRole();
-
 
     } catch (e) {
 
@@ -899,7 +810,6 @@ onAuthStateChanged(
         "ERRO AO CARREGAR PERFIL/APLICATIVO:",
         e
       );
-
 
       toast(
         "Erro ao carregar seu perfil."
@@ -911,9 +821,9 @@ onAuthStateChanged(
 );
 
 
-/* =========================
+/* =========================================================
    PERFIS
-========================= */
+========================================================= */
 
 function roleLabel(r) {
 
@@ -944,7 +854,6 @@ async function renderByRole() {
 
   });
 
-
   if (
     state.profile.role ===
     "admin"
@@ -955,11 +864,9 @@ async function renderByRole() {
         .classList
         .remove("hidden");
 
-
     await renderAdmin();
 
   }
-
 
   if (
     state.profile.role ===
@@ -971,11 +878,9 @@ async function renderByRole() {
         .classList
         .remove("hidden");
 
-
     await renderDriver();
 
   }
-
 
   if (
     state.profile.role ===
@@ -987,7 +892,6 @@ async function renderByRole() {
         .classList
         .remove("hidden");
 
-
     await renderRecipient();
 
   }
@@ -995,9 +899,9 @@ async function renderByRole() {
 }
 
 
-/* =========================
-   ADMINISTRADOR
-========================= */
+/* =========================================================
+   ADMIN
+========================================================= */
 
 async function renderAdmin() {
 
@@ -1010,7 +914,6 @@ async function renderAdmin() {
           "households"
         )
       );
-
 
     state.households =
       householdSnapshot.docs
@@ -1029,7 +932,6 @@ async function renderAdmin() {
           )
         );
 
-
     const deliverySnapshot =
       await getDocs(
         query(
@@ -1040,7 +942,6 @@ async function renderAdmin() {
           limit(100)
         )
       );
-
 
     state.deliveries =
       deliverySnapshot.docs
@@ -1058,9 +959,7 @@ async function renderAdmin() {
           )
         );
 
-
     renderAdminMenu();
-
 
   } catch (error) {
 
@@ -1068,7 +967,6 @@ async function renderAdmin() {
       "Erro no painel administrativo:",
       error
     );
-
 
     $("adminPanel").innerHTML = `
 
@@ -1079,12 +977,10 @@ async function renderAdmin() {
         </h2>
 
         <p>
-          Não foi possível carregar os dados
-          administrativos.
+          Não foi possível carregar os dados administrativos.
         </p>
 
         <p class="small">
-          Detalhes:
           ${esc(error.message)}
         </p>
 
@@ -1092,17 +988,14 @@ async function renderAdmin() {
 
     `;
 
-
-    throw error;
-
   }
 
 }
 
 
-/* =========================
+/* =========================================================
    MENU ADMINISTRATIVO
-========================= */
+========================================================= */
 
 function renderAdminMenu() {
 
@@ -1113,7 +1006,6 @@ function renderAdminMenu() {
         "scheduled"
     ).length;
 
-
   const completed =
     state.deliveries.filter(
       x =>
@@ -1121,14 +1013,12 @@ function renderAdminMenu() {
         "completed"
     ).length;
 
-
   const awaiting =
     state.deliveries.filter(
       x =>
         x.status ===
         "awaiting_confirmation"
     ).length;
-
 
   $("adminPanel").innerHTML = `
 
@@ -1150,50 +1040,26 @@ function renderAdminMenu() {
 
       </div>
 
-
       <div class="stats">
 
         <div class="stat">
-
-          <b>
-            ${state.households.length}
-          </b>
-
+          <b>${state.households.length}</b>
           famílias
-
         </div>
 
-
         <div class="stat">
-
-          <b>
-            ${pending}
-          </b>
-
+          <b>${pending}</b>
           programadas
-
         </div>
 
-
         <div class="stat">
-
-          <b>
-            ${awaiting}
-          </b>
-
+          <b>${awaiting}</b>
           aguardando confirmação
-
         </div>
 
-
         <div class="stat">
-
-          <b>
-            ${completed}
-          </b>
-
+          <b>${completed}</b>
           concluídas
-
         </div>
 
       </div>
@@ -1210,7 +1076,6 @@ function renderAdminMenu() {
         </h2>
 
       </div>
-
 
       <div class="grid">
 
@@ -1241,8 +1106,8 @@ function renderAdminMenu() {
           </h3>
 
           <p>
-            Cadastrar e consultar os motoristas
-            cadastrados no sistema.
+            Cadastrar, consultar e editar
+            os motoristas.
           </p>
 
         </div>
@@ -1258,7 +1123,7 @@ function renderAdminMenu() {
           </h3>
 
           <p>
-            Consultar os usuários
+            Consultar e editar os usuários
             e seus respectivos perfis.
           </p>
 
@@ -1279,7 +1144,6 @@ function renderAdminMenu() {
 
       </div>
 
-
       <div class="grid">
 
         <div
@@ -1293,7 +1157,7 @@ function renderAdminMenu() {
 
           <p>
             Criar uma nova entrega e
-            selecionar o motorista responsável.
+            selecionar o motorista.
           </p>
 
         </div>
@@ -1309,8 +1173,8 @@ function renderAdminMenu() {
           </h3>
 
           <p>
-            Visualizar os abastecimentos
-            que ainda serão realizados.
+            Visualizar e editar entregas
+            ainda não realizadas.
           </p>
 
           <span class="pill scheduled">
@@ -1330,8 +1194,8 @@ function renderAdminMenu() {
           </h3>
 
           <p>
-            Entregas registradas pelo motorista
-            que aguardam confirmação.
+            Entregas aguardando confirmação
+            do beneficiário.
           </p>
 
           <span class="pill scheduled">
@@ -1352,7 +1216,7 @@ function renderAdminMenu() {
 
           <p>
             Entregas finalizadas e
-            confirmadas no sistema.
+            confirmadas.
           </p>
 
           <span class="pill completed">
@@ -1373,7 +1237,7 @@ function renderAdminMenu() {
 
           <p>
             Consultar todas as entregas
-            registradas no sistema.
+            registradas.
           </p>
 
         </div>
@@ -1389,7 +1253,6 @@ function renderAdminMenu() {
     </div>
 
   `;
-
 
   document
     .querySelectorAll(
@@ -1408,71 +1271,37 @@ function renderAdminMenu() {
 }
 
 
-/* =========================
-   MENU DO ADMINISTRADOR
-========================= */
-
 async function handleAdminMenu(section) {
 
-  const content =
-    $("adminContent");
-
-
-  if (!content) return;
-
-
-  if (
-    section ===
-    "households"
-  ) {
+  if (section === "households") {
 
     renderAdminHouseholds();
-
     return;
 
   }
 
-
-  if (
-    section ===
-    "drivers"
-  ) {
+  if (section === "drivers") {
 
     await renderAdminDrivers();
-
     return;
 
   }
 
-
-  if (
-    section ===
-    "users"
-  ) {
+  if (section === "users") {
 
     await renderAdminUsers();
-
     return;
 
   }
 
-
-  if (
-    section ===
-    "new-delivery"
-  ) {
+  if (section === "new-delivery") {
 
     await showDeliveryForm();
-
     return;
 
   }
 
-
-  if (
-    section ===
-    "scheduled"
-  ) {
+  if (section === "scheduled") {
 
     renderAdminDeliveries(
       "scheduled",
@@ -1483,11 +1312,7 @@ async function handleAdminMenu(section) {
 
   }
 
-
-  if (
-    section ===
-    "awaiting"
-  ) {
+  if (section === "awaiting") {
 
     renderAdminDeliveries(
       "awaiting_confirmation",
@@ -1498,11 +1323,7 @@ async function handleAdminMenu(section) {
 
   }
 
-
-  if (
-    section ===
-    "completed"
-  ) {
+  if (section === "completed") {
 
     renderAdminDeliveries(
       "completed",
@@ -1513,36 +1334,28 @@ async function handleAdminMenu(section) {
 
   }
 
-
-  if (
-    section ===
-    "history"
-  ) {
+  if (section === "history") {
 
     renderAdminDeliveries(
       "all",
       "Histórico de entregas"
     );
 
-    return;
-
   }
 
 }
 
 
-/* =========================
+/* =========================================================
    FAMÍLIAS
-========================= */
+========================================================= */
 
 function renderAdminHouseholds() {
 
   const content =
     $("adminContent");
 
-
   if (!content) return;
-
 
   content.innerHTML = `
 
@@ -1563,7 +1376,6 @@ function renderAdminHouseholds() {
 
         </div>
 
-
         <div class="actions">
 
           <button
@@ -1583,9 +1395,7 @@ function renderAdminHouseholds() {
 
         ${
           state.households
-            .map(
-              householdCard
-            )
+            .map(householdCard)
             .join("")
           ||
           "<p class='small'>Nenhuma família cadastrada.</p>"
@@ -1597,10 +1407,8 @@ function renderAdminHouseholds() {
 
   `;
 
-
   $("adminNewHousehold").onclick =
     showHouseholdForm;
-
 
   document
     .querySelectorAll(
@@ -1611,8 +1419,7 @@ function renderAdminHouseholds() {
       button.onclick =
         () =>
           showEditHouseholdForm(
-            button.dataset
-              .editHousehold
+            button.dataset.editHousehold
           );
 
     });
@@ -1620,890 +1427,9 @@ function renderAdminHouseholds() {
 }
 
 
-/* =========================
-   MOTORISTAS
-========================= */
-
-async function renderAdminDrivers() {
-
-  const content =
-    $("adminContent");
-
-
-  if (!content) return;
-
-
-  try {
-
-    await loadDrivers();
-
-
-    content.innerHTML = `
-
-      <div class="card">
-
-        <div class="panel-title">
-
-          <div>
-
-            <h2>
-              Motoristas
-            </h2>
-
-            <p class="small">
-
-              Motoristas cadastrados
-              no sistema.
-
-            </p>
-
-          </div>
-
-
-          <div class="actions">
-
-            <button
-              class="primary"
-              id="newDriverBtn">
-
-              + Cadastrar motorista
-
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <div class="grid">
-
-          ${
-            state.drivers
-              .map(
-                driver => `
-
-                  <div class="item">
-
-                    <div class="row">
-
-                      <h3>
-                        ${esc(
-                          driver.name ||
-                          "Motorista"
-                        )}
-                      </h3>
-
-                      <span class="pill completed">
-                        Motorista
-                      </span>
-
-                    </div>
-
-
-                    <p>
-
-                      <b>
-                        E-mail:
-                      </b>
-
-                      ${esc(
-                        driver.email ||
-                        "Não informado"
-                      )}
-
-                    </p>
-
-
-                    <p>
-
-                      <b>
-                        Telefone:
-                      </b>
-
-                      ${esc(
-                        driver.phone ||
-                        "Não informado"
-                      )}
-
-                    </p>
-
-
-                    <p class="small">
-
-                      UID:
-                      ${esc(
-                        driver.id
-                      )}
-
-                    </p>
-
-                  </div>
-
-                `
-              )
-              .join("")
-            ||
-            "<p class='small'>Nenhum motorista cadastrado.</p>"
-          }
-
-        </div>
-
-      </div>
-
-    `;
-
-
-    if ($("newDriverBtn")) {
-
-      $("newDriverBtn").onclick =
-        showDriverForm;
-
-    }
-
-
-  } catch (error) {
-
-    console.error(
-      "Erro ao carregar motoristas:",
-      error
-    );
-
-
-    content.innerHTML = `
-
-      <div class="card">
-
-        <h2>
-          Erro ao carregar motoristas
-        </h2>
-
-        <p class="small">
-          ${esc(
-            error.message
-          )}
-        </p>
-
-      </div>
-
-    `;
-
-  }
-
-}
-
-
-/* =========================
-   CADASTRAR MOTORISTA
-========================= */
-
-function showDriverForm() {
-
-  openModal(`
-
-    <h2>
-      Cadastrar motorista
-    </h2>
-
-
-    <div class="notice">
-
-      O motorista receberá um acesso próprio
-      ao sistema. Depois do cadastro, ele
-      poderá entrar usando o e-mail e a senha
-      informados abaixo.
-
-    </div>
-
-
-    <form id="driverForm">
-
-      <label>
-
-        Nome completo
-
-        <input
-          id="driverName"
-          type="text"
-          autocomplete="name"
-          required>
-
-      </label>
-
-
-      <label>
-
-        E-mail de acesso
-
-        <input
-          id="driverEmail"
-          type="email"
-          autocomplete="email"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Telefone
-
-        <input
-          id="driverPhone"
-          type="tel"
-          autocomplete="tel"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Senha inicial
-
-        <input
-          id="driverPassword"
-          type="password"
-          minlength="6"
-          autocomplete="new-password"
-          required>
-
-      </label>
-
-
-      <p class="small">
-
-        A senha deve ter pelo menos 6 caracteres.
-        Oriente o motorista a trocar a senha
-        posteriormente, se necessário.
-
-      </p>
-
-
-      <div class="actions">
-
-        <button
-          type="button"
-          class="secondary"
-          id="cancelDriver">
-
-          Cancelar
-
-        </button>
-
-
-        <button
-          type="submit"
-          class="primary"
-          id="saveDriver">
-
-          Cadastrar motorista
-
-        </button>
-
-      </div>
-
-    </form>
-
-  `);
-
-
-  $("cancelDriver").onclick =
-    closeModal;
-
-
-  $("driverForm").onsubmit =
-    async e => {
-
-      e.preventDefault();
-
-
-      const button =
-        $("saveDriver");
-
-
-      const name =
-        $("driverName")
-          .value
-          .trim();
-
-
-      const email =
-        $("driverEmail")
-          .value
-          .trim()
-          .toLowerCase();
-
-
-      const phone =
-        $("driverPhone")
-          .value
-          .trim();
-
-
-      const password =
-        $("driverPassword")
-          .value;
-
-
-      if (!name) {
-
-        toast(
-          "Informe o nome do motorista."
-        );
-
-        return;
-
-      }
-
-
-      if (!email) {
-
-        toast(
-          "Informe o e-mail do motorista."
-        );
-
-        return;
-
-      }
-
-
-      if (!phone) {
-
-        toast(
-          "Informe o telefone do motorista."
-        );
-
-        return;
-
-      }
-
-
-      if (password.length < 6) {
-
-        toast(
-          "A senha precisa ter pelo menos 6 caracteres."
-        );
-
-        return;
-
-      }
-
-
-      if (
-        !secondaryAuth
-      ) {
-
-        toast(
-          "Não foi possível preparar o cadastro do motorista."
-        );
-
-        return;
-
-      }
-
-
-      try {
-
-        button.disabled =
-          true;
-
-
-        button.textContent =
-          "Cadastrando...";
-
-
-        /*
-         * Cria o usuário na autenticação
-         * usando a instância secundária.
-         *
-         * Isso evita desconectar o administrador
-         * que está usando o painel principal.
-         */
-
-        const credential =
-          await createUserWithEmailAndPassword(
-            secondaryAuth,
-            email,
-            password
-          );
-
-
-        const newUser =
-          credential.user;
-
-
-        /*
-         * Cria o perfil do motorista
-         * no Firestore.
-         */
-
-        await setDoc(
-          doc(
-            db,
-            "users",
-            newUser.uid
-          ),
-          {
-
-            name:
-              name,
-
-            email:
-              email,
-
-            phone:
-              phone,
-
-            role:
-              "driver",
-
-            active:
-              true,
-
-            createdAt:
-              serverTimestamp(),
-
-            createdBy:
-              state.user.uid
-
-          }
-        );
-
-
-        /*
-         * Encerra a sessão da instância secundária.
-         *
-         * A sessão principal do administrador
-         * permanece intacta.
-         */
-
-        try {
-
-          await signOutSecondary(
-            secondaryAuth
-          );
-
-        } catch (secondaryLogoutError) {
-
-          console.warn(
-            "Não foi possível encerrar a sessão secundária:",
-            secondaryLogoutError
-          );
-
-        }
-
-
-        closeModal();
-
-
-        toast(
-          "Motorista cadastrado com sucesso."
-        );
-
-
-        await renderAdmin();
-
-
-        await renderAdminDrivers();
-
-
-      } catch (error) {
-
-        console.error(
-          "Erro ao cadastrar motorista:",
-          error
-        );
-
-
-        /*
-         * Se o usuário foi criado no Authentication,
-         * mas o perfil do Firestore falhou, avisamos
-         * claramente para não esconder o problema.
-         */
-
-        if (
-          error.code ===
-          "auth/email-already-in-use"
-        ) {
-
-          toast(
-            "Este e-mail já possui um usuário no Firebase."
-          );
-
-        } else if (
-          error.code ===
-          "auth/invalid-email"
-        ) {
-
-          toast(
-            "O e-mail informado é inválido."
-          );
-
-        } else if (
-          error.code ===
-          "auth/weak-password"
-        ) {
-
-          toast(
-            "A senha é muito fraca. Use pelo menos 6 caracteres."
-          );
-
-        } else if (
-          error.code ===
-          "permission-denied"
-        ) {
-
-          toast(
-            "O Firebase bloqueou a criação do perfil. Precisaremos ajustar as regras do Firestore."
-          );
-
-        } else {
-
-          toast(
-            "Não foi possível cadastrar o motorista."
-          );
-
-        }
-
-
-        try {
-
-          await signOutSecondary(
-            secondaryAuth
-          );
-
-        } catch (secondaryLogoutError) {
-
-          console.warn(
-            secondaryLogoutError
-          );
-
-        }
-
-
-        button.disabled =
-          false;
-
-
-        button.textContent =
-          "Cadastrar motorista";
-
-      }
-
-    };
-
-}
-
-
-/* =========================
-   USUÁRIOS
-========================= */
-
-async function renderAdminUsers() {
-
-  const content =
-    $("adminContent");
-
-
-  if (!content) return;
-
-
-  try {
-
-    const snapshot =
-      await getDocs(
-        query(
-          collection(
-            db,
-            "users"
-          ),
-          limit(100)
-        )
-      );
-
-
-    const users =
-      snapshot.docs
-        .map(d => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .sort((a, b) =>
-          String(
-            a.name ||
-            ""
-          ).localeCompare(
-            String(
-              b.name ||
-              ""
-            ),
-            "pt-BR"
-          )
-        );
-
-
-    content.innerHTML = `
-
-      <div class="card">
-
-        <div class="panel-title">
-
-          <div>
-
-            <h2>
-              Usuários
-            </h2>
-
-            <p class="small">
-
-              Perfis cadastrados
-              no sistema.
-
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div class="grid">
-
-          ${
-            users
-              .map(
-                user => `
-
-                  <div class="item">
-
-                    <div class="row">
-
-                      <h3>
-
-                        ${esc(
-                          user.name ||
-                          "Usuário"
-                        )}
-
-                      </h3>
-
-
-                      <span class="pill completed">
-
-                        ${esc(
-                          roleLabel(
-                            user.role
-                          )
-                        )}
-
-                      </span>
-
-                    </div>
-
-
-                    <p>
-
-                      <b>
-                        E-mail:
-                      </b>
-
-                      ${esc(
-                        user.email ||
-                        "Não informado"
-                      )}
-
-                    </p>
-
-
-                    <p>
-
-                      <b>
-                        Telefone:
-                      </b>
-
-                      ${esc(
-                        user.phone ||
-                        "Não informado"
-                      )}
-
-                    </p>
-
-
-                    <p class="small">
-
-                      UID:
-                      ${esc(
-                        user.id
-                      )}
-
-                    </p>
-
-                  </div>
-
-                `
-              )
-              .join("")
-            ||
-            "<p class='small'>Nenhum usuário cadastrado.</p>"
-          }
-
-        </div>
-
-      </div>
-
-    `;
-
-
-  } catch (error) {
-
-    console.error(
-      "Erro ao carregar usuários:",
-      error
-    );
-
-
-    content.innerHTML = `
-
-      <div class="card">
-
-        <h2>
-          Erro ao carregar usuários
-        </h2>
-
-        <p class="small">
-          ${esc(
-            error.message
-          )}
-        </p>
-
-      </div>
-
-    `;
-
-  }
-
-}
-
-
-/* =========================
-   ENTREGAS DO ADMIN
-========================= */
-
-function renderAdminDeliveries(
-  filter,
-  title
-) {
-
-  const content =
-    $("adminContent");
-
-
-  if (!content) return;
-
-
-  let list;
-
-
-  if (
-    filter ===
-    "all"
-  ) {
-
-    list =
-      state.deliveries;
-
-  } else {
-
-    list =
-      state.deliveries.filter(
-        d =>
-          d.status ===
-          filter
-      );
-
-  }
-
-
-  content.innerHTML = `
-
-    <div class="card">
-
-      <div class="panel-title">
-
-        <div>
-
-          <h2>
-            ${esc(title)}
-          </h2>
-
-          <p class="small">
-
-            ${list.length}
-            entrega(s) encontrada(s).
-
-          </p>
-
-        </div>
-
-
-        <div class="actions">
-
-          <button
-            class="yellow"
-            id="adminNewDelivery">
-
-            + Programar entrega
-
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <div class="grid">
-
-        ${
-          list
-            .map(
-              deliveryCard
-            )
-            .join("")
-          ||
-          "<p class='small'>Nenhuma entrega encontrada nesta categoria.</p>"
-        }
-
-      </div>
-
-    </div>
-
-  `;
-
-
-  $("adminNewDelivery").onclick =
-    showDeliveryForm;
-
-
-  document
-    .querySelectorAll(
-      "[data-view-delivery]"
-    )
-    .forEach(button => {
-
-      button.onclick =
-        () =>
-          showDeliveryDetails(
-            button.dataset
-              .viewDelivery
-          );
-
-    });
-
-}
-
-
-/* =========================
+/* =========================================================
    CARTÃO DA FAMÍLIA
-========================= */
+========================================================= */
 
 function householdCard(h) {
 
@@ -2540,16 +1466,11 @@ function householdCard(h) {
       <p>
 
         <b>Telefone:</b>
-        ${esc(
-          h.phone ||
-          "—"
-        )}
+        ${esc(h.phone || "—")}
 
         ${
           h.cpf
-            ? ` · <b>CPF:</b> ${esc(
-                h.cpf
-              )}`
+            ? ` · <b>CPF:</b> ${esc(h.cpf)}`
             : ""
         }
 
@@ -2557,50 +1478,31 @@ function householdCard(h) {
 
 
       <p>
-
         <b>Comunidade:</b>
-        ${esc(
-          h.community ||
-          "—"
-        )}
-
+        ${esc(h.community || "—")}
       </p>
 
 
       <p>
-
         <b>Endereço:</b>
-        ${esc(
-          h.address ||
-          "—"
-        )}
-
+        ${esc(h.address || "—")}
       </p>
 
 
       <p>
 
         <b>Pessoas:</b>
-        ${esc(
-          h.people ||
-          "—"
-        )}
+        ${esc(h.people || "—")}
 
         ·
 
         <b>Frequência:</b>
-        ${esc(
-          h.frequency ||
-          "—"
-        )}
+        ${esc(h.frequency || "—")}
 
         ·
 
         <b>Litros:</b>
-        ${esc(
-          h.defaultLiters ||
-          "—"
-        )} L
+        ${esc(h.defaultLiters || "—")} L
 
       </p>
 
@@ -2609,9 +1511,9 @@ function householdCard(h) {
 
         <button
           class="secondary"
-          data-edit-household="${h.id}">
+          data-edit-household="${esc(h.id)}">
 
-          Editar cadastro
+          ✏️ Editar cadastro
 
         </button>
 
@@ -2624,11 +1526,1736 @@ function householdCard(h) {
 }
 
 
-/* =========================
+/* =========================================================
+   CADASTRAR FAMÍLIA
+========================================================= */
+
+function showHouseholdForm() {
+
+  openModal(`
+
+    <h2>
+      Nova família / imóvel
+    </h2>
+
+    <form id="householdForm">
+
+      <label>
+        Nome do responsável
+        <input id="hName" required>
+      </label>
+
+      <label>
+        CPF (opcional)
+        <input id="hCpf" inputmode="numeric">
+      </label>
+
+      <label>
+        Telefone
+        <input id="hPhone" required>
+      </label>
+
+      <label>
+        Comunidade / zona rural
+        <input id="hCommunity" required>
+      </label>
+
+      <label>
+        Endereço / referência
+        <input id="hAddress" required>
+      </label>
+
+      <label>
+        Quantidade de pessoas
+        <input
+          id="hPeople"
+          type="number"
+          min="1"
+          required>
+      </label>
+
+      <label>
+        Frequência
+
+        <select id="hFreq">
+
+          <option>Semanal</option>
+          <option>Quinzenal</option>
+          <option>Mensal</option>
+          <option>Conforme necessidade</option>
+
+        </select>
+
+      </label>
+
+      <label>
+        Litros programados por entrega
+
+        <input
+          id="hLiters"
+          type="number"
+          min="1"
+          required>
+
+      </label>
+
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          id="cancelNewHousehold">
+
+          Cancelar
+
+        </button>
+
+        <button
+          class="primary">
+
+          Salvar família
+
+        </button>
+
+      </div>
+
+    </form>
+
+  `);
+
+  $("cancelNewHousehold").onclick =
+    closeModal;
+
+  $("householdForm").onsubmit =
+    async e => {
+
+      e.preventDefault();
+
+      try {
+
+        await addDoc(
+          collection(
+            db,
+            "households"
+          ),
+          {
+
+            name:
+              $("hName").value.trim(),
+
+            cpf:
+              $("hCpf").value.trim(),
+
+            phone:
+              $("hPhone").value.trim(),
+
+            community:
+              $("hCommunity").value.trim(),
+
+            address:
+              $("hAddress").value.trim(),
+
+            people:
+              Number(
+                $("hPeople").value
+              ),
+
+            frequency:
+              $("hFreq").value,
+
+            defaultLiters:
+              Number(
+                $("hLiters").value
+              ),
+
+            active:
+              true,
+
+            createdAt:
+              serverTimestamp(),
+
+            createdBy:
+              state.user.uid
+
+          }
+        );
+
+        closeModal();
+
+        toast(
+          "Família cadastrada com sucesso."
+        );
+
+        await renderAdmin();
+
+      } catch (error) {
+
+        console.error(
+          "Erro ao cadastrar família:",
+          error
+        );
+
+        toast(
+          "Não foi possível cadastrar a família."
+        );
+
+      }
+
+    };
+
+}
+
+
+/* =========================================================
+   EDITAR FAMÍLIA
+========================================================= */
+
+function showEditHouseholdForm(id) {
+
+  const h =
+    state.households.find(
+      x => x.id === id
+    );
+
+  if (!h) {
+
+    toast(
+      "Família não encontrada."
+    );
+
+    return;
+
+  }
+
+  openModal(`
+
+    <h2>
+      Editar família / imóvel
+    </h2>
+
+    <form id="editHouseholdForm">
+
+      <label>
+        Nome do responsável
+
+        <input
+          id="ehName"
+          value="${esc(h.name || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        CPF
+
+        <input
+          id="ehCpf"
+          inputmode="numeric"
+          value="${esc(h.cpf || "")}">
+
+      </label>
+
+
+      <label>
+        Telefone
+
+        <input
+          id="ehPhone"
+          value="${esc(h.phone || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        Comunidade / zona rural
+
+        <input
+          id="ehCommunity"
+          value="${esc(h.community || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        Endereço / referência
+
+        <input
+          id="ehAddress"
+          value="${esc(h.address || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        Quantidade de pessoas
+
+        <input
+          id="ehPeople"
+          type="number"
+          min="1"
+          value="${esc(h.people || 1)}"
+          required>
+
+      </label>
+
+
+      <label>
+        Frequência
+
+        <select id="ehFreq">
+
+          <option
+            ${h.frequency === "Semanal" ? "selected" : ""}>
+            Semanal
+          </option>
+
+          <option
+            ${h.frequency === "Quinzenal" ? "selected" : ""}>
+            Quinzenal
+          </option>
+
+          <option
+            ${h.frequency === "Mensal" ? "selected" : ""}>
+            Mensal
+          </option>
+
+          <option
+            ${h.frequency === "Conforme necessidade" ? "selected" : ""}>
+            Conforme necessidade
+          </option>
+
+        </select>
+
+      </label>
+
+
+      <label>
+        Litros programados por entrega
+
+        <input
+          id="ehLiters"
+          type="number"
+          min="1"
+          value="${esc(h.defaultLiters || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        Situação
+
+        <select id="ehActive">
+
+          <option
+            value="true"
+            ${h.active !== false ? "selected" : ""}>
+            Ativa
+          </option>
+
+          <option
+            value="false"
+            ${h.active === false ? "selected" : ""}>
+            Inativa
+          </option>
+
+        </select>
+
+      </label>
+
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          id="cancelEdit">
+
+          Cancelar
+
+        </button>
+
+        <button
+          type="submit"
+          class="primary">
+
+          Salvar alterações
+
+        </button>
+
+      </div>
+
+    </form>
+
+  `);
+
+  $("cancelEdit").onclick =
+    closeModal;
+
+  $("editHouseholdForm").onsubmit =
+    async e => {
+
+      e.preventDefault();
+
+      try {
+
+        await updateDoc(
+          doc(
+            db,
+            "households",
+            id
+          ),
+          {
+
+            name:
+              $("ehName").value.trim(),
+
+            cpf:
+              $("ehCpf").value.trim(),
+
+            phone:
+              $("ehPhone").value.trim(),
+
+            community:
+              $("ehCommunity").value.trim(),
+
+            address:
+              $("ehAddress").value.trim(),
+
+            people:
+              Number(
+                $("ehPeople").value
+              ),
+
+            frequency:
+              $("ehFreq").value,
+
+            defaultLiters:
+              Number(
+                $("ehLiters").value
+              ),
+
+            active:
+              $("ehActive").value ===
+              "true",
+
+            updatedAt:
+              serverTimestamp(),
+
+            updatedBy:
+              state.user.uid
+
+          }
+        );
+
+        closeModal();
+
+        toast(
+          "Cadastro atualizado com sucesso."
+        );
+
+        await renderAdmin();
+
+      } catch (error) {
+
+        console.error(
+          "Erro ao atualizar família:",
+          error
+        );
+
+        toast(
+          "Não foi possível atualizar o cadastro."
+        );
+
+      }
+
+    };
+
+}
+
+
+/* =========================================================
+   MOTORISTAS
+========================================================= */
+
+async function loadDrivers() {
+
+  const snapshot =
+    await getDocs(
+      query(
+        collection(
+          db,
+          "users"
+        ),
+        where(
+          "role",
+          "==",
+          "driver"
+        ),
+        limit(100)
+      )
+    );
+
+  state.drivers =
+    snapshot.docs
+      .map(d => ({
+        id: d.id,
+        ...d.data()
+      }))
+      .sort((a, b) =>
+        String(a.name || "")
+          .localeCompare(
+            String(b.name || ""),
+            "pt-BR"
+          )
+      );
+
+  return state.drivers;
+
+}
+
+
+async function renderAdminDrivers() {
+
+  const content =
+    $("adminContent");
+
+  if (!content) return;
+
+  try {
+
+    await loadDrivers();
+
+    content.innerHTML = `
+
+      <div class="card">
+
+        <div class="panel-title">
+
+          <div>
+
+            <h2>
+              Motoristas
+            </h2>
+
+            <p class="small">
+              ${state.drivers.length}
+              motorista(s) cadastrado(s).
+            </p>
+
+          </div>
+
+          <div class="actions">
+
+            <button
+              class="primary"
+              id="newDriverBtn">
+
+              + Cadastrar motorista
+
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <div class="grid">
+
+          ${
+            state.drivers
+              .map(
+                driver => `
+
+                  <div class="item">
+
+                    <div class="row">
+
+                      <h3>
+                        ${esc(
+                          driver.name ||
+                          "Motorista"
+                        )}
+                      </h3>
+
+                      <span class="pill ${
+                        driver.active === false
+                          ? "cancelled"
+                          : "completed"
+                      }">
+
+                        ${
+                          driver.active === false
+                            ? "Inativo"
+                            : "Ativo"
+                        }
+
+                      </span>
+
+                    </div>
+
+
+                    <p>
+                      <b>E-mail:</b>
+                      ${esc(
+                        driver.email ||
+                        "Não informado"
+                      )}
+                    </p>
+
+
+                    <p>
+                      <b>Telefone:</b>
+                      ${esc(
+                        driver.phone ||
+                        "Não informado"
+                      )}
+                    </p>
+
+
+                    <p class="small">
+                      UID:
+                      ${esc(driver.id)}
+                    </p>
+
+
+                    <div class="actions">
+
+                      <button
+                        type="button"
+                        class="secondary"
+                        data-edit-driver="${esc(driver.id)}">
+
+                        ✏️ Editar motorista
+
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                `
+              )
+              .join("")
+            ||
+            "<p class='small'>Nenhum motorista cadastrado.</p>"
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+    $("newDriverBtn").onclick =
+      showDriverForm;
+
+    document
+      .querySelectorAll(
+        "[data-edit-driver]"
+      )
+      .forEach(button => {
+
+        button.onclick =
+          () =>
+            showEditDriverForm(
+              button.dataset.editDriver
+            );
+
+      });
+
+  } catch (error) {
+
+    console.error(
+      "Erro ao carregar motoristas:",
+      error
+    );
+
+    content.innerHTML = `
+
+      <div class="card">
+
+        <h2>
+          Erro ao carregar motoristas
+        </h2>
+
+        <p class="small">
+          ${esc(error.message)}
+        </p>
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+
+/* =========================================================
+   CADASTRAR MOTORISTA
+========================================================= */
+
+function showDriverForm() {
+
+  openModal(`
+
+    <h2>
+      Cadastrar motorista
+    </h2>
+
+    <div class="notice">
+
+      Será criado um usuário de acesso próprio
+      para o motorista.
+
+    </div>
+
+
+    <form id="driverForm">
+
+      <label>
+        Nome completo
+
+        <input
+          id="driverName"
+          type="text"
+          autocomplete="name"
+          required>
+
+      </label>
+
+
+      <label>
+        E-mail de acesso
+
+        <input
+          id="driverEmail"
+          type="email"
+          autocomplete="email"
+          required>
+
+      </label>
+
+
+      <label>
+        Telefone
+
+        <input
+          id="driverPhone"
+          type="tel"
+          autocomplete="tel"
+          required>
+
+      </label>
+
+
+      <label>
+        Senha inicial
+
+        <input
+          id="driverPassword"
+          type="password"
+          minlength="6"
+          autocomplete="new-password"
+          required>
+
+      </label>
+
+
+      <p class="small">
+        A senha precisa ter pelo menos 6 caracteres.
+      </p>
+
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          id="cancelDriver">
+
+          Cancelar
+
+        </button>
+
+        <button
+          type="submit"
+          class="primary"
+          id="saveDriver">
+
+          Cadastrar motorista
+
+        </button>
+
+      </div>
+
+    </form>
+
+  `);
+
+  $("cancelDriver").onclick =
+    closeModal;
+
+  $("driverForm").onsubmit =
+    async e => {
+
+      e.preventDefault();
+
+      const button =
+        $("saveDriver");
+
+      const name =
+        $("driverName").value.trim();
+
+      const email =
+        $("driverEmail")
+          .value
+          .trim()
+          .toLowerCase();
+
+      const phone =
+        $("driverPhone").value.trim();
+
+      const password =
+        $("driverPassword").value;
+
+      if (!name) {
+
+        toast(
+          "Informe o nome do motorista."
+        );
+
+        return;
+
+      }
+
+      if (!email) {
+
+        toast(
+          "Informe o e-mail do motorista."
+        );
+
+        return;
+
+      }
+
+      if (!phone) {
+
+        toast(
+          "Informe o telefone do motorista."
+        );
+
+        return;
+
+      }
+
+      if (password.length < 6) {
+
+        toast(
+          "A senha precisa ter pelo menos 6 caracteres."
+        );
+
+        return;
+
+      }
+
+      if (!secondaryAuth) {
+
+        toast(
+          "Não foi possível preparar o cadastro do motorista."
+        );
+
+        return;
+
+      }
+
+      try {
+
+        button.disabled =
+          true;
+
+        button.textContent =
+          "Cadastrando...";
+
+        const credential =
+          await createUserWithEmailAndPassword(
+            secondaryAuth,
+            email,
+            password
+          );
+
+        const newUser =
+          credential.user;
+
+        await setDoc(
+          doc(
+            db,
+            "users",
+            newUser.uid
+          ),
+          {
+
+            name,
+            email,
+            phone,
+
+            role:
+              "driver",
+
+            active:
+              true,
+
+            createdAt:
+              serverTimestamp(),
+
+            createdBy:
+              state.user.uid
+
+          }
+        );
+
+        await signOutSecondary(
+          secondaryAuth
+        );
+
+        closeModal();
+
+        toast(
+          "Motorista cadastrado com sucesso."
+        );
+
+        await renderAdmin();
+
+        await renderAdminDrivers();
+
+      } catch (error) {
+
+        console.error(
+          "Erro ao cadastrar motorista:",
+          error
+        );
+
+        if (
+          error.code ===
+          "auth/email-already-in-use"
+        ) {
+
+          toast(
+            "Este e-mail já está cadastrado."
+          );
+
+        } else if (
+          error.code ===
+          "auth/invalid-email"
+        ) {
+
+          toast(
+            "O e-mail informado é inválido."
+          );
+
+        } else if (
+          error.code ===
+          "auth/weak-password"
+        ) {
+
+          toast(
+            "A senha é muito fraca."
+          );
+
+        } else if (
+          error.code ===
+          "permission-denied"
+        ) {
+
+          toast(
+            "O Firestore bloqueou a criação do perfil."
+          );
+
+        } else {
+
+          toast(
+            "Não foi possível cadastrar o motorista."
+          );
+
+        }
+
+        try {
+
+          await signOutSecondary(
+            secondaryAuth
+          );
+
+        } catch (_) {}
+
+        button.disabled =
+          false;
+
+        button.textContent =
+          "Cadastrar motorista";
+
+      }
+
+    };
+
+}
+
+
+/* =========================================================
+   EDITAR MOTORISTA
+========================================================= */
+
+function showEditDriverForm(id) {
+
+  const driver =
+    state.drivers.find(
+      x => x.id === id
+    );
+
+  if (!driver) {
+
+    toast(
+      "Motorista não encontrado."
+    );
+
+    return;
+
+  }
+
+  openModal(`
+
+    <h2>
+      Editar motorista
+    </h2>
+
+
+    <div class="notice">
+
+      O e-mail de acesso não será alterado
+      nesta tela. Aqui serão alterados os
+      dados do cadastro e a situação do motorista.
+
+    </div>
+
+
+    <form id="editDriverForm">
+
+      <label>
+        Nome completo
+
+        <input
+          id="edDriverName"
+          value="${esc(driver.name || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        E-mail
+
+        <input
+          value="${esc(driver.email || "")}"
+          disabled>
+
+      </label>
+
+
+      <label>
+        Telefone
+
+        <input
+          id="edDriverPhone"
+          value="${esc(driver.phone || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        Situação
+
+        <select id="edDriverActive">
+
+          <option
+            value="true"
+            ${driver.active !== false ? "selected" : ""}>
+
+            Ativo
+
+          </option>
+
+          <option
+            value="false"
+            ${driver.active === false ? "selected" : ""}>
+
+            Inativo
+
+          </option>
+
+        </select>
+
+      </label>
+
+
+      <p class="small">
+        O UID do motorista permanece o mesmo
+        para não quebrar as entregas já vinculadas.
+      </p>
+
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          id="cancelEditDriver">
+
+          Cancelar
+
+        </button>
+
+        <button
+          type="submit"
+          class="primary">
+
+          Salvar alterações
+
+        </button>
+
+      </div>
+
+    </form>
+
+  `);
+
+  $("cancelEditDriver").onclick =
+    closeModal;
+
+  $("editDriverForm").onsubmit =
+    async e => {
+
+      e.preventDefault();
+
+      try {
+
+        await updateDoc(
+          doc(
+            db,
+            "users",
+            id
+          ),
+          {
+
+            name:
+              $("edDriverName")
+                .value
+                .trim(),
+
+            phone:
+              $("edDriverPhone")
+                .value
+                .trim(),
+
+            active:
+              $("edDriverActive")
+                .value === "true",
+
+            updatedAt:
+              serverTimestamp(),
+
+            updatedBy:
+              state.user.uid
+
+          }
+        );
+
+        closeModal();
+
+        toast(
+          "Motorista atualizado com sucesso."
+        );
+
+        await renderAdmin();
+
+        await renderAdminDrivers();
+
+      } catch (error) {
+
+        console.error(
+          "Erro ao editar motorista:",
+          error
+        );
+
+        toast(
+          "Não foi possível atualizar o motorista."
+        );
+
+      }
+
+    };
+
+}
+
+
+/* =========================================================
+   USUÁRIOS
+========================================================= */
+
+async function renderAdminUsers() {
+
+  const content =
+    $("adminContent");
+
+  if (!content) return;
+
+  try {
+
+    const snapshot =
+      await getDocs(
+        query(
+          collection(
+            db,
+            "users"
+          ),
+          limit(100)
+        )
+      );
+
+    const users =
+      snapshot.docs
+        .map(d => ({
+          id: d.id,
+          ...d.data()
+        }))
+        .sort((a, b) =>
+          String(a.name || "")
+            .localeCompare(
+              String(b.name || ""),
+              "pt-BR"
+            )
+        );
+
+    state.users =
+      users;
+
+    content.innerHTML = `
+
+      <div class="card">
+
+        <div class="panel-title">
+
+          <div>
+
+            <h2>
+              Usuários
+            </h2>
+
+            <p class="small">
+              ${users.length}
+              usuário(s) encontrado(s).
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="grid">
+
+          ${
+            users
+              .map(
+                user => `
+
+                  <div class="item">
+
+                    <div class="row">
+
+                      <h3>
+                        ${esc(
+                          user.name ||
+                          "Usuário"
+                        )}
+                      </h3>
+
+                      <span class="pill ${
+                        user.active === false
+                          ? "cancelled"
+                          : "completed"
+                      }">
+
+                        ${
+                          user.active === false
+                            ? "Inativo"
+                            : roleLabel(user.role)
+                        }
+
+                      </span>
+
+                    </div>
+
+
+                    <p>
+                      <b>E-mail:</b>
+                      ${esc(
+                        user.email ||
+                        "Não informado"
+                      )}
+                    </p>
+
+
+                    <p>
+                      <b>Telefone:</b>
+                      ${esc(
+                        user.phone ||
+                        "Não informado"
+                      )}
+                    </p>
+
+
+                    <p>
+                      <b>Perfil:</b>
+                      ${esc(
+                        roleLabel(
+                          user.role
+                        )
+                      )}
+                    </p>
+
+
+                    <p class="small">
+                      UID:
+                      ${esc(user.id)}
+                    </p>
+
+
+                    <div class="actions">
+
+                      <button
+                        type="button"
+                        class="secondary"
+                        data-edit-user="${esc(user.id)}">
+
+                        ✏️ Editar usuário
+
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                `
+              )
+              .join("")
+            ||
+            "<p class='small'>Nenhum usuário cadastrado.</p>"
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+    document
+      .querySelectorAll(
+        "[data-edit-user]"
+      )
+      .forEach(button => {
+
+        button.onclick =
+          () =>
+            showEditUserForm(
+              button.dataset.editUser
+            );
+
+      });
+
+  } catch (error) {
+
+    console.error(
+      "Erro ao carregar usuários:",
+      error
+    );
+
+    content.innerHTML = `
+
+      <div class="card">
+
+        <h2>
+          Erro ao carregar usuários
+        </h2>
+
+        <p class="small">
+          ${esc(error.message)}
+        </p>
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+
+/* =========================================================
+   EDITAR USUÁRIO
+========================================================= */
+
+function showEditUserForm(id) {
+
+  const user =
+    state.users.find(
+      x => x.id === id
+    );
+
+  if (!user) {
+
+    toast(
+      "Usuário não encontrado."
+    );
+
+    return;
+
+  }
+
+  openModal(`
+
+    <h2>
+      Editar usuário
+    </h2>
+
+
+    <div class="notice">
+
+      O e-mail de login não será alterado
+      nesta tela.
+
+    </div>
+
+
+    <form id="editUserForm">
+
+      <label>
+        Nome
+
+        <input
+          id="euName"
+          value="${esc(user.name || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        E-mail
+
+        <input
+          value="${esc(user.email || "")}"
+          disabled>
+
+      </label>
+
+
+      <label>
+        Telefone
+
+        <input
+          id="euPhone"
+          value="${esc(user.phone || "")}">
+
+      </label>
+
+
+      <label>
+        Perfil
+
+        <select id="euRole">
+
+          <option
+            value="admin"
+            ${user.role === "admin" ? "selected" : ""}>
+
+            Administrador
+
+          </option>
+
+          <option
+            value="driver"
+            ${user.role === "driver" ? "selected" : ""}>
+
+            Motorista
+
+          </option>
+
+          <option
+            value="recipient"
+            ${user.role === "recipient" ? "selected" : ""}>
+
+            Beneficiário
+
+          </option>
+
+        </select>
+
+      </label>
+
+
+      <label>
+        Situação
+
+        <select id="euActive">
+
+          <option
+            value="true"
+            ${user.active !== false ? "selected" : ""}>
+
+            Ativo
+
+          </option>
+
+          <option
+            value="false"
+            ${user.active === false ? "selected" : ""}>
+
+            Inativo
+
+          </option>
+
+        </select>
+
+      </label>
+
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          id="cancelEditUser">
+
+          Cancelar
+
+        </button>
+
+        <button
+          type="submit"
+          class="primary">
+
+          Salvar alterações
+
+        </button>
+
+      </div>
+
+    </form>
+
+  `);
+
+  $("cancelEditUser").onclick =
+    closeModal;
+
+  $("editUserForm").onsubmit =
+    async e => {
+
+      e.preventDefault();
+
+      try {
+
+        await updateDoc(
+          doc(
+            db,
+            "users",
+            id
+          ),
+          {
+
+            name:
+              $("euName")
+                .value
+                .trim(),
+
+            phone:
+              $("euPhone")
+                .value
+                .trim(),
+
+            role:
+              $("euRole").value,
+
+            active:
+              $("euActive").value ===
+              "true",
+
+            updatedAt:
+              serverTimestamp(),
+
+            updatedBy:
+              state.user.uid
+
+          }
+        );
+
+        closeModal();
+
+        toast(
+          "Usuário atualizado com sucesso."
+        );
+
+        await renderAdmin();
+
+        await renderAdminUsers();
+
+      } catch (error) {
+
+        console.error(
+          "Erro ao editar usuário:",
+          error
+        );
+
+        toast(
+          "Não foi possível atualizar o usuário."
+        );
+
+      }
+
+    };
+
+}
+
+
+/* =========================================================
+   ENTREGAS ADMIN
+========================================================= */
+
+function renderAdminDeliveries(
+  filter,
+  title
+) {
+
+  const content =
+    $("adminContent");
+
+  if (!content) return;
+
+  let list;
+
+  if (filter === "all") {
+
+    list =
+      state.deliveries;
+
+  } else {
+
+    list =
+      state.deliveries.filter(
+        d =>
+          d.status ===
+          filter
+      );
+
+  }
+
+  content.innerHTML = `
+
+    <div class="card">
+
+      <div class="panel-title">
+
+        <div>
+
+          <h2>
+            ${esc(title)}
+          </h2>
+
+          <p class="small">
+            ${list.length}
+            entrega(s) encontrada(s).
+          </p>
+
+        </div>
+
+        <div class="actions">
+
+          <button
+            class="yellow"
+            id="adminNewDelivery">
+
+            + Programar entrega
+
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="grid">
+
+        ${
+          list
+            .map(deliveryCard)
+            .join("")
+          ||
+          "<p class='small'>Nenhuma entrega encontrada.</p>"
+        }
+
+      </div>
+
+    </div>
+
+  `;
+
+  $("adminNewDelivery").onclick =
+    showDeliveryForm;
+
+  document
+    .querySelectorAll(
+      "[data-view-delivery]"
+    )
+    .forEach(button => {
+
+      button.onclick =
+        () =>
+          showDeliveryDetails(
+            button.dataset.viewDelivery
+          );
+
+    });
+
+  document
+    .querySelectorAll(
+      "[data-edit-delivery]"
+    )
+    .forEach(button => {
+
+      button.onclick =
+        () =>
+          showEditDeliveryForm(
+            button.dataset.editDelivery
+          );
+
+    });
+
+}
+
+
+/* =========================================================
    CARTÃO DA ENTREGA
-========================= */
+========================================================= */
 
 function deliveryCard(d) {
+
+  const canEdit =
+    d.status === "scheduled" ||
+    d.status === "awaiting_confirmation";
 
   return `
 
@@ -2659,18 +3286,12 @@ function deliveryCard(d) {
       <p>
 
         <b>Data:</b>
-        ${esc(
-          d.scheduledDate ||
-          "—"
-        )}
+        ${esc(d.scheduledDate || "—")}
 
         ·
 
         <b>Quantidade:</b>
-        ${esc(
-          d.plannedLiters ||
-          "—"
-        )} L
+        ${esc(d.plannedLiters || "—")} L
 
       </p>
 
@@ -2678,33 +3299,24 @@ function deliveryCard(d) {
       <p>
 
         <b>Local:</b>
-        ${esc(
-          d.address ||
-          "—"
-        )}
+        ${esc(d.address || "—")}
 
         ·
 
         <b>Motorista:</b>
-        ${esc(
-          d.driverName ||
-          "—"
-        )}
+        ${esc(d.driverName || "—")}
 
       </p>
 
 
       ${
         d.completedAt
-
           ? `
 
             <p>
 
-              <b>Concluída:</b>
-              ${fmtDate(
-                d.completedAt
-              )}
+              <b>Registrada:</b>
+              ${fmtDate(d.completedAt)}
 
               ·
 
@@ -2717,7 +3329,6 @@ function deliveryCard(d) {
             </p>
 
           `
-
           : ""
       }
 
@@ -2727,13 +3338,29 @@ function deliveryCard(d) {
         <button
           type="button"
           class="secondary"
-          data-view-delivery="${esc(
-            d.id
-          )}">
+          data-view-delivery="${esc(d.id)}">
 
-          Ver detalhes
+          👁️ Ver detalhes
 
         </button>
+
+
+        ${
+          canEdit
+            ? `
+
+              <button
+                type="button"
+                class="secondary"
+                data-edit-delivery="${esc(d.id)}">
+
+                ✏️ Editar entrega
+
+              </button>
+
+            `
+            : ""
+        }
 
       </div>
 
@@ -2744,27 +3371,22 @@ function deliveryCard(d) {
 }
 
 
-/* =========================
+/* =========================================================
    DETALHES DA ENTREGA
-========================= */
+========================================================= */
 
 async function showDeliveryDetails(id) {
 
   try {
 
-    const deliveryRef =
-      doc(
-        db,
-        "deliveries",
-        id
-      );
-
-
     const deliverySnapshot =
       await getDoc(
-        deliveryRef
+        doc(
+          db,
+          "deliveries",
+          id
+        )
       );
-
 
     if (!deliverySnapshot.exists()) {
 
@@ -2776,13 +3398,10 @@ async function showDeliveryDetails(id) {
 
     }
 
-
     const d = {
-      id:
-        deliverySnapshot.id,
+      id: deliverySnapshot.id,
       ...deliverySnapshot.data()
     };
-
 
     const presentText =
       d.recipientPresent === true
@@ -2791,10 +3410,10 @@ async function showDeliveryDetails(id) {
           ? "Não"
           : "Não informado";
 
-
     const signatureHtml =
       d.signatureData
         ? `
+
           <div style="margin-top:18px;">
 
             <h3>
@@ -2810,9 +3429,7 @@ async function showDeliveryDetails(id) {
               ">
 
               <img
-                src="${esc(
-                  d.signatureData
-                )}"
+                src="${esc(d.signatureData)}"
                 alt="Assinatura do beneficiário"
                 style="
                   display:block;
@@ -2825,61 +3442,47 @@ async function showDeliveryDetails(id) {
             </div>
 
           </div>
+
         `
         : "";
-
 
     const photoHtml =
       d.photoUrl
         ? `
+
           <div style="margin-top:18px;">
 
             <h3>
               Foto de comprovação
             </h3>
 
-            <div
+            <img
+              src="${esc(d.photoUrl)}"
+              alt="Foto da entrega"
               style="
-                background:#ffffff;
-                border:1px solid #ddd;
-                border-radius:10px;
-                padding:10px;
+                display:block;
+                width:100%;
+                max-width:600px;
+                border-radius:8px;
               ">
 
-              <img
-                src="${esc(
-                  d.photoUrl
-                )}"
-                alt="Foto de comprovação da entrega"
-                style="
-                  display:block;
-                  width:100%;
-                  max-width:600px;
-                  height:auto;
-                  border-radius:8px;
-                ">
+            <p style="margin-top:10px;">
 
-              <p style="margin-top:10px;">
+              <a
+                href="${esc(d.photoUrl)}"
+                target="_blank"
+                rel="noopener noreferrer">
 
-                <a
-                  href="${esc(
-                    d.photoUrl
-                  )}"
-                  target="_blank"
-                  rel="noopener noreferrer">
+                Abrir foto em tamanho maior
 
-                  Abrir foto em tamanho maior
+              </a>
 
-                </a>
-
-              </p>
-
-            </div>
+            </p>
 
           </div>
+
         `
         : "";
-
 
     openModal(`
 
@@ -2891,11 +3494,7 @@ async function showDeliveryDetails(id) {
       <div class="notice">
 
         <b>Situação:</b>
-        ${esc(
-          statusLabel(
-            d.status
-          )
-        )}
+        ${esc(statusLabel(d.status))}
 
       </div>
 
@@ -2908,18 +3507,12 @@ async function showDeliveryDetails(id) {
 
         <p>
           <b>Nome:</b>
-          ${esc(
-            d.recipientName ||
-            "—"
-          )}
+          ${esc(d.recipientName || "—")}
         </p>
 
         <p>
           <b>Telefone:</b>
-          ${esc(
-            d.recipientPhone ||
-            "—"
-          )}
+          ${esc(d.recipientPhone || "—")}
         </p>
 
       </div>
@@ -2933,18 +3526,12 @@ async function showDeliveryDetails(id) {
 
         <p>
           <b>Comunidade:</b>
-          ${esc(
-            d.community ||
-            "—"
-          )}
+          ${esc(d.community || "—")}
         </p>
 
         <p>
-          <b>Endereço / referência:</b>
-          ${esc(
-            d.address ||
-            "—"
-          )}
+          <b>Endereço:</b>
+          ${esc(d.address || "—")}
         </p>
 
       </div>
@@ -2958,34 +3545,22 @@ async function showDeliveryDetails(id) {
 
         <p>
           <b>Data programada:</b>
-          ${esc(
-            d.scheduledDate ||
-            "—"
-          )}
+          ${esc(d.scheduledDate || "—")}
         </p>
 
         <p>
           <b>Quantidade planejada:</b>
-          ${esc(
-            d.plannedLiters ||
-            "—"
-          )} L
+          ${esc(d.plannedLiters || "—")} L
         </p>
 
         <p>
           <b>Motorista:</b>
-          ${esc(
-            d.driverName ||
-            "—"
-          )}
+          ${esc(d.driverName || "—")}
         </p>
 
         <p>
           <b>UID do motorista:</b>
-          ${esc(
-            d.driverUid ||
-            "—"
-          )}
+          ${esc(d.driverUid || "—")}
         </p>
 
       </div>
@@ -2997,78 +3572,34 @@ async function showDeliveryDetails(id) {
           Resultado do abastecimento
         </h3>
 
-
         <p>
-
-          <b>
-            Quantidade realmente entregue:
-          </b>
-
+          <b>Quantidade realmente entregue:</b>
           ${
-            d.receivedLiters !==
-              undefined &&
-            d.receivedLiters !==
-              null
-
-              ? `${esc(
-                  d.receivedLiters
-                )} L`
-
+            d.receivedLiters !== undefined &&
+            d.receivedLiters !== null
+              ? `${esc(d.receivedLiters)} L`
               : "Ainda não registrada"
           }
-
         </p>
 
-
         <p>
-
-          <b>
-            Beneficiário presente:
-          </b>
-
+          <b>Beneficiário presente:</b>
           ${presentText}
-
         </p>
 
-
         <p>
-
-          <b>
-            Data/hora da conclusão:
-          </b>
-
-          ${fmtDate(
-            d.completedAt
-          )}
-
+          <b>Data/hora do registro:</b>
+          ${fmtDate(d.completedAt)}
         </p>
 
-
         <p>
-
-          <b>
-            UID de quem registrou:
-          </b>
-
-          ${esc(
-            d.completedBy ||
-            "—"
-          )}
-
+          <b>Registrado pelo UID:</b>
+          ${esc(d.completedBy || "—")}
         </p>
 
-
         <p>
-
-          <b>
-            Observação:
-          </b>
-
-          ${esc(
-            d.note ||
-            "Nenhuma"
-          )}
-
+          <b>Observação:</b>
+          ${esc(d.note || "Nenhuma")}
         </p>
 
       </div>
@@ -3082,51 +3613,57 @@ async function showDeliveryDetails(id) {
       <div class="item">
 
         <h3>
-          Controle do registro
+          Controle e auditoria
         </h3>
 
-
         <p>
-
-          <b>
-            ID da entrega:
-          </b>
-
+          <b>ID da entrega:</b>
           ${esc(d.id)}
-
         </p>
 
-
         <p>
-
-          <b>
-            Criada em:
-          </b>
-
-          ${fmtDate(
-            d.createdAt
-          )}
-
+          <b>Criada em:</b>
+          ${fmtDate(d.createdAt)}
         </p>
 
+        <p>
+          <b>Criada pelo UID:</b>
+          ${esc(d.createdBy || "—")}
+        </p>
 
         <p>
+          <b>Última alteração:</b>
+          ${fmtDate(d.updatedAt)}
+        </p>
 
-          <b>
-            Criada pelo UID:
-          </b>
-
-          ${esc(
-            d.createdBy ||
-            "—"
-          )}
-
+        <p>
+          <b>Alterada pelo UID:</b>
+          ${esc(d.updatedBy || "—")}
         </p>
 
       </div>
 
 
       <div class="actions">
+
+        ${
+          d.status === "scheduled" ||
+          d.status === "awaiting_confirmation"
+            ? `
+
+              <button
+                type="button"
+                class="secondary"
+                id="editFromDetails">
+
+                ✏️ Editar entrega
+
+              </button>
+
+            `
+            : ""
+        }
+
 
         <button
           type="button"
@@ -3141,28 +3678,37 @@ async function showDeliveryDetails(id) {
 
     `);
 
+    if ($("closeDeliveryDetails")) {
 
-    if (
-      $("closeDeliveryDetails")
-    ) {
-
-      $("closeDeliveryDetails")
-        .onclick =
+      $("closeDeliveryDetails").onclick =
         closeModal;
 
     }
 
+    if ($("editFromDetails")) {
+
+      $("editFromDetails").onclick =
+        () => {
+
+          closeModal();
+
+          showEditDeliveryForm(
+            id
+          );
+
+        };
+
+    }
 
   } catch (error) {
 
     console.error(
-      "Erro ao carregar detalhes da entrega:",
+      "Erro ao carregar detalhes:",
       error
     );
 
-
     toast(
-      "Não foi possível carregar os detalhes da entrega."
+      "Não foi possível carregar os detalhes."
     );
 
   }
@@ -3170,281 +3716,21 @@ async function showDeliveryDetails(id) {
 }
 
 
-/* =========================
-   STATUS
-========================= */
-
-function statusLabel(s) {
-
-  return ({
-
-    scheduled:
-      "Programada",
-
-    awaiting_confirmation:
-      "Aguardando confirmação",
-
-    completed:
-      "Concluída",
-
-    absent:
-      "Ninguém no local",
-
-    cancelled:
-      "Cancelada"
-
-  })[s] || s || "—";
-
-}
-
-
-/* =========================
-   CADASTRAR FAMÍLIA
-========================= */
-
-function showHouseholdForm() {
-
-  openModal(`
-
-    <h2>
-      Nova família / imóvel
-    </h2>
-
-
-    <form id="householdForm">
-
-      <label>
-
-        Nome do responsável
-
-        <input
-          id="hName"
-          required>
-
-      </label>
-
-
-      <label>
-
-        CPF (opcional)
-
-        <input
-          id="hCpf"
-          inputmode="numeric">
-
-      </label>
-
-
-      <label>
-
-        Telefone
-
-        <input
-          id="hPhone"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Comunidade / zona rural
-
-        <input
-          id="hCommunity"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Endereço / referência
-
-        <input
-          id="hAddress"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Quantidade de pessoas
-
-        <input
-          id="hPeople"
-          type="number"
-          min="1"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Frequência
-
-        <select id="hFreq">
-
-          <option>
-            Semanal
-          </option>
-
-          <option>
-            Quinzenal
-          </option>
-
-          <option>
-            Mensal
-          </option>
-
-          <option>
-            Conforme necessidade
-          </option>
-
-        </select>
-
-      </label>
-
-
-      <label>
-
-        Litros programados por entrega
-
-        <input
-          id="hLiters"
-          type="number"
-          min="1"
-          required>
-
-      </label>
-
-
-      <button class="primary">
-
-        Salvar família
-
-      </button>
-
-    </form>
-
-  `);
-
-
-  $("householdForm").onsubmit =
-    async e => {
-
-      e.preventDefault();
-
-
-      try {
-
-        await addDoc(
-          collection(
-            db,
-            "households"
-          ),
-          {
-
-            name:
-              $("hName")
-                .value
-                .trim(),
-
-            cpf:
-              $("hCpf")
-                .value
-                .trim(),
-
-            phone:
-              $("hPhone")
-                .value
-                .trim(),
-
-            community:
-              $("hCommunity")
-                .value
-                .trim(),
-
-            address:
-              $("hAddress")
-                .value
-                .trim(),
-
-            people:
-              Number(
-                $("hPeople").value
-              ),
-
-            frequency:
-              $("hFreq").value,
-
-            defaultLiters:
-              Number(
-                $("hLiters").value
-              ),
-
-            active:
-              true,
-
-            createdAt:
-              serverTimestamp(),
-
-            createdBy:
-              state.user.uid
-
-          }
-        );
-
-
-        closeModal();
-
-
-        toast(
-          "Família cadastrada."
-        );
-
-
-        await renderAdmin();
-
-
-      } catch (error) {
-
-        console.error(
-          "Erro ao cadastrar família:",
-          error
-        );
-
-
-        toast(
-          "Não foi possível cadastrar a família."
-        );
-
-      }
-
-    };
-
-}
-
-
-/* =========================
-   EDITAR FAMÍLIA
-========================= */
-
-function showEditHouseholdForm(id) {
-
-  const h =
-    state.households.find(
-      x =>
-        x.id === id
+/* =========================================================
+   EDITAR ENTREGA
+========================================================= */
+
+async function showEditDeliveryForm(id) {
+
+  const d =
+    state.deliveries.find(
+      x => x.id === id
     );
 
-
-  if (!h) {
+  if (!d) {
 
     toast(
-      "Família não encontrada."
+      "Entrega não encontrada."
     );
 
     return;
@@ -3452,429 +3738,13 @@ function showEditHouseholdForm(id) {
   }
 
 
-  openModal(`
-
-    <h2>
-      Editar família / imóvel
-    </h2>
-
-
-    <form id="editHouseholdForm">
-
-      <label>
-
-        Nome do responsável
-
-        <input
-          id="ehName"
-          value="${esc(
-            h.name || ""
-          )}"
-          required>
-
-      </label>
-
-
-      <label>
-
-        CPF
-
-        <input
-          id="ehCpf"
-          inputmode="numeric"
-          value="${esc(
-            h.cpf || ""
-          )}">
-
-      </label>
-
-
-      <label>
-
-        Telefone
-
-        <input
-          id="ehPhone"
-          value="${esc(
-            h.phone || ""
-          )}"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Comunidade / zona rural
-
-        <input
-          id="ehCommunity"
-          value="${esc(
-            h.community || ""
-          )}"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Endereço / referência
-
-        <input
-          id="ehAddress"
-          value="${esc(
-            h.address || ""
-          )}"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Quantidade de pessoas
-
-        <input
-          id="ehPeople"
-          type="number"
-          min="1"
-          value="${esc(
-            h.people || 1
-          )}"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Frequência
-
-        <select id="ehFreq">
-
-          <option
-            ${
-              h.frequency ===
-              "Semanal"
-                ? "selected"
-                : ""
-            }>
-
-            Semanal
-
-          </option>
-
-
-          <option
-            ${
-              h.frequency ===
-              "Quinzenal"
-                ? "selected"
-                : ""
-            }>
-
-            Quinzenal
-
-          </option>
-
-
-          <option
-            ${
-              h.frequency ===
-              "Mensal"
-                ? "selected"
-                : ""
-            }>
-
-            Mensal
-
-          </option>
-
-
-          <option
-            ${
-              h.frequency ===
-              "Conforme necessidade"
-                ? "selected"
-                : ""
-            }>
-
-            Conforme necessidade
-
-          </option>
-
-        </select>
-
-      </label>
-
-
-      <label>
-
-        Litros programados por entrega
-
-        <input
-          id="ehLiters"
-          type="number"
-          min="1"
-          value="${esc(
-            h.defaultLiters ||
-            ""
-          )}"
-          required>
-
-      </label>
-
-
-      <label>
-
-        Situação
-
-        <select id="ehActive">
-
-          <option
-            value="true"
-            ${
-              h.active !== false
-                ? "selected"
-                : ""
-            }>
-
-            Ativa
-
-          </option>
-
-
-          <option
-            value="false"
-            ${
-              h.active === false
-                ? "selected"
-                : ""
-            }>
-
-            Inativa
-
-          </option>
-
-        </select>
-
-      </label>
-
-
-      <div class="actions">
-
-        <button
-          type="button"
-          class="secondary"
-          id="cancelEdit">
-
-          Cancelar
-
-        </button>
-
-
-        <button
-          type="submit"
-          class="primary">
-
-          Salvar alterações
-
-        </button>
-
-      </div>
-
-    </form>
-
-  `);
-
-
-  $("cancelEdit").onclick =
-    closeModal;
-
-
-  $("editHouseholdForm").onsubmit =
-    async e => {
-
-      e.preventDefault();
-
-
-      try {
-
-        await updateDoc(
-          doc(
-            db,
-            "households",
-            id
-          ),
-          {
-
-            name:
-              $("ehName")
-                .value
-                .trim(),
-
-            cpf:
-              $("ehCpf")
-                .value
-                .trim(),
-
-            phone:
-              $("ehPhone")
-                .value
-                .trim(),
-
-            community:
-              $("ehCommunity")
-                .value
-                .trim(),
-
-            address:
-              $("ehAddress")
-                .value
-                .trim(),
-
-            people:
-              Number(
-                $("ehPeople").value
-              ),
-
-            frequency:
-              $("ehFreq").value,
-
-            defaultLiters:
-              Number(
-                $("ehLiters").value
-              ),
-
-            active:
-              $("ehActive").value ===
-              "true",
-
-            updatedAt:
-              serverTimestamp(),
-
-            updatedBy:
-              state.user.uid
-
-          }
-        );
-
-
-        closeModal();
-
-
-        toast(
-          "Cadastro atualizado."
-        );
-
-
-        await renderAdmin();
-
-
-      } catch (error) {
-
-        console.error(
-          "Erro ao atualizar cadastro:",
-          error
-        );
-
-
-        toast(
-          "Não foi possível atualizar o cadastro."
-        );
-
-      }
-
-    };
-
-}
-
-
-/* =========================
-   CARREGAR MOTORISTAS
-========================= */
-
-async function loadDrivers() {
-
-  try {
-
-    const snapshot =
-      await getDocs(
-        query(
-          collection(
-            db,
-            "users"
-          ),
-          where(
-            "role",
-            "==",
-            "driver"
-          ),
-          limit(100)
-        )
-      );
-
-
-    state.drivers =
-      snapshot.docs
-        .map(d => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .sort((a, b) =>
-          String(
-            a.name ||
-            ""
-          ).localeCompare(
-            String(
-              b.name ||
-              ""
-            ),
-            "pt-BR"
-          )
-        );
-
-
-    console.log(
-      "Motoristas carregados:",
-      state.drivers
-    );
-
-
-    return state.drivers;
-
-
-  } catch (error) {
-
-    console.error(
-      "Erro ao carregar motoristas:",
-      error
-    );
-
-
-    state.drivers = [];
-
-
-    throw error;
-
-  }
-
-}
-
-
-/* =========================
-   PROGRAMAR ENTREGA
-========================= */
-
-async function showDeliveryForm() {
-
   if (
-    !state.households.length
+    d.status !== "scheduled" &&
+    d.status !== "awaiting_confirmation"
   ) {
 
     toast(
-      "Cadastre uma família primeiro."
+      "Esta entrega já possui registro de execução e não pode ter sua programação alterada por esta tela."
     );
 
     return;
@@ -3897,9 +3767,352 @@ async function showDeliveryForm() {
   }
 
 
-  if (
-    !state.drivers.length
-  ) {
+  openModal(`
+
+    <h2>
+      Editar entrega
+    </h2>
+
+
+    <div class="notice">
+
+      Esta tela altera somente a programação.
+      Os registros feitos pelo motorista
+      permanecem preservados.
+
+    </div>
+
+
+    <form id="editDeliveryForm">
+
+      <label>
+        Família / beneficiário
+
+        <select id="edDeliveryHousehold">
+
+          ${
+            state.households
+              .filter(
+                h =>
+                  h.active !== false ||
+                  h.id === d.householdId
+              )
+              .map(
+                h => `
+
+                  <option
+                    value="${esc(h.id)}"
+                    ${
+                      h.id === d.householdId
+                        ? "selected"
+                        : ""
+                    }>
+
+                    ${esc(h.name)}
+                    —
+                    ${esc(h.community)}
+
+                  </option>
+
+                `
+              )
+              .join("")
+          }
+
+        </select>
+
+      </label>
+
+
+      <label>
+        Data programada
+
+        <input
+          id="edDeliveryDate"
+          type="date"
+          value="${esc(d.scheduledDate || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        Quantidade planejada (litros)
+
+        <input
+          id="edDeliveryLiters"
+          type="number"
+          min="1"
+          value="${esc(d.plannedLiters || "")}"
+          required>
+
+      </label>
+
+
+      <label>
+        Motorista
+
+        <select
+          id="edDeliveryDriver"
+          required>
+
+          ${
+            state.drivers
+              .map(
+                driver => `
+
+                  <option
+                    value="${esc(driver.id)}"
+                    ${
+                      driver.id === d.driverUid
+                        ? "selected"
+                        : ""
+                    }>
+
+                    ${esc(
+                      driver.name ||
+                      "Motorista"
+                    )}
+
+                    ${
+                      driver.active === false
+                        ? " (Inativo)"
+                        : ""
+                    }
+
+                  </option>
+
+                `
+              )
+              .join("")
+          }
+
+        </select>
+
+      </label>
+
+
+      <label>
+        Observação
+
+        <textarea
+          id="edDeliveryNote">${esc(
+            d.note || ""
+          )}</textarea>
+
+      </label>
+
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          id="cancelEditDelivery">
+
+          Cancelar
+
+        </button>
+
+
+        <button
+          type="submit"
+          class="primary">
+
+          Salvar alterações
+
+        </button>
+
+      </div>
+
+    </form>
+
+  `);
+
+
+  $("cancelEditDelivery").onclick =
+    closeModal;
+
+
+  $("edDeliveryHousehold").onchange =
+    () => {
+
+      const h =
+        state.households.find(
+          x =>
+            x.id ===
+            $("edDeliveryHousehold").value
+        );
+
+      if (h) {
+
+        $("edDeliveryLiters").value =
+          h.defaultLiters ||
+          "";
+
+      }
+
+    };
+
+
+  $("editDeliveryForm").onsubmit =
+    async e => {
+
+      e.preventDefault();
+
+      try {
+
+        const h =
+          state.households.find(
+            x =>
+              x.id ===
+              $("edDeliveryHousehold").value
+          );
+
+        if (!h) {
+
+          toast(
+            "Família não encontrada."
+          );
+
+          return;
+
+        }
+
+
+        const driverUid =
+          $("edDeliveryDriver").value;
+
+
+        const driver =
+          state.drivers.find(
+            x =>
+              x.id ===
+              driverUid
+          );
+
+
+        if (!driver) {
+
+          toast(
+            "Motorista não encontrado."
+          );
+
+          return;
+
+        }
+
+
+        await updateDoc(
+          doc(
+            db,
+            "deliveries",
+            id
+          ),
+          {
+
+            householdId:
+              h.id,
+
+            recipientName:
+              h.name,
+
+            address:
+              h.address,
+
+            community:
+              h.community,
+
+            recipientPhone:
+              h.phone,
+
+            scheduledDate:
+              $("edDeliveryDate").value,
+
+            plannedLiters:
+              Number(
+                $("edDeliveryLiters").value
+              ),
+
+            driverUid:
+              driverUid,
+
+            driverName:
+              driver.name ||
+              "Motorista",
+
+            note:
+              $("edDeliveryNote")
+                .value
+                .trim(),
+
+            updatedAt:
+              serverTimestamp(),
+
+            updatedBy:
+              state.user.uid
+
+          }
+        );
+
+
+        closeModal();
+
+        toast(
+          "Entrega atualizada com sucesso."
+        );
+
+        await renderAdmin();
+
+      } catch (error) {
+
+        console.error(
+          "Erro ao editar entrega:",
+          error
+        );
+
+        toast(
+          "Não foi possível atualizar a entrega."
+        );
+
+      }
+
+    };
+
+}
+
+
+/* =========================================================
+   PROGRAMAR ENTREGA
+========================================================= */
+
+async function showDeliveryForm() {
+
+  if (!state.households.length) {
+
+    toast(
+      "Cadastre uma família primeiro."
+    );
+
+    return;
+
+  }
+
+  try {
+
+    await loadDrivers();
+
+  } catch (error) {
+
+    toast(
+      "Não foi possível carregar os motoristas."
+    );
+
+    return;
+
+  }
+
+  if (!state.drivers.length) {
 
     toast(
       "Nenhum motorista cadastrado foi encontrado."
@@ -3908,7 +4121,6 @@ async function showDeliveryForm() {
     return;
 
   }
-
 
   openModal(`
 
@@ -3920,7 +4132,6 @@ async function showDeliveryForm() {
     <form id="deliveryForm">
 
       <label>
-
         Família
 
         <select id="dHousehold">
@@ -3948,7 +4159,6 @@ async function showDeliveryForm() {
 
 
       <label>
-
         Data
 
         <input
@@ -3960,9 +4170,7 @@ async function showDeliveryForm() {
 
 
       <label>
-
-        Quantidade planejada
-        (litros)
+        Quantidade planejada (litros)
 
         <input
           id="dLiters"
@@ -3974,7 +4182,6 @@ async function showDeliveryForm() {
 
 
       <label>
-
         Motorista
 
         <select
@@ -3992,15 +4199,17 @@ async function showDeliveryForm() {
 
           ${
             state.drivers
+              .filter(
+                driver =>
+                  driver.active !== false
+              )
               .map(
                 driver =>
                   `<option value="${esc(driver.id)}">
-
                     ${esc(
                       driver.name ||
                       "Motorista"
                     )}
-
                   </option>`
               )
               .join("")
@@ -4011,36 +4220,43 @@ async function showDeliveryForm() {
       </label>
 
 
-      <p class="small">
-
-        Selecione o motorista responsável
-        pela entrega. O sistema registra
-        automaticamente o identificador
-        interno do usuário.
-
-      </p>
-
-
       <label>
-
         Observação
 
         <textarea
-          id="dNote">
-        </textarea>
+          id="dNote"></textarea>
 
       </label>
 
 
-      <button class="primary">
+      <div class="actions">
 
-        Programar entrega
+        <button
+          type="button"
+          class="secondary"
+          id="cancelNewDelivery">
 
-      </button>
+          Cancelar
+
+        </button>
+
+
+        <button
+          class="primary">
+
+          Programar entrega
+
+        </button>
+
+      </div>
 
     </form>
 
   `);
+
+
+  $("cancelNewDelivery").onclick =
+    closeModal;
 
 
   $("dHousehold").onchange =
@@ -4052,7 +4268,6 @@ async function showDeliveryForm() {
             x.id ===
             $("dHousehold").value
         );
-
 
       $("dLiters").value =
         h?.defaultLiters ||
@@ -4072,7 +4287,6 @@ async function showDeliveryForm() {
 
       e.preventDefault();
 
-
       try {
 
         const h =
@@ -4081,7 +4295,6 @@ async function showDeliveryForm() {
               x.id ===
               $("dHousehold").value
           );
-
 
         if (!h) {
 
@@ -4095,49 +4308,26 @@ async function showDeliveryForm() {
 
 
         const driverUid =
-          $("dDriverUid")
-            .value
-            .trim();
+          $("dDriverUid").value.trim();
 
 
-        if (!driverUid) {
-
-          toast(
-            "Selecione um motorista."
-          );
-
-          return;
-
-        }
-
-
-        const du =
-          await getDoc(
-            doc(
-              db,
-              "users",
+        const driver =
+          state.drivers.find(
+            x =>
+              x.id ===
               driverUid
-            )
           );
 
 
-        if (
-          !du.exists() ||
-          du.data().role !==
-            "driver"
-        ) {
+        if (!driver) {
 
           toast(
-            "Motorista selecionado não possui perfil válido."
+            "Selecione um motorista válido."
           );
 
           return;
 
         }
-
-
-        const driverData =
-          du.data();
 
 
         await addDoc(
@@ -4174,7 +4364,7 @@ async function showDeliveryForm() {
               driverUid,
 
             driverName:
-              driverData.name ||
+              driver.name ||
               "Motorista",
 
             note:
@@ -4197,14 +4387,11 @@ async function showDeliveryForm() {
 
         closeModal();
 
-
         toast(
-          "Entrega programada."
+          "Entrega programada com sucesso."
         );
 
-
         await renderAdmin();
-
 
       } catch (error) {
 
@@ -4212,7 +4399,6 @@ async function showDeliveryForm() {
           "Erro ao programar entrega:",
           error
         );
-
 
         toast(
           "Não foi possível programar a entrega."
@@ -4225,15 +4411,42 @@ async function showDeliveryForm() {
 }
 
 
-/* =========================
+/* =========================================================
+   STATUS
+========================================================= */
+
+function statusLabel(s) {
+
+  return ({
+
+    scheduled:
+      "Programada",
+
+    awaiting_confirmation:
+      "Aguardando confirmação",
+
+    completed:
+      "Concluída",
+
+    absent:
+      "Ninguém no local",
+
+    cancelled:
+      "Cancelada"
+
+  })[s] || s || "—";
+
+}
+
+
+/* =========================================================
    MOTORISTA
-========================= */
+========================================================= */
 
 async function renderDriver() {
 
   let loadedFromFirebase =
     false;
-
 
   try {
 
@@ -4251,10 +4464,8 @@ async function renderDriver() {
         limit(100)
       );
 
-
     const ds =
       await getDocs(q);
-
 
     state.deliveries =
       ds.docs
@@ -4264,33 +4475,27 @@ async function renderDriver() {
         }))
         .sort((a, b) =>
           String(
-            a.scheduledDate ||
-            ""
+            a.scheduledDate || ""
           ).localeCompare(
             String(
-              b.scheduledDate ||
-              ""
+              b.scheduledDate || ""
             )
           )
         );
 
-
     loadedFromFirebase =
       true;
-
 
     await saveDriverDeliveriesToCache(
       state.deliveries
     );
 
-
   } catch (error) {
 
     console.warn(
-      "Não foi possível carregar entregas do Firebase. Tentando cache offline.",
+      "Tentando cache offline:",
       error
     );
-
 
     state.deliveries =
       await getCachedDriverDeliveries(
@@ -4310,8 +4515,6 @@ async function renderDriver() {
           <b>Modo offline</b><br>
 
           Sem conexão com a internet.
-          As entregas abaixo foram carregadas
-          do armazenamento deste aparelho.
 
         </div>
 
@@ -4337,8 +4540,6 @@ async function renderDriver() {
 
             <b>Modo offline</b><br>
 
-            Não foi possível atualizar
-            as entregas pela internet.
             Foram carregados os dados
             salvos anteriormente neste aparelho.
 
@@ -4367,13 +4568,10 @@ async function renderDriver() {
         class="notice"
         style="margin-top:10px">
 
-        Ao concluir, o registro recebe
-        data/hora do servidor.
-        O motorista informa a quantidade
-        real, e o beneficiário confirma
-        por assinatura.
-        Se ninguém estiver no local,
-        deve haver foto.
+        Ao concluir, informe a quantidade
+        realmente entregue.
+        O fluxo de confirmação será ampliado
+        nas próximas etapas.
 
       </div>
 
@@ -4389,11 +4587,8 @@ async function renderDriver() {
 
               ${
                 navigator.onLine
-
                   ? "Nenhuma entrega atribuída."
-
-                  : "Não há entregas salvas neste aparelho. Conecte-se à internet pelo menos uma vez para carregar as entregas do motorista."
-
+                  : "Nenhuma entrega disponível no cache."
               }
 
             </div>
@@ -4408,9 +4603,7 @@ async function renderDriver() {
 
               ${
                 state.deliveries
-                  .map(
-                    driverCard
-                  )
+                  .map(driverCard)
                   .join("")
               }
 
@@ -4442,21 +4635,16 @@ async function renderDriver() {
 }
 
 
-/* =========================
-   CARTÃO DO MOTORISTA
-========================= */
-
 function driverCard(d) {
 
   const action =
-    d.status ===
-    "scheduled"
+    d.status === "scheduled"
 
       ? `
 
         <button
           class="primary"
-          data-complete="${d.id}">
+          data-complete="${esc(d.id)}">
 
           Registrar entrega
 
@@ -4474,22 +4662,11 @@ function driverCard(d) {
       <div class="row">
 
         <h3>
-
-          ${esc(
-            d.recipientName
-          )}
-
+          ${esc(d.recipientName)}
         </h3>
 
-
-        <span class="pill ${esc(
-          d.status
-        )}">
-
-          ${statusLabel(
-            d.status
-          )}
-
+        <span class="pill ${esc(d.status)}">
+          ${statusLabel(d.status)}
         </span>
 
       </div>
@@ -4498,18 +4675,12 @@ function driverCard(d) {
       <p>
 
         <b>Quando:</b>
-
-        ${esc(
-          d.scheduledDate
-        )}
+        ${esc(d.scheduledDate)}
 
         ·
 
         <b>Planejado:</b>
-
-        ${esc(
-          d.plannedLiters
-        )} L
+        ${esc(d.plannedLiters)} L
 
       </p>
 
@@ -4517,18 +4688,12 @@ function driverCard(d) {
       <p>
 
         <b>Comunidade:</b>
-
-        ${esc(
-          d.community
-        )}
+        ${esc(d.community)}
 
         <br>
 
         <b>Endereço:</b>
-
-        ${esc(
-          d.address
-        )}
+        ${esc(d.address)}
 
       </p>
 
@@ -4542,18 +4707,16 @@ function driverCard(d) {
 }
 
 
-/* =========================
+/* =========================================================
    REGISTRAR ENTREGA
-========================= */
+========================================================= */
 
 function showCompleteForm(id) {
 
   const d =
     state.deliveries.find(
-      x =>
-        x.id === id
+      x => x.id === id
     );
-
 
   if (!d) {
 
@@ -4575,9 +4738,8 @@ function showCompleteForm(id) {
 
     <div class="notice">
 
-      O valor informado aqui é o que
-      efetivamente foi colocado no imóvel.
-      Não finalize sem conferir a quantidade.
+      Informe a quantidade realmente entregue
+      e se havia alguém no local.
 
     </div>
 
@@ -4593,9 +4755,7 @@ function showCompleteForm(id) {
           id="cLiters"
           type="number"
           min="1"
-          value="${esc(
-            d.plannedLiters
-          )}"
+          value="${esc(d.plannedLiters)}"
           required>
 
       </label>
@@ -4608,15 +4768,11 @@ function showCompleteForm(id) {
         <select id="cPresence">
 
           <option value="yes">
-
             Sim — beneficiário presente
-
           </option>
 
           <option value="no">
-
             Não — ninguém no local
-
           </option>
 
         </select>
@@ -4627,22 +4783,19 @@ function showCompleteForm(id) {
       <div id="recipientFields">
 
         <label>
-
           PIN de confirmação do beneficiário
 
           <input
             id="cPin"
             inputmode="numeric"
             maxlength="8"
-            placeholder="PIN fornecido ao beneficiário">
+            placeholder="PIN do beneficiário">
 
         </label>
 
 
         <label>
-
           Assinatura do beneficiário
-
         </label>
 
 
@@ -4675,7 +4828,6 @@ function showCompleteForm(id) {
         <label>
 
           Foto de prova
-          (obrigatória se ninguém estiver)
 
           <input
             id="cPhoto"
@@ -4685,15 +4837,6 @@ function showCompleteForm(id) {
 
         </label>
 
-
-        <p class="small">
-
-          Prefira tirar a foto no momento
-          da entrega, mostrando o ponto
-          de abastecimento.
-
-        </p>
-
       </div>
 
 
@@ -4702,30 +4845,45 @@ function showCompleteForm(id) {
         Observação
 
         <textarea
-          id="cNote">
-        </textarea>
+          id="cNote"></textarea>
 
       </label>
 
 
-      <button class="primary">
+      <div class="actions">
 
-        Finalizar fornecimento
+        <button
+          type="button"
+          class="secondary"
+          id="cancelComplete">
 
-      </button>
+          Cancelar
+
+        </button>
+
+        <button
+          class="primary">
+
+          Finalizar fornecimento
+
+        </button>
+
+      </div>
 
     </form>
 
   `);
 
 
+  $("cancelComplete").onclick =
+    closeModal;
+
+
   const canvas =
     $("signature");
 
-
   const ctx =
     canvas.getContext("2d");
-
 
   let drawing =
     false;
@@ -4736,22 +4894,18 @@ function showCompleteForm(id) {
     const r =
       canvas.getBoundingClientRect();
 
-
     canvas.width =
       r.width *
       devicePixelRatio;
-
 
     canvas.height =
       r.height *
       devicePixelRatio;
 
-
     ctx.scale(
       devicePixelRatio,
       devicePixelRatio
     );
-
 
     ctx.lineWidth =
       2;
@@ -4768,35 +4922,19 @@ function showCompleteForm(id) {
   resize();
 
 
-  window.addEventListener(
-    "resize",
-    resize,
-    {
-      once: true
-    }
-  );
-
-
   function pos(e) {
 
     const r =
       canvas.getBoundingClientRect();
-
 
     const p =
       e.touches
         ? e.touches[0]
         : e;
 
-
     return [
-
-      p.clientX -
-        r.left,
-
-      p.clientY -
-        r.top
-
+      p.clientX - r.left,
+      p.clientY - r.top
     ];
 
   }
@@ -4808,10 +4946,8 @@ function showCompleteForm(id) {
       drawing =
         true;
 
-
       const [x, y] =
         pos(e);
-
 
       ctx.beginPath();
 
@@ -4819,7 +4955,6 @@ function showCompleteForm(id) {
         x,
         y
       );
-
 
       e.preventDefault();
 
@@ -4832,19 +4967,15 @@ function showCompleteForm(id) {
       if (!drawing)
         return;
 
-
       const [x, y] =
         pos(e);
-
 
       ctx.lineTo(
         x,
         y
       );
 
-
       ctx.stroke();
-
 
       e.preventDefault();
 
@@ -4853,8 +4984,7 @@ function showCompleteForm(id) {
 
   const end =
     () =>
-      drawing =
-        false;
+      drawing = false;
 
 
   canvas.addEventListener(
@@ -4862,18 +4992,15 @@ function showCompleteForm(id) {
     start
   );
 
-
   canvas.addEventListener(
     "mousemove",
     move
   );
 
-
   canvas.addEventListener(
     "mouseup",
     end
   );
-
 
   canvas.addEventListener(
     "touchstart",
@@ -4883,7 +5010,6 @@ function showCompleteForm(id) {
     }
   );
 
-
   canvas.addEventListener(
     "touchmove",
     move,
@@ -4891,7 +5017,6 @@ function showCompleteForm(id) {
       passive: false
     }
   );
-
 
   canvas.addEventListener(
     "touchend",
@@ -4916,14 +5041,12 @@ function showCompleteForm(id) {
         $("cPresence").value ===
         "yes";
 
-
       $("recipientFields")
         .classList
         .toggle(
           "hidden",
           !yes
         );
-
 
       $("photoFields")
         .classList
@@ -4939,7 +5062,6 @@ function showCompleteForm(id) {
     async e => {
 
       e.preventDefault();
-
 
       try {
 
@@ -4968,9 +5090,7 @@ function showCompleteForm(id) {
 
         if (
           present &&
-          isBlankCanvas(
-            canvas
-          )
+          isBlankCanvas(canvas)
         ) {
 
           toast(
@@ -5015,13 +5135,11 @@ function showCompleteForm(id) {
           const file =
             $("cPhoto").files[0];
 
-
           const path =
             `delivery-proof/${id}/${Date.now()}-${file.name.replace(
               /[^a-zA-Z0-9._-]/g,
               "_"
             )}`;
-
 
           const snap =
             await uploadBytes(
@@ -5035,7 +5153,6 @@ function showCompleteForm(id) {
                   file.type
               }
             );
-
 
           photoUrl =
             await getDownloadURL(
@@ -5067,7 +5184,6 @@ function showCompleteForm(id) {
               present,
 
             signatureData,
-
             photoUrl,
 
             note:
@@ -5087,14 +5203,11 @@ function showCompleteForm(id) {
 
         closeModal();
 
-
         toast(
           "Fornecimento registrado."
         );
 
-
         await renderDriver();
-
 
       } catch (error) {
 
@@ -5102,7 +5215,6 @@ function showCompleteForm(id) {
           "Erro ao registrar fornecimento:",
           error
         );
-
 
         toast(
           "Não foi possível registrar o fornecimento."
@@ -5115,9 +5227,9 @@ function showCompleteForm(id) {
 }
 
 
-/* =========================
+/* =========================================================
    ASSINATURA
-========================= */
+========================================================= */
 
 function isBlankCanvas(c) {
 
@@ -5129,7 +5241,6 @@ function isBlankCanvas(c) {
         c.width,
         c.height
       ).data;
-
 
   for (
     let i = 3;
@@ -5144,15 +5255,14 @@ function isBlankCanvas(c) {
 
   }
 
-
   return true;
 
 }
 
 
-/* =========================
+/* =========================================================
    BENEFICIÁRIO
-========================= */
+========================================================= */
 
 async function renderRecipient() {
 
@@ -5182,7 +5292,6 @@ async function renderRecipient() {
             error
           );
 
-
           return {
             docs: []
           };
@@ -5199,12 +5308,10 @@ async function renderRecipient() {
       }))
       .sort((a, b) =>
         String(
-          b.scheduledDate ||
-          ""
+          b.scheduledDate || ""
         ).localeCompare(
           String(
-            a.scheduledDate ||
-            ""
+            a.scheduledDate || ""
           )
         )
       );
@@ -5227,9 +5334,6 @@ async function renderRecipient() {
 
         Confira data, quantidade e situação
         de cada fornecimento.
-        Se houver divergência, procure
-        a administração com o número
-        da entrega.
 
       </div>
 
@@ -5240,9 +5344,7 @@ async function renderRecipient() {
 
         ${
           list
-            .map(
-              recipientCard
-            )
+            .map(recipientCard)
             .join("")
           ||
           "<p class='small'>Nenhum fornecimento localizado.</p>"
@@ -5266,21 +5368,12 @@ function recipientCard(d) {
       <div class="row">
 
         <h3>
-
-          ${esc(
-            d.scheduledDate
-          )}
-
+          ${esc(d.scheduledDate)}
         </h3>
 
+        <span class="pill ${esc(d.status)}">
 
-        <span class="pill ${esc(
-          d.status
-        )}">
-
-          ${statusLabel(
-            d.status
-          )}
+          ${statusLabel(d.status)}
 
         </span>
 
@@ -5293,9 +5386,7 @@ function recipientCard(d) {
           Quantidade programada:
         </b>
 
-        ${esc(
-          d.plannedLiters
-        )} L
+        ${esc(d.plannedLiters)} L
 
       </p>
 
@@ -5306,14 +5397,10 @@ function recipientCard(d) {
           Quantidade registrada:
         </b>
 
-
         ${
-          d.receivedLiters
-
-            ? `${esc(
-                d.receivedLiters
-              )} L`
-
+          d.receivedLiters !== undefined &&
+          d.receivedLiters !== null
+            ? `${esc(d.receivedLiters)} L`
             : "Ainda não registrada"
         }
 
@@ -5326,9 +5413,7 @@ function recipientCard(d) {
           Local:
         </b>
 
-        ${esc(
-          d.address
-        )}
+        ${esc(d.address)}
 
       </p>
 
