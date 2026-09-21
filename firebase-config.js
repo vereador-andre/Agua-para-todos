@@ -16,7 +16,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 
-// Configuração do projeto Água para Todos
+// ======================================================
+// CONFIGURAÇÃO DO PROJETO ÁGUA PARA TODOS
+// ======================================================
+
 const firebaseConfig = {
   apiKey: "AIzaSyBuftlms0LcdZrM9dpcf5wIk7eWjK3_o4A",
   authDomain: "agua-para-todos-19454.firebaseapp.com",
@@ -27,11 +30,17 @@ const firebaseConfig = {
 };
 
 
-// Inicializa Firebase
+// ======================================================
+// APLICAÇÃO PRINCIPAL
+// ======================================================
+
 const app = initializeApp(firebaseConfig);
 
 
-// Firebase Authentication
+// ======================================================
+// FIREBASE AUTHENTICATION PRINCIPAL
+// ======================================================
+
 const auth = getAuth(app);
 
 
@@ -48,18 +57,28 @@ setPersistence(
 });
 
 
-// Firestore
+// ======================================================
+// FIRESTORE
+// ======================================================
+
 const db = getFirestore(app);
 
 
-// Storage
+// ======================================================
+// STORAGE
+// ======================================================
+
 const storage = getStorage(app);
 
 
-// Disponibiliza os serviços para o restante do aplicativo
+// ======================================================
+// EXPORTA OS SERVIÇOS
+// ======================================================
+
 export {
   app,
   auth,
   db,
-  storage
+  storage,
+  firebaseConfig
 };
