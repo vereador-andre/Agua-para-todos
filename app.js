@@ -40,7 +40,8 @@ const state = {
   user: null,
   profile: null,
   households: [],
-  deliveries: []
+  deliveries: [],
+  drivers: []
 };
 
 
@@ -56,14 +57,6 @@ const OFFLINE_DB_VERSION = 1;
 const DELIVERY_CACHE_STORE =
   "deliveryCache";
 
-
-/*
-  Abre o banco local do navegador.
-
-  Este banco é usado somente para manter
-  uma cópia das entregas do motorista
-  no aparelho.
-*/
 
 function openOfflineDB() {
 
@@ -130,14 +123,6 @@ function openOfflineDB() {
 }
 
 
-/*
-  Converte dados do Firestore para uma
-  versão que pode ser guardada no navegador.
-
-  Timestamps do Firestore são transformados
-  em texto ISO.
-*/
-
 function prepareDeliveryForCache(d) {
 
   const local = {
@@ -175,11 +160,6 @@ function prepareDeliveryForCache(d) {
 
 }
 
-
-/*
-  Salva as entregas do motorista
-  no armazenamento local.
-*/
 
 async function saveDriverDeliveriesToCache(
   deliveries
@@ -268,11 +248,6 @@ async function saveDriverDeliveriesToCache(
 
 }
 
-
-/*
-  Recupera as entregas salvas no aparelho
-  pertencentes ao motorista atual.
-*/
 
 async function getCachedDriverDeliveries(
   driverUid
@@ -367,15 +342,6 @@ async function getCachedDriverDeliveries(
    PERFIL OFFLINE
 ========================= */
 
-
-/*
-  Guarda o perfil do usuário no navegador.
-
-  Isso permite que o motorista consiga
-  reabrir o aplicativo sem internet depois
-  de já ter feito um login online.
-*/
-
 function saveProfileToCache(
   userUid,
   profile
@@ -404,10 +370,6 @@ function saveProfileToCache(
 
 }
 
-
-/*
-  Recupera o perfil salvo localmente.
-*/
 
 function getProfileFromCache(
   userUid
@@ -484,11 +446,6 @@ function updateConnectionStatus() {
 }
 
 
-/*
-  Atualiza o indicador quando o navegador
-  detectar mudança de conexão.
-*/
-
 window.addEventListener(
   "online",
   updateConnectionStatus
@@ -500,10 +457,6 @@ window.addEventListener(
   updateConnectionStatus
 );
 
-
-/*
-  Atualiza imediatamente ao abrir o app.
-*/
 
 updateConnectionStatus();
 
@@ -792,11 +745,6 @@ onAuthStateChanged(
       let profile = null;
 
 
-      /*
-        Primeiro tenta buscar o perfil
-        diretamente no Firebase.
-      */
-
       try {
 
         const p =
@@ -817,11 +765,6 @@ onAuthStateChanged(
           };
 
 
-          /*
-            Guarda uma cópia local para
-            permitir funcionamento offline.
-          */
-
           saveProfileToCache(
             user.uid,
             profile
@@ -839,11 +782,6 @@ onAuthStateChanged(
       }
 
 
-      /*
-        Se não conseguiu Firebase,
-        tenta usar o perfil salvo no aparelho.
-      */
-
       if (!profile) {
 
         profile =
@@ -853,12 +791,6 @@ onAuthStateChanged(
 
       }
 
-
-      /*
-        Se não existe perfil nem online
-        nem no cache, mantém o comportamento
-        de segurança do aplicativo.
-      */
 
       if (!profile) {
 
@@ -1020,12 +952,6 @@ async function renderAdmin() {
 
   try {
 
-    /*
-      Carrega todas as famílias.
-      A ordenação será feita no navegador,
-      evitando dependência de índice do Firestore.
-    */
-
     const householdSnapshot =
       await getDocs(
         collection(
@@ -1052,10 +978,6 @@ async function renderAdmin() {
           )
         );
 
-
-    /*
-      Carrega as entregas.
-    */
 
     const deliverySnapshot =
       await getDocs(
@@ -1229,11 +1151,6 @@ async function renderAdmin() {
 
       });
 
-
-    /*
-      Botão para visualizar os detalhes
-      de cada entrega.
-    */
 
     document
       .querySelectorAll(
@@ -1536,11 +1453,6 @@ async function showDeliveryDetails(id) {
 
   try {
 
-    /*
-      Busca novamente no Firestore para garantir
-      que o administrador veja os dados mais atuais.
-    */
-
     const deliveryRef =
       doc(
         db,
@@ -1785,6 +1697,7 @@ async function showDeliveryDetails(id) {
         <h3>
           Resultado do abastecimento
         </h3>
+
 
         <p>
 
@@ -2572,6 +2485,87 @@ function showEditHouseholdForm(id) {
 
 
 /* =========================
+   CARREGAR MOTORISTAS
+========================= */
+
+/*
+  Busca os usuários que possuem
+  role = "driver".
+
+  O UID continua existindo internamente,
+  mas não precisa mais ser digitado pelo
+  administrador.
+*/
+
+async function loadDrivers() {
+
+  try {
+
+    const snapshot =
+      await getDocs(
+        query(
+          collection(
+            db,
+            "users"
+          ),
+          where(
+            "role",
+            "==",
+            "driver"
+          ),
+          limit(100)
+        )
+      );
+
+
+    state.drivers =
+      snapshot.docs
+        .map(d => ({
+          id: d.id,
+          ...d.data()
+        }))
+        .sort((a, b) =>
+          String(
+            a.name ||
+            ""
+          ).localeCompare(
+            String(
+              b.name ||
+              ""
+            ),
+            "pt-BR"
+          )
+        );
+
+
+    console.log(
+      "Motoristas carregados:",
+      state.drivers
+    );
+
+
+    return state.drivers;
+
+
+  } catch (error) {
+
+    console.error(
+      "Erro ao carregar motoristas:",
+      error
+    );
+
+
+    state.drivers = [];
+
+
+    throw error;
+
+  }
+
+}
+
+
+/* =========================
    PROGRAMAR ENTREGA
 ========================= */
 
@@ -2583,6 +2577,39 @@ async function showDeliveryForm() {
 
     toast(
       "Cadastre uma família primeiro."
+    );
+
+    return;
+
+  }
+
+
+  /*
+    Agora carregamos os motoristas
+    automaticamente.
+  */
+
+  try {
+
+    await loadDrivers();
+
+  } catch (error) {
+
+    toast(
+      "Não foi possível carregar os motoristas."
+    );
+
+    return;
+
+  }
+
+
+  if (
+    !state.drivers.length
+  ) {
+
+    toast(
+      "Nenhum motorista cadastrado foi encontrado."
     );
 
     return;
@@ -2613,7 +2640,7 @@ async function showDeliveryForm() {
               )
               .map(
                 h =>
-                  `<option value="${h.id}">
+                  `<option value="${esc(h.id)}">
                     ${esc(h.name)}
                     —
                     ${esc(h.community)}
@@ -2656,14 +2683,49 @@ async function showDeliveryForm() {
       <label>
 
         Motorista
-        (UID do usuário)
 
-        <input
+        <select
           id="dDriverUid"
-          placeholder="Cole o UID do motorista"
           required>
 
+          <option
+            value=""
+            disabled
+            selected>
+
+            Selecione o motorista
+
+          </option>
+
+          ${
+            state.drivers
+              .map(
+                driver =>
+                  `<option value="${esc(driver.id)}">
+
+                    ${esc(
+                      driver.name ||
+                      "Motorista"
+                    )}
+
+                  </option>`
+              )
+              .join("")
+          }
+
+        </select>
+
       </label>
+
+
+      <p class="small">
+
+        Selecione o motorista responsável
+        pela entrega. O sistema registra
+        automaticamente o identificador
+        interno do usuário.
+
+      </p>
 
 
       <label>
@@ -2728,11 +2790,45 @@ async function showDeliveryForm() {
           );
 
 
+        if (!h) {
+
+          toast(
+            "Família selecionada não encontrada."
+          );
+
+          return;
+
+        }
+
+
+        /*
+          O valor escolhido no select é
+          o ID do documento do motorista,
+          que normalmente é o próprio UID
+          do Firebase Authentication.
+        */
+
         const driverUid =
           $("dDriverUid")
             .value
             .trim();
 
+
+        if (!driverUid) {
+
+          toast(
+            "Selecione um motorista."
+          );
+
+          return;
+
+        }
+
+
+        /*
+          Confirma novamente o perfil
+          diretamente no Firestore.
+        */
 
         const du =
           await getDoc(
@@ -2751,12 +2847,16 @@ async function showDeliveryForm() {
         ) {
 
           toast(
-            "UID do motorista inválido ou sem perfil de motorista."
+            "Motorista selecionado não possui perfil válido."
           );
 
           return;
 
         }
+
+
+        const driverData =
+          du.data();
 
 
         await addDoc(
@@ -2793,7 +2893,7 @@ async function showDeliveryForm() {
               driverUid,
 
             driverName:
-              du.data().name ||
+              driverData.name ||
               "Motorista",
 
             note:
@@ -2856,11 +2956,6 @@ async function renderDriver() {
 
   try {
 
-    /*
-      Tenta carregar as entregas
-      normalmente do Firebase.
-    */
-
     const q =
       query(
         collection(
@@ -2903,11 +2998,6 @@ async function renderDriver() {
       true;
 
 
-    /*
-      Salva uma cópia das entregas
-      no aparelho para uso offline.
-    */
-
     await saveDriverDeliveriesToCache(
       state.deliveries
     );
@@ -2921,12 +3011,6 @@ async function renderDriver() {
     );
 
 
-    /*
-      Sem internet ou Firebase indisponível:
-      recupera as entregas anteriormente
-      salvas no aparelho.
-    */
-
     state.deliveries =
       await getCachedDriverDeliveries(
         state.user.uid
@@ -2934,10 +3018,6 @@ async function renderDriver() {
 
   }
 
-
-  /*
-    Monta a mensagem de conexão.
-  */
 
   const offlineMessage =
     !navigator.onLine
