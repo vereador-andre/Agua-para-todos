@@ -359,6 +359,7 @@ function saveProfileToCache(
       "Perfil salvo no cache local."
     );
 
+
   } catch (error) {
 
     console.error(
@@ -1008,164 +1009,7 @@ async function renderAdmin() {
         );
 
 
-    const pending =
-      state.deliveries.filter(
-        x =>
-          x.status ===
-          "scheduled"
-      ).length;
-
-
-    const done =
-      state.deliveries.filter(
-        x =>
-          x.status ===
-          "completed"
-      ).length;
-
-
-    $("adminPanel").innerHTML = `
-
-      <div class="card">
-
-        <div class="panel-title">
-
-          <h2>Painel administrativo</h2>
-
-          <div class="actions">
-
-            <button
-              class="primary"
-              id="newHousehold">
-              + Cadastrar família
-            </button>
-
-            <button
-              class="yellow"
-              id="newDelivery">
-              + Programar entrega
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <div class="stats">
-
-          <div class="stat">
-            <b>${state.households.length}</b>
-            famílias
-          </div>
-
-          <div class="stat">
-            <b>${pending}</b>
-            programadas
-          </div>
-
-          <div class="stat">
-            <b>${done}</b>
-            concluídas
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <div class="card">
-
-        <div class="panel-title">
-
-          <h2>Famílias cadastradas</h2>
-
-        </div>
-
-
-        <div class="grid">
-
-          ${
-            state.households
-              .map(
-                householdCard
-              )
-              .join("")
-            ||
-            "<p class='small'>Nenhuma família cadastrada.</p>"
-          }
-
-        </div>
-
-      </div>
-
-
-      <div class="card">
-
-        <div class="panel-title">
-
-          <h2>Últimas entregas</h2>
-
-        </div>
-
-
-        <div class="grid">
-
-          ${
-            state.deliveries
-              .slice(0, 30)
-              .map(
-                deliveryCard
-              )
-              .join("")
-            ||
-            "<p class='small'>Nenhuma entrega registrada.</p>"
-          }
-
-        </div>
-
-      </div>
-
-    `;
-
-
-    $("newHousehold").onclick =
-      showHouseholdForm;
-
-
-    $("newDelivery").onclick =
-      showDeliveryForm;
-
-
-    document
-      .querySelectorAll(
-        "[data-edit-household]"
-      )
-      .forEach(button => {
-
-        button.onclick =
-          () =>
-            showEditHouseholdForm(
-              button.dataset
-                .editHousehold
-            );
-
-      });
-
-
-    document
-      .querySelectorAll(
-        "[data-view-delivery]"
-      )
-      .forEach(button => {
-
-        button.onclick =
-          () =>
-            showDeliveryDetails(
-              button.dataset
-                .viewDelivery
-            );
-
-      });
+    renderAdminMenu();
 
 
   } catch (error) {
@@ -1202,6 +1046,991 @@ async function renderAdmin() {
     throw error;
 
   }
+
+}
+
+
+/* =========================
+   MENU ADMINISTRATIVO
+========================= */
+
+function renderAdminMenu() {
+
+  const pending =
+    state.deliveries.filter(
+      x =>
+        x.status ===
+        "scheduled"
+    ).length;
+
+
+  const completed =
+    state.deliveries.filter(
+      x =>
+        x.status ===
+        "completed"
+    ).length;
+
+
+  const awaiting =
+    state.deliveries.filter(
+      x =>
+        x.status ===
+        "awaiting_confirmation"
+    ).length;
+
+
+  const absent =
+    state.deliveries.filter(
+      x =>
+        x.status ===
+        "absent"
+    ).length;
+
+
+  $("adminPanel").innerHTML = `
+
+    <div class="card">
+
+      <div class="panel-title">
+
+        <div>
+
+          <h2>
+            Painel administrativo
+          </h2>
+
+          <p class="small">
+            Gestão do programa Água para Todos
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="stats">
+
+        <div class="stat">
+
+          <b>
+            ${state.households.length}
+          </b>
+
+          famílias
+
+        </div>
+
+
+        <div class="stat">
+
+          <b>
+            ${pending}
+          </b>
+
+          programadas
+
+        </div>
+
+
+        <div class="stat">
+
+          <b>
+            ${awaiting}
+          </b>
+
+          aguardando confirmação
+
+        </div>
+
+
+        <div class="stat">
+
+          <b>
+            ${completed}
+          </b>
+
+          concluídas
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="card">
+
+      <div class="panel-title">
+
+        <h2>
+          Cadastros
+        </h2>
+
+      </div>
+
+
+      <div class="grid">
+
+        <div
+          class="item"
+          style="cursor:pointer"
+          data-admin-menu="households">
+
+          <h3>
+            👨‍👩‍👧‍👦 Famílias / Beneficiários
+          </h3>
+
+          <p>
+            Cadastrar, consultar e editar
+            as famílias atendidas.
+          </p>
+
+        </div>
+
+
+        <div
+          class="item"
+          style="cursor:pointer"
+          data-admin-menu="drivers">
+
+          <h3>
+            🚚 Motoristas
+          </h3>
+
+          <p>
+            Consultar os motoristas
+            cadastrados no sistema.
+          </p>
+
+        </div>
+
+
+        <div
+          class="item"
+          style="cursor:pointer"
+          data-admin-menu="users">
+
+          <h3>
+            👤 Usuários
+          </h3>
+
+          <p>
+            Consultar os usuários
+            e seus respectivos perfis.
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="card">
+
+      <div class="panel-title">
+
+        <h2>
+          Operações
+        </h2>
+
+      </div>
+
+
+      <div class="grid">
+
+        <div
+          class="item"
+          style="cursor:pointer"
+          data-admin-menu="new-delivery">
+
+          <h3>
+            📅 Programar entrega
+          </h3>
+
+          <p>
+            Criar uma nova entrega e
+            selecionar o motorista responsável.
+          </p>
+
+        </div>
+
+
+        <div
+          class="item"
+          style="cursor:pointer"
+          data-admin-menu="scheduled">
+
+          <h3>
+            🚚 Entregas programadas
+          </h3>
+
+          <p>
+            Visualizar os abastecimentos
+            que ainda serão realizados.
+          </p>
+
+          <span class="pill scheduled">
+            ${pending}
+          </span>
+
+        </div>
+
+
+        <div
+          class="item"
+          style="cursor:pointer"
+          data-admin-menu="awaiting">
+
+          <h3>
+            ⏳ Aguardando confirmação
+          </h3>
+
+          <p>
+            Entregas registradas pelo motorista
+            que aguardam confirmação.
+          </p>
+
+          <span class="pill scheduled">
+            ${awaiting}
+          </span>
+
+        </div>
+
+
+        <div
+          class="item"
+          style="cursor:pointer"
+          data-admin-menu="completed">
+
+          <h3>
+            ✅ Entregas concluídas
+          </h3>
+
+          <p>
+            Entregas finalizadas e
+            confirmadas no sistema.
+          </p>
+
+          <span class="pill completed">
+            ${completed}
+          </span>
+
+        </div>
+
+
+        <div
+          class="item"
+          style="cursor:pointer"
+          data-admin-menu="history">
+
+          <h3>
+            📋 Histórico
+          </h3>
+
+          <p>
+            Consultar todas as entregas
+            registradas no sistema.
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div
+      id="adminContent"
+      style="margin-top:20px">
+    </div>
+
+  `;
+
+
+  document
+    .querySelectorAll(
+      "[data-admin-menu]"
+    )
+    .forEach(button => {
+
+      button.onclick =
+        () =>
+          handleAdminMenu(
+            button.dataset.adminMenu
+          );
+
+    });
+
+}
+
+
+/* =========================
+   MENU DO ADMINISTRADOR
+========================= */
+
+async function handleAdminMenu(section) {
+
+  const content =
+    $("adminContent");
+
+
+  if (!content) return;
+
+
+  if (
+    section ===
+    "households"
+  ) {
+
+    renderAdminHouseholds();
+
+    return;
+
+  }
+
+
+  if (
+    section ===
+    "drivers"
+  ) {
+
+    await renderAdminDrivers();
+
+    return;
+
+  }
+
+
+  if (
+    section ===
+    "users"
+  ) {
+
+    await renderAdminUsers();
+
+    return;
+
+  }
+
+
+  if (
+    section ===
+    "new-delivery"
+  ) {
+
+    await showDeliveryForm();
+
+    return;
+
+  }
+
+
+  if (
+    section ===
+    "scheduled"
+  ) {
+
+    renderAdminDeliveries(
+      "scheduled",
+      "Entregas programadas"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    section ===
+    "awaiting"
+  ) {
+
+    renderAdminDeliveries(
+      "awaiting_confirmation",
+      "Aguardando confirmação"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    section ===
+    "completed"
+  ) {
+
+    renderAdminDeliveries(
+      "completed",
+      "Entregas concluídas"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    section ===
+    "history"
+  ) {
+
+    renderAdminDeliveries(
+      "all",
+      "Histórico de entregas"
+    );
+
+    return;
+
+  }
+
+}
+
+
+/* =========================
+   FAMÍLIAS
+========================= */
+
+function renderAdminHouseholds() {
+
+  const content =
+    $("adminContent");
+
+
+  if (!content) return;
+
+
+  content.innerHTML = `
+
+    <div class="card">
+
+      <div class="panel-title">
+
+        <div>
+
+          <h2>
+            Famílias / Beneficiários
+          </h2>
+
+          <p class="small">
+            ${state.households.length}
+            cadastro(s) encontrado(s).
+          </p>
+
+        </div>
+
+
+        <div class="actions">
+
+          <button
+            class="primary"
+            id="adminNewHousehold">
+
+            + Cadastrar família
+
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="grid">
+
+        ${
+          state.households
+            .map(
+              householdCard
+            )
+            .join("")
+          ||
+          "<p class='small'>Nenhuma família cadastrada.</p>"
+        }
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  $("adminNewHousehold").onclick =
+    showHouseholdForm;
+
+
+  document
+    .querySelectorAll(
+      "[data-edit-household]"
+    )
+    .forEach(button => {
+
+      button.onclick =
+        () =>
+          showEditHouseholdForm(
+            button.dataset
+              .editHousehold
+          );
+
+    });
+
+}
+
+
+/* =========================
+   MOTORISTAS
+========================= */
+
+async function renderAdminDrivers() {
+
+  const content =
+    $("adminContent");
+
+
+  if (!content) return;
+
+
+  try {
+
+    await loadDrivers();
+
+
+    content.innerHTML = `
+
+      <div class="card">
+
+        <div class="panel-title">
+
+          <div>
+
+            <h2>
+              Motoristas
+            </h2>
+
+            <p class="small">
+
+              Motoristas com perfil
+              ativo no sistema.
+
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="grid">
+
+          ${
+            state.drivers
+              .map(
+                driver => `
+
+                  <div class="item">
+
+                    <div class="row">
+
+                      <h3>
+                        ${esc(
+                          driver.name ||
+                          "Motorista"
+                        )}
+                      </h3>
+
+                      <span class="pill completed">
+                        Motorista
+                      </span>
+
+                    </div>
+
+
+                    <p>
+
+                      <b>
+                        E-mail:
+                      </b>
+
+                      ${esc(
+                        driver.email ||
+                        "Não informado"
+                      )}
+
+                    </p>
+
+
+                    <p>
+
+                      <b>
+                        Telefone:
+                      </b>
+
+                      ${esc(
+                        driver.phone ||
+                        "Não informado"
+                      )}
+
+                    </p>
+
+
+                    <p class="small">
+
+                      UID:
+                      ${esc(
+                        driver.id
+                      )}
+
+                    </p>
+
+                  </div>
+
+                `
+              )
+              .join("")
+            ||
+            "<p class='small'>Nenhum motorista cadastrado.</p>"
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+
+  } catch (error) {
+
+    console.error(
+      "Erro ao carregar motoristas:",
+      error
+    );
+
+
+    content.innerHTML = `
+
+      <div class="card">
+
+        <h2>
+          Erro ao carregar motoristas
+        </h2>
+
+        <p class="small">
+          ${esc(
+            error.message
+          )}
+        </p>
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+
+/* =========================
+   USUÁRIOS
+========================= */
+
+async function renderAdminUsers() {
+
+  const content =
+    $("adminContent");
+
+
+  if (!content) return;
+
+
+  try {
+
+    const snapshot =
+      await getDocs(
+        query(
+          collection(
+            db,
+            "users"
+          ),
+          limit(100)
+        )
+      );
+
+
+    const users =
+      snapshot.docs
+        .map(d => ({
+          id: d.id,
+          ...d.data()
+        }))
+        .sort((a, b) =>
+          String(
+            a.name ||
+            ""
+          ).localeCompare(
+            String(
+              b.name ||
+              ""
+            ),
+            "pt-BR"
+          )
+        );
+
+
+    content.innerHTML = `
+
+      <div class="card">
+
+        <div class="panel-title">
+
+          <div>
+
+            <h2>
+              Usuários
+            </h2>
+
+            <p class="small">
+
+              Perfis cadastrados
+              no sistema.
+
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="grid">
+
+          ${
+            users
+              .map(
+                user => `
+
+                  <div class="item">
+
+                    <div class="row">
+
+                      <h3>
+
+                        ${esc(
+                          user.name ||
+                          "Usuário"
+                        )}
+
+                      </h3>
+
+
+                      <span class="pill completed">
+
+                        ${esc(
+                          roleLabel(
+                            user.role
+                          )
+                        )}
+
+                      </span>
+
+                    </div>
+
+
+                    <p>
+
+                      <b>
+                        E-mail:
+                      </b>
+
+                      ${esc(
+                        user.email ||
+                        "Não informado"
+                      )}
+
+                    </p>
+
+
+                    <p>
+
+                      <b>
+                        Telefone:
+                      </b>
+
+                      ${esc(
+                        user.phone ||
+                        "Não informado"
+                      )}
+
+                    </p>
+
+
+                    <p class="small">
+
+                      UID:
+                      ${esc(
+                        user.id
+                      )}
+
+                    </p>
+
+                  </div>
+
+                `
+              )
+              .join("")
+            ||
+            "<p class='small'>Nenhum usuário cadastrado.</p>"
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+
+  } catch (error) {
+
+    console.error(
+      "Erro ao carregar usuários:",
+      error
+    );
+
+
+    content.innerHTML = `
+
+      <div class="card">
+
+        <h2>
+          Erro ao carregar usuários
+        </h2>
+
+        <p class="small">
+          ${esc(
+            error.message
+          )}
+        </p>
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+
+/* =========================
+   ENTREGAS DO ADMIN
+========================= */
+
+function renderAdminDeliveries(
+  filter,
+  title
+) {
+
+  const content =
+    $("adminContent");
+
+
+  if (!content) return;
+
+
+  let list;
+
+
+  if (
+    filter ===
+    "all"
+  ) {
+
+    list =
+      state.deliveries;
+
+  } else {
+
+    list =
+      state.deliveries.filter(
+        d =>
+          d.status ===
+          filter
+      );
+
+  }
+
+
+  content.innerHTML = `
+
+    <div class="card">
+
+      <div class="panel-title">
+
+        <div>
+
+          <h2>
+            ${esc(title)}
+          </h2>
+
+          <p class="small">
+
+            ${list.length}
+            entrega(s) encontrada(s).
+
+          </p>
+
+        </div>
+
+
+        <div class="actions">
+
+          <button
+            class="yellow"
+            id="adminNewDelivery">
+
+            + Programar entrega
+
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="grid">
+
+        ${
+          list
+            .map(
+              deliveryCard
+            )
+            .join("")
+          ||
+          "<p class='small'>Nenhuma entrega encontrada nesta categoria.</p>"
+        }
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  $("adminNewDelivery").onclick =
+    showDeliveryForm;
+
+
+  document
+    .querySelectorAll(
+      "[data-view-delivery]"
+    )
+    .forEach(button => {
+
+      button.onclick =
+        () =>
+          showDeliveryDetails(
+            button.dataset
+              .viewDelivery
+          );
+
+    });
 
 }
 
@@ -1315,7 +2144,9 @@ function householdCard(h) {
         <button
           class="secondary"
           data-edit-household="${h.id}">
+
           Editar cadastro
+
         </button>
 
       </div>
@@ -1433,7 +2264,9 @@ function deliveryCard(d) {
           data-view-delivery="${esc(
             d.id
           )}">
+
           Ver detalhes
+
         </button>
 
       </div>
@@ -1871,11 +2704,19 @@ async function showDeliveryDetails(id) {
 }
 
 
+/* =========================
+   STATUS
+========================= */
+
 function statusLabel(s) {
 
   return ({
+
     scheduled:
       "Programada",
+
+    awaiting_confirmation:
+      "Aguardando confirmação",
 
     completed:
       "Concluída",
@@ -2488,15 +3329,6 @@ function showEditHouseholdForm(id) {
    CARREGAR MOTORISTAS
 ========================= */
 
-/*
-  Busca os usuários que possuem
-  role = "driver".
-
-  O UID continua existindo internamente,
-  mas não precisa mais ser digitado pelo
-  administrador.
-*/
-
 async function loadDrivers() {
 
   try {
@@ -2583,11 +3415,6 @@ async function showDeliveryForm() {
 
   }
 
-
-  /*
-    Agora carregamos os motoristas
-    automaticamente.
-  */
 
   try {
 
@@ -2801,13 +3628,6 @@ async function showDeliveryForm() {
         }
 
 
-        /*
-          O valor escolhido no select é
-          o ID do documento do motorista,
-          que normalmente é o próprio UID
-          do Firebase Authentication.
-        */
-
         const driverUid =
           $("dDriverUid")
             .value
@@ -2824,11 +3644,6 @@ async function showDeliveryForm() {
 
         }
 
-
-        /*
-          Confirma novamente o perfil
-          diretamente no Firestore.
-        */
 
         const du =
           await getDoc(
