@@ -15,7 +15,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   createUserWithEmailAndPassword,
-  signOut as signOutSecondary
+  signOut as signOutSecondary,
+  deleteUser
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 import {
@@ -26,6 +27,7 @@ import {
   addDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   limit,
@@ -57,7 +59,8 @@ const state = {
 
 /* =========================================================
    FIREBASE SECUNDÁRIO
-   USADO PARA CRIAR MOTORISTAS SEM DESCONECTAR O ADMIN
+   USADO PARA CRIAR MOTORISTAS E BENEFICIÁRIOS
+   SEM DESCONECTAR O ADMINISTRADOR
 ========================================================= */
 
 let secondaryApp = null;
@@ -1433,6 +1436,11 @@ function renderAdminHouseholds() {
 
 function householdCard(h) {
 
+  const accessText =
+    h.recipientUid
+      ? "Acesso criado"
+      : "Sem acesso";
+
   return `
 
     <div class="item">
@@ -1507,6 +1515,20 @@ function householdCard(h) {
       </p>
 
 
+      <p>
+
+        <b>Acesso ao aplicativo:</b>
+        ${accessText}
+
+        ${
+          h.recipientEmail
+            ? ` · ${esc(h.recipientEmail)}`
+            : ""
+        }
+
+      </p>
+
+
       <div class="actions">
 
         <button
@@ -1527,7 +1549,7 @@ function householdCard(h) {
 
 
 /* =========================================================
-   CADASTRAR FAMÍLIA
+   CADASTRAR FAMÍLIA + ACESSO DO BENEFICIÁRIO
 ========================================================= */
 
 function showHouseholdForm() {
@@ -1538,32 +1560,99 @@ function showHouseholdForm() {
       Nova família / imóvel
     </h2>
 
+
     <form id="householdForm">
 
       <label>
         Nome do responsável
-        <input id="hName" required>
+        <input
+          id="hName"
+          autocomplete="name"
+          required>
       </label>
+
 
       <label>
         CPF (opcional)
-        <input id="hCpf" inputmode="numeric">
+        <input
+          id="hCpf"
+          inputmode="numeric">
       </label>
+
 
       <label>
         Telefone
-        <input id="hPhone" required>
+        <input
+          id="hPhone"
+          type="tel"
+          autocomplete="tel"
+          required>
       </label>
+
+
+      <div class="notice">
+
+        <b>Acesso do beneficiário</b><br>
+
+        Este e-mail e senha serão usados
+        pelo beneficiário para entrar no aplicativo.
+
+      </div>
+
+
+      <label>
+        E-mail de acesso
+        <input
+          id="hEmail"
+          type="email"
+          autocomplete="email"
+          required>
+      </label>
+
+
+      <label>
+        Senha inicial
+        <input
+          id="hPassword"
+          type="password"
+          minlength="6"
+          autocomplete="new-password"
+          required>
+      </label>
+
+
+      <label>
+        Confirmar senha
+        <input
+          id="hPasswordConfirm"
+          type="password"
+          minlength="6"
+          autocomplete="new-password"
+          required>
+      </label>
+
+
+      <p class="small">
+        A senha precisa ter pelo menos 6 caracteres.
+        Ela não será armazenada no banco de dados.
+      </p>
+
 
       <label>
         Comunidade / zona rural
-        <input id="hCommunity" required>
+        <input
+          id="hCommunity"
+          required>
       </label>
+
 
       <label>
         Endereço / referência
-        <input id="hAddress" required>
+        <input
+          id="hAddress"
+          required>
       </label>
+
 
       <label>
         Quantidade de pessoas
@@ -1573,6 +1662,7 @@ function showHouseholdForm() {
           min="1"
           required>
       </label>
+
 
       <label>
         Frequência
@@ -1587,6 +1677,7 @@ function showHouseholdForm() {
         </select>
 
       </label>
+
 
       <label>
         Litros programados por entrega
@@ -1612,7 +1703,8 @@ function showHouseholdForm() {
         </button>
 
         <button
-          class="primary">
+          class="primary"
+          id="saveHousehold">
 
           Salvar família
 
@@ -1624,50 +1716,261 @@ function showHouseholdForm() {
 
   `);
 
+
   $("cancelNewHousehold").onclick =
     closeModal;
+
 
   $("householdForm").onsubmit =
     async e => {
 
       e.preventDefault();
 
+
+      const button =
+        $("saveHousehold");
+
+
+      const name =
+        $("hName")
+          .value
+          .trim();
+
+
+      const cpf =
+        $("hCpf")
+          .value
+          .trim();
+
+
+      const phone =
+        $("hPhone")
+          .value
+          .trim();
+
+
+      const email =
+        $("hEmail")
+          .value
+          .trim()
+          .toLowerCase();
+
+
+      const password =
+        $("hPassword")
+          .value;
+
+
+      const passwordConfirm =
+        $("hPasswordConfirm")
+          .value;
+
+
+      const community =
+        $("hCommunity")
+          .value
+          .trim();
+
+
+      const address =
+        $("hAddress")
+          .value
+          .trim();
+
+
+      const people =
+        Number(
+          $("hPeople")
+            .value
+        );
+
+
+      const frequency =
+        $("hFreq")
+          .value;
+
+
+      const defaultLiters =
+        Number(
+          $("hLiters")
+            .value
+        );
+
+
+      if (!name) {
+
+        toast(
+          "Informe o nome do responsável."
+        );
+
+        return;
+
+      }
+
+
+      if (!phone) {
+
+        toast(
+          "Informe o telefone."
+        );
+
+        return;
+
+      }
+
+
+      if (!email) {
+
+        toast(
+          "Informe o e-mail de acesso."
+        );
+
+        return;
+
+      }
+
+
+      if (password.length < 6) {
+
+        toast(
+          "A senha precisa ter pelo menos 6 caracteres."
+        );
+
+        return;
+
+      }
+
+
+      if (
+        password !==
+        passwordConfirm
+      ) {
+
+        toast(
+          "As senhas não conferem."
+        );
+
+        return;
+
+      }
+
+
+      if (!community) {
+
+        toast(
+          "Informe a comunidade ou zona rural."
+        );
+
+        return;
+
+      }
+
+
+      if (!address) {
+
+        toast(
+          "Informe o endereço ou referência."
+        );
+
+        return;
+
+      }
+
+
+      if (
+        !Number.isFinite(people) ||
+        people < 1
+      ) {
+
+        toast(
+          "Informe uma quantidade válida de pessoas."
+        );
+
+        return;
+
+      }
+
+
+      if (
+        !Number.isFinite(defaultLiters) ||
+        defaultLiters < 1
+      ) {
+
+        toast(
+          "Informe uma quantidade válida de litros."
+        );
+
+        return;
+
+      }
+
+
+      if (!secondaryAuth) {
+
+        toast(
+          "Não foi possível preparar o cadastro do beneficiário."
+        );
+
+        return;
+
+      }
+
+
+      let createdUser =
+        null;
+
+      let createdUserProfile =
+        false;
+
+      let createdHouseholdId =
+        null;
+
+
       try {
 
-        await addDoc(
-          collection(
+        button.disabled =
+          true;
+
+        button.textContent =
+          "Criando acesso...";
+
+
+        /*
+          1. CRIA O USUÁRIO NO FIREBASE AUTH
+        */
+
+        const credential =
+          await createUserWithEmailAndPassword(
+            secondaryAuth,
+            email,
+            password
+          );
+
+
+        createdUser =
+          credential.user;
+
+
+        /*
+          2. CRIA O PERFIL DO BENEFICIÁRIO
+        */
+
+        await setDoc(
+          doc(
             db,
-            "households"
+            "users",
+            createdUser.uid
           ),
           {
 
-            name:
-              $("hName").value.trim(),
+            name,
 
-            cpf:
-              $("hCpf").value.trim(),
+            email,
 
-            phone:
-              $("hPhone").value.trim(),
+            phone,
 
-            community:
-              $("hCommunity").value.trim(),
-
-            address:
-              $("hAddress").value.trim(),
-
-            people:
-              Number(
-                $("hPeople").value
-              ),
-
-            frequency:
-              $("hFreq").value,
-
-            defaultLiters:
-              Number(
-                $("hLiters").value
-              ),
+            role:
+              "recipient",
 
             active:
               true,
@@ -1681,24 +1984,263 @@ function showHouseholdForm() {
           }
         );
 
-        closeModal();
 
-        toast(
-          "Família cadastrada com sucesso."
+        createdUserProfile =
+          true;
+
+
+        /*
+          3. CRIA O CADASTRO DA FAMÍLIA
+        */
+
+        button.textContent =
+          "Salvando família...";
+
+
+        const householdRef =
+          await addDoc(
+            collection(
+              db,
+              "households"
+            ),
+            {
+
+              name,
+
+              cpf,
+
+              phone,
+
+              email,
+
+              recipientEmail:
+                email,
+
+              recipientUid:
+                createdUser.uid,
+
+              community,
+
+              address,
+
+              people,
+
+              frequency,
+
+              defaultLiters,
+
+              active:
+                true,
+
+              createdAt:
+                serverTimestamp(),
+
+              createdBy:
+                state.user.uid
+
+            }
+          );
+
+
+        createdHouseholdId =
+          householdRef.id;
+
+
+        /*
+          4. VINCULA A FAMÍLIA AO USUÁRIO
+        */
+
+        await updateDoc(
+          doc(
+            db,
+            "users",
+            createdUser.uid
+          ),
+          {
+
+            householdId:
+              createdHouseholdId,
+
+            updatedAt:
+              serverTimestamp(),
+
+            updatedBy:
+              state.user.uid
+
+          }
         );
 
+
+        /*
+          5. DESCONECTA O FIREBASE SECUNDÁRIO
+        */
+
+        try {
+
+          await signOutSecondary(
+            secondaryAuth
+          );
+
+        } catch (_) {}
+
+
+        closeModal();
+
+
+        toast(
+          "Família e acesso do beneficiário cadastrados com sucesso."
+        );
+
+
         await renderAdmin();
+
 
       } catch (error) {
 
         console.error(
-          "Erro ao cadastrar família:",
+          "Erro ao cadastrar família e beneficiário:",
           error
         );
 
-        toast(
-          "Não foi possível cadastrar a família."
-        );
+
+        /*
+          TENTATIVA DE LIMPEZA
+          CASO ALGUMA ETAPA TENHA FALHADO
+        */
+
+        if (
+          createdHouseholdId
+        ) {
+
+          try {
+
+            await deleteDoc(
+              doc(
+                db,
+                "households",
+                createdHouseholdId
+              )
+            );
+
+          } catch (cleanupError) {
+
+            console.warn(
+              "Não foi possível remover o cadastro incompleto da família:",
+              cleanupError
+            );
+
+          }
+
+        }
+
+
+        if (
+          createdUserProfile &&
+          createdUser
+        ) {
+
+          try {
+
+            await deleteDoc(
+              doc(
+                db,
+                "users",
+                createdUser.uid
+              )
+            );
+
+          } catch (cleanupError) {
+
+            console.warn(
+              "Não foi possível remover o perfil incompleto:",
+              cleanupError
+            );
+
+          }
+
+        }
+
+
+        if (createdUser) {
+
+          try {
+
+            await deleteUser(
+              createdUser
+            );
+
+          } catch (cleanupError) {
+
+            console.warn(
+              "Não foi possível remover o usuário do Firebase Auth:",
+              cleanupError
+            );
+
+          }
+
+        }
+
+
+        try {
+
+          await signOutSecondary(
+            secondaryAuth
+          );
+
+        } catch (_) {}
+
+
+        if (
+          error.code ===
+          "auth/email-already-in-use"
+        ) {
+
+          toast(
+            "Este e-mail já está cadastrado no sistema."
+          );
+
+        } else if (
+          error.code ===
+          "auth/invalid-email"
+        ) {
+
+          toast(
+            "O e-mail informado é inválido."
+          );
+
+        } else if (
+          error.code ===
+          "auth/weak-password"
+        ) {
+
+          toast(
+            "A senha é muito fraca."
+          );
+
+        } else if (
+          error.code ===
+          "permission-denied"
+        ) {
+
+          toast(
+            "O Firestore bloqueou o cadastro. Verifique as regras do banco."
+          );
+
+        } else {
+
+          toast(
+            "Não foi possível cadastrar a família e o acesso."
+          );
+
+        }
+
+      } finally {
+
+        button.disabled =
+          false;
+
+        button.textContent =
+          "Salvar família";
 
       }
 
@@ -1734,6 +2276,7 @@ function showEditHouseholdForm(id) {
       Editar família / imóvel
     </h2>
 
+
     <form id="editHouseholdForm">
 
       <label>
@@ -1767,6 +2310,31 @@ function showEditHouseholdForm(id) {
           required>
 
       </label>
+
+
+      <label>
+        E-mail do beneficiário
+
+        <input
+          value="${esc(
+            h.recipientEmail ||
+            h.email ||
+            ""
+          )}"
+          disabled>
+
+      </label>
+
+
+      <div class="notice">
+
+        ${
+          h.recipientUid
+            ? "Este cadastro já possui acesso ao aplicativo."
+            : "Este cadastro ainda não possui acesso ao aplicativo. O acesso poderá ser criado em uma etapa posterior."
+        }
+
+      </div>
 
 
       <label>
@@ -4014,6 +4582,15 @@ async function showEditDeliveryForm(id) {
             householdId:
               h.id,
 
+            recipientUid:
+              h.recipientUid ||
+              null,
+
+            recipientEmail:
+              h.recipientEmail ||
+              h.email ||
+              null,
+
             recipientName:
               h.name,
 
@@ -4339,6 +4916,15 @@ async function showDeliveryForm() {
 
             householdId:
               h.id,
+
+            recipientUid:
+              h.recipientUid ||
+              null,
+
+            recipientEmail:
+              h.recipientEmail ||
+              h.email ||
+              null,
 
             recipientName:
               h.name,
@@ -5266,55 +5852,158 @@ function isBlankCanvas(c) {
 
 async function renderRecipient() {
 
-  const q =
-    query(
-      collection(
-        db,
-        "deliveries"
-      ),
-      where(
-        "recipientPhone",
-        "==",
-        state.profile.phone ||
-        ""
-      ),
-      limit(50)
-    );
+  let list = [];
 
 
-  let ds =
-    await getDocs(q)
-      .catch(
-        error => {
+  /*
+    NOVO MÉTODO:
+    procura primeiro pelo UID do beneficiário.
+  */
 
-          console.error(
-            "Erro ao carregar abastecimentos:",
-            error
-          );
+  if (state.profile.householdId) {
 
-          return {
-            docs: []
-          };
+    try {
 
-        }
+      const q =
+        query(
+          collection(
+            db,
+            "deliveries"
+          ),
+          where(
+            "recipientUid",
+            "==",
+            state.user.uid
+          ),
+          limit(50)
+        );
+
+      const ds =
+        await getDocs(q);
+
+      list =
+        ds.docs
+          .map(d => ({
+            id: d.id,
+            ...d.data()
+          }));
+
+    } catch (error) {
+
+      console.warn(
+        "Não foi possível carregar entregas pelo UID:",
+        error
       );
 
+    }
 
-  const list =
-    ds.docs
-      .map(d => ({
-        id: d.id,
-        ...d.data()
-      }))
-      .sort((a, b) =>
+  }
+
+
+  /*
+    TAMBÉM TENTA PELO UID,
+    MESMO QUE O householdId AINDA NÃO ESTEJA
+    DISPONÍVEL NO PERFIL.
+  */
+
+  if (!list.length) {
+
+    try {
+
+      const q =
+        query(
+          collection(
+            db,
+            "deliveries"
+          ),
+          where(
+            "recipientUid",
+            "==",
+            state.user.uid
+          ),
+          limit(50)
+        );
+
+      const ds =
+        await getDocs(q);
+
+      list =
+        ds.docs
+          .map(d => ({
+            id: d.id,
+            ...d.data()
+          }));
+
+    } catch (error) {
+
+      console.warn(
+        "Erro ao carregar abastecimentos pelo UID:",
+        error
+      );
+
+    }
+
+  }
+
+
+  /*
+    COMPATIBILIDADE COM OS CADASTROS ANTIGOS:
+    SE NÃO ENCONTRAR PELO UID, USA O TELEFONE.
+  */
+
+  if (
+    !list.length &&
+    state.profile.phone
+  ) {
+
+    try {
+
+      const q =
+        query(
+          collection(
+            db,
+            "deliveries"
+          ),
+          where(
+            "recipientPhone",
+            "==",
+            state.profile.phone
+          ),
+          limit(50)
+        );
+
+      const ds =
+        await getDocs(q);
+
+      list =
+        ds.docs
+          .map(d => ({
+            id: d.id,
+            ...d.data()
+          }));
+
+    } catch (error) {
+
+      console.error(
+        "Erro ao carregar abastecimentos:",
+        error
+      );
+
+    }
+
+  }
+
+
+  list =
+    list.sort((a, b) =>
+      String(
+        b.scheduledDate || ""
+      ).localeCompare(
         String(
-          b.scheduledDate || ""
-        ).localeCompare(
-          String(
-            a.scheduledDate || ""
-          )
+          a.scheduledDate || ""
         )
-      );
+      )
+    );
 
 
   $("recipientPanel").innerHTML = `
