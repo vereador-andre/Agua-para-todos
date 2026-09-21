@@ -1,13 +1,21 @@
 import {
   auth,
   db,
-  storage
+  storage,
+  firebaseConfig
 } from "./firebase-config.js";
 
 import {
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+
+import {
+  getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  signOut
+  signOut,
+  createUserWithEmailAndPassword,
+  signOut as signOutSecondary
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 import {
@@ -16,6 +24,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   query,
   where,
@@ -43,6 +52,38 @@ const state = {
   deliveries: [],
   drivers: []
 };
+
+
+/* =========================
+   FIREBASE SECUNDÁRIO
+   USADO PARA CADASTRAR MOTORISTAS
+========================= */
+
+let secondaryApp = null;
+let secondaryAuth = null;
+
+
+try {
+
+  secondaryApp =
+    initializeApp(
+      firebaseConfig,
+      "DriverRegistrationApp"
+    );
+
+  secondaryAuth =
+    getAuth(
+      secondaryApp
+    );
+
+} catch (error) {
+
+  console.error(
+    "Erro ao inicializar Firebase secundário:",
+    error
+  );
+
+}
 
 
 /* =========================
@@ -662,7 +703,16 @@ function friendlyAuthError(err) {
       "Senha incorreta.",
 
     "auth/too-many-requests":
-      "Muitas tentativas. Aguarde alguns minutos."
+      "Muitas tentativas. Aguarde alguns minutos.",
+
+    "auth/email-already-in-use":
+      "Este e-mail já está cadastrado.",
+
+    "auth/invalid-email":
+      "O e-mail informado é inválido.",
+
+    "auth/weak-password":
+      "A senha informada é muito fraca."
 
   };
 
@@ -1080,14 +1130,6 @@ function renderAdminMenu() {
     ).length;
 
 
-  const absent =
-    state.deliveries.filter(
-      x =>
-        x.status ===
-        "absent"
-    ).length;
-
-
   $("adminPanel").innerHTML = `
 
     <div class="card">
@@ -1199,7 +1241,7 @@ function renderAdminMenu() {
           </h3>
 
           <p>
-            Consultar os motoristas
+            Cadastrar e consultar os motoristas
             cadastrados no sistema.
           </p>
 
@@ -1610,10 +1652,23 @@ async function renderAdminDrivers() {
 
             <p class="small">
 
-              Motoristas com perfil
-              ativo no sistema.
+              Motoristas cadastrados
+              no sistema.
 
             </p>
+
+          </div>
+
+
+          <div class="actions">
+
+            <button
+              class="primary"
+              id="newDriverBtn">
+
+              + Cadastrar motorista
+
+            </button>
 
           </div>
 
@@ -1698,6 +1753,14 @@ async function renderAdminDrivers() {
     `;
 
 
+    if ($("newDriverBtn")) {
+
+      $("newDriverBtn").onclick =
+        showDriverForm;
+
+    }
+
+
   } catch (error) {
 
     console.error(
@@ -1725,6 +1788,409 @@ async function renderAdminDrivers() {
     `;
 
   }
+
+}
+
+
+/* =========================
+   CADASTRAR MOTORISTA
+========================= */
+
+function showDriverForm() {
+
+  openModal(`
+
+    <h2>
+      Cadastrar motorista
+    </h2>
+
+
+    <div class="notice">
+
+      O motorista receberá um acesso próprio
+      ao sistema. Depois do cadastro, ele
+      poderá entrar usando o e-mail e a senha
+      informados abaixo.
+
+    </div>
+
+
+    <form id="driverForm">
+
+      <label>
+
+        Nome completo
+
+        <input
+          id="driverName"
+          type="text"
+          autocomplete="name"
+          required>
+
+      </label>
+
+
+      <label>
+
+        E-mail de acesso
+
+        <input
+          id="driverEmail"
+          type="email"
+          autocomplete="email"
+          required>
+
+      </label>
+
+
+      <label>
+
+        Telefone
+
+        <input
+          id="driverPhone"
+          type="tel"
+          autocomplete="tel"
+          required>
+
+      </label>
+
+
+      <label>
+
+        Senha inicial
+
+        <input
+          id="driverPassword"
+          type="password"
+          minlength="6"
+          autocomplete="new-password"
+          required>
+
+      </label>
+
+
+      <p class="small">
+
+        A senha deve ter pelo menos 6 caracteres.
+        Oriente o motorista a trocar a senha
+        posteriormente, se necessário.
+
+      </p>
+
+
+      <div class="actions">
+
+        <button
+          type="button"
+          class="secondary"
+          id="cancelDriver">
+
+          Cancelar
+
+        </button>
+
+
+        <button
+          type="submit"
+          class="primary"
+          id="saveDriver">
+
+          Cadastrar motorista
+
+        </button>
+
+      </div>
+
+    </form>
+
+  `);
+
+
+  $("cancelDriver").onclick =
+    closeModal;
+
+
+  $("driverForm").onsubmit =
+    async e => {
+
+      e.preventDefault();
+
+
+      const button =
+        $("saveDriver");
+
+
+      const name =
+        $("driverName")
+          .value
+          .trim();
+
+
+      const email =
+        $("driverEmail")
+          .value
+          .trim()
+          .toLowerCase();
+
+
+      const phone =
+        $("driverPhone")
+          .value
+          .trim();
+
+
+      const password =
+        $("driverPassword")
+          .value;
+
+
+      if (!name) {
+
+        toast(
+          "Informe o nome do motorista."
+        );
+
+        return;
+
+      }
+
+
+      if (!email) {
+
+        toast(
+          "Informe o e-mail do motorista."
+        );
+
+        return;
+
+      }
+
+
+      if (!phone) {
+
+        toast(
+          "Informe o telefone do motorista."
+        );
+
+        return;
+
+      }
+
+
+      if (password.length < 6) {
+
+        toast(
+          "A senha precisa ter pelo menos 6 caracteres."
+        );
+
+        return;
+
+      }
+
+
+      if (
+        !secondaryAuth
+      ) {
+
+        toast(
+          "Não foi possível preparar o cadastro do motorista."
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        button.disabled =
+          true;
+
+
+        button.textContent =
+          "Cadastrando...";
+
+
+        /*
+         * Cria o usuário na autenticação
+         * usando a instância secundária.
+         *
+         * Isso evita desconectar o administrador
+         * que está usando o painel principal.
+         */
+
+        const credential =
+          await createUserWithEmailAndPassword(
+            secondaryAuth,
+            email,
+            password
+          );
+
+
+        const newUser =
+          credential.user;
+
+
+        /*
+         * Cria o perfil do motorista
+         * no Firestore.
+         */
+
+        await setDoc(
+          doc(
+            db,
+            "users",
+            newUser.uid
+          ),
+          {
+
+            name:
+              name,
+
+            email:
+              email,
+
+            phone:
+              phone,
+
+            role:
+              "driver",
+
+            active:
+              true,
+
+            createdAt:
+              serverTimestamp(),
+
+            createdBy:
+              state.user.uid
+
+          }
+        );
+
+
+        /*
+         * Encerra a sessão da instância secundária.
+         *
+         * A sessão principal do administrador
+         * permanece intacta.
+         */
+
+        try {
+
+          await signOutSecondary(
+            secondaryAuth
+          );
+
+        } catch (secondaryLogoutError) {
+
+          console.warn(
+            "Não foi possível encerrar a sessão secundária:",
+            secondaryLogoutError
+          );
+
+        }
+
+
+        closeModal();
+
+
+        toast(
+          "Motorista cadastrado com sucesso."
+        );
+
+
+        await renderAdmin();
+
+
+        await renderAdminDrivers();
+
+
+      } catch (error) {
+
+        console.error(
+          "Erro ao cadastrar motorista:",
+          error
+        );
+
+
+        /*
+         * Se o usuário foi criado no Authentication,
+         * mas o perfil do Firestore falhou, avisamos
+         * claramente para não esconder o problema.
+         */
+
+        if (
+          error.code ===
+          "auth/email-already-in-use"
+        ) {
+
+          toast(
+            "Este e-mail já possui um usuário no Firebase."
+          );
+
+        } else if (
+          error.code ===
+          "auth/invalid-email"
+        ) {
+
+          toast(
+            "O e-mail informado é inválido."
+          );
+
+        } else if (
+          error.code ===
+          "auth/weak-password"
+        ) {
+
+          toast(
+            "A senha é muito fraca. Use pelo menos 6 caracteres."
+          );
+
+        } else if (
+          error.code ===
+          "permission-denied"
+        ) {
+
+          toast(
+            "O Firebase bloqueou a criação do perfil. Precisaremos ajustar as regras do Firestore."
+          );
+
+        } else {
+
+          toast(
+            "Não foi possível cadastrar o motorista."
+          );
+
+        }
+
+
+        try {
+
+          await signOutSecondary(
+            secondaryAuth
+          );
+
+        } catch (secondaryLogoutError) {
+
+          console.warn(
+            secondaryLogoutError
+          );
+
+        }
+
+
+        button.disabled =
+          false;
+
+
+        button.textContent =
+          "Cadastrar motorista";
+
+      }
+
+    };
 
 }
 
