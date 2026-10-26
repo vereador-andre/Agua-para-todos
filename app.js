@@ -377,6 +377,23 @@ function fmtDate(timestamp) {
 function dateOnly(value) {
   if (!value) return "—";
 
+  /* =========================================================
+   PIN DE CONFIRMAÇÃO DO BENEFICIÁRIO
+========================================================= */
+
+function generateConfirmationPin() {
+  const values = new Uint32Array(1);
+
+  if (window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(values);
+    return String(values[0] % 1000000).padStart(6, "0");
+  }
+
+  return String(
+    Math.floor(Math.random() * 1000000)
+  ).padStart(6, "0");
+}
+
   return new Date(value + "T12:00:00")
     .toLocaleDateString("pt-BR");
 }
@@ -1819,10 +1836,33 @@ async function showDeliveryDetails(id) {
       return;
     }
 
-    const delivery = {
-      id: snapshot.id,
-      ...snapshot.data()
-    };
+   let delivery = {
+  id: snapshot.id,
+  ...snapshot.data()
+};
+
+// Corrige entregas antigas que foram programadas sem PIN.
+// O código é gerado uma única vez e salvo no Firestore.
+if (
+  ["scheduled", "awaiting_confirmation"].includes(delivery.status) &&
+  !delivery.confirmationPin
+) {
+  const confirmationPin = generateConfirmationPin();
+
+  await updateDoc(doc(db, "deliveries", id), {
+    confirmationPin,
+    updatedAt: serverTimestamp(),
+    updatedBy: state.user.uid
+  });
+
+  delivery.confirmationPin = confirmationPin;
+
+  state.deliveries = state.deliveries.map(item =>
+    item.id === id
+      ? { ...item, confirmationPin }
+      : item
+  );
+}
 
     const presentText = delivery.recipientPresent === true
       ? "Sim"
@@ -1877,6 +1917,12 @@ async function showDeliveryDetails(id) {
 
       <div class="item">
         <h3>Local do abastecimento</h3>
+        <p>
+  <b>PIN do beneficiário:</b>
+  <span style="font-size:1.2rem;font-weight:800;letter-spacing:3px">
+    ${esc(delivery.confirmationPin || "Não gerado")}
+  </span>
+</p>
         <p><b>Comunidade:</b> ${esc(delivery.community || "—")}</p>
         <p><b>Endereço:</b> ${esc(delivery.address || "—")}</p>
       </div>
@@ -2102,6 +2148,7 @@ async function showEditDeliveryForm(id) {
    PROGRAMAR ENTREGA
 ========================================================= */
 
+
 async function showDeliveryForm() {
   if (!state.households.length) {
     return toast("Cadastre uma família primeiro.");
@@ -2118,21 +2165,35 @@ async function showDeliveryForm() {
     return toast("Nenhum motorista cadastrado foi encontrado.");
   }
 
+  const activeHouseholds = state.households.filter(
+    household => household.active !== false
+  );
+
+  const activeDrivers = state.drivers.filter(
+    driver => driver.active !== false
+  );
+
+  if (!activeHouseholds.length) {
+    return toast("Nenhuma família ativa encontrada.");
+  }
+
+  if (!activeDrivers.length) {
+    return toast("Nenhum motorista ativo encontrado.");
+  }
+
   openModal(`
     <h2>Programar entrega</h2>
 
     <form id="deliveryForm">
       <label>
         Família
-        <select id="dHousehold">
+        <select id="dHousehold" required>
           ${
-            state.households
-              .filter(h => h.active !== false)
-              .map(h => `
-                <option value="${esc(h.id)}">
-                  ${esc(h.name)} — ${esc(h.community)}
-                </option>
-              `).join("")
+            activeHouseholds.map(h => `
+              <option value="${esc(h.id)}">
+                ${esc(h.name)} — ${esc(h.community)}
+              </option>
+            `).join("")
           }
         </select>
       </label>
@@ -2150,15 +2211,15 @@ async function showDeliveryForm() {
       <label>
         Motorista
         <select id="dDriverUid" required>
-          <option value="" disabled selected>Selecione o motorista</option>
+          <option value="" disabled selected>
+            Selecione o motorista
+          </option>
           ${
-            state.drivers
-              .filter(driver => driver.active !== false)
-              .map(driver => `
-                <option value="${esc(driver.id)}">
-                  ${esc(driver.name || "Motorista")}
-                </option>
-              `).join("")
+            activeDrivers.map(driver => `
+              <option value="${esc(driver.id)}">
+                ${esc(driver.name || "Motorista")}
+              </option>
+            `).join("")
           }
         </select>
       </label>
@@ -2168,9 +2229,26 @@ async function showDeliveryForm() {
         <textarea id="dNote"></textarea>
       </label>
 
+      <div class="notice">
+        Um PIN de seis dígitos será gerado automaticamente.
+        A administração poderá consultá-lo nos detalhes da entrega
+        para repassá-lo ao beneficiário.
+      </div>
+
       <div class="actions">
-        <button type="button" class="secondary" id="cancelNewDelivery">Cancelar</button>
-        <button class="primary">Programar entrega</button>
+        <button
+          type="button"
+          class="secondary"
+          id="cancelNewDelivery">
+          Cancelar
+        </button>
+
+        <button
+          type="submit"
+          class="primary"
+          id="saveNewDelivery">
+          Programar entrega
+        </button>
       </div>
     </form>
   `);
@@ -2190,41 +2268,149 @@ async function showDeliveryForm() {
   $("deliveryForm").onsubmit = async event => {
     event.preventDefault();
 
+    const button = $("saveNewDelivery");
+
+    if (button.disabled) return;
+
     try {
       const household = state.households.find(
         item => item.id === $("dHousehold").value
       );
 
-      if (!household) return toast("Família selecionada não encontrada.");
+      if (!household) {
+        return toast("Família selecionada não encontrada.");
+      }
 
+      if (household.active === false) {
+        return toast("Esta família está inativa.");
+      }
+
+      const scheduledDate = $("dDate").value;
+      const plannedLiters = Number($("dLiters").value);
       const driverUid = $("dDriverUid").value.trim();
-      const driver = state.drivers.find(item => item.id === driverUid);
 
-      if (!driver) return toast("Selecione um motorista válido.");
+      const driver = state.drivers.find(
+        item => item.id === driverUid
+      );
 
-      await addDoc(collection(db, "deliveries"), {
+      if (!scheduledDate) {
+        return toast("Informe a data da entrega.");
+      }
+
+      if (!Number.isFinite(plannedLiters) || plannedLiters < 1) {
+        return toast("Informe uma quantidade válida de litros.");
+      }
+
+      if (!driver || driver.active === false) {
+        return toast("Selecione um motorista ativo.");
+      }
+
+      button.disabled = true;
+      button.textContent = "Programando...";
+
+      const confirmationPin = generateConfirmationPin();
+
+      const deliveryData = {
         householdId: household.id,
         recipientUid: household.recipientUid || null,
         recipientName: household.name,
         address: household.address,
         community: household.community,
-        recipientPhone: household.phone,
-        scheduledDate: $("dDate").value,
-        plannedLiters: Number($("dLiters").value),
+        recipientPhone: household.phone || "",
+        scheduledDate,
+        plannedLiters,
         driverUid,
         driverName: driver.name || "Motorista",
         note: $("dNote").value.trim(),
+        confirmationPin,
         status: "scheduled",
+        recipientConfirmed: false,
         createdAt: serverTimestamp(),
         createdBy: state.user.uid
-      });
+      };
+
+      const deliveryRef = await addDoc(
+        collection(db, "deliveries"),
+        deliveryData
+      );
 
       closeModal();
-      toast("Entrega programada com sucesso.");
-      await renderAdmin();
+
+      openModal(`
+        <h2>Entrega programada!</h2>
+
+        <div class="notice">
+          A entrega foi cadastrada com sucesso.
+        </div>
+
+        <div class="item">
+          <h3>PIN do beneficiário</h3>
+
+          <p>
+            Informe este código ao beneficiário antes da entrega.
+            O motorista precisará dele quando o beneficiário estiver
+            presente.
+          </p>
+
+          <p style="font-size:2rem;font-weight:800;letter-spacing:6px;text-align:center">
+            ${esc(confirmationPin)}
+          </p>
+
+          <p class="small">
+            Guarde o código e repasse-o diretamente ao beneficiário.
+          </p>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="secondary" id="copyDeliveryPin">
+            Copiar PIN
+          </button>
+
+          <button type="button" class="primary" id="closeDeliveryPin">
+            Fechar
+          </button>
+        </div>
+      `);
+
+      $("copyDeliveryPin").onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(confirmationPin);
+          toast("PIN copiado.");
+        } catch (error) {
+          console.error("Erro ao copiar PIN:", error);
+          toast("Não foi possível copiar. Anote o PIN exibido.");
+        }
+      };
+
+      $("closeDeliveryPin").onclick = async () => {
+        closeModal();
+        await renderAdmin();
+      };
+
+      // Atualiza a lista local para que o novo registro apareça
+      // também na listagem administrativa.
+      state.deliveries = [
+        {
+          id: deliveryRef.id,
+          ...deliveryData
+        },
+        ...state.deliveries.filter(
+          item => item.id !== deliveryRef.id
+        )
+      ];
     } catch (error) {
       console.error("Erro ao programar entrega:", error);
-      toast("Não foi possível programar a entrega.");
+
+      toast(
+        error.code === "permission-denied"
+          ? "O Firebase bloqueou a programação. Verifique as regras do Firestore."
+          : "Não foi possível programar a entrega."
+      );
+
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Programar entrega";
+      }
     }
   };
 }
