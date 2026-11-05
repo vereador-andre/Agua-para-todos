@@ -14,12 +14,12 @@
   <title>Água para Todos</title>
 </head>
 
-<body>
+<body class="login-active">
 
   <header class="topbar">
     <div>
       <div class="brand">ÁGUA <span>PARA TODOS</span></div>
-      <small>Controle seguro do abastecimento rural</small>
+      <small>Controle seguro do abastecimento rural • Areia Branca-RN</small>
     </div>
 
     <button id="logoutBtn" class="ghost hidden">
@@ -31,40 +31,44 @@
 
     <section id="loginView" class="card auth-card">
 
-      <h1>Água para Todos</h1>
-
-      <p>
-        Entre com sua conta para registrar ou acompanhar
-        o fornecimento de água.
-      </p>
+      <div class="auth-header">
+        <span class="badge location-badge">Areia Branca - RN</span>
+        <h1>Água para Todos</h1>
+        <p>
+          Entre com seu e-mail ou telefone para registrar ou acompanhar o fornecimento de água.
+        </p>
+      </div>
 
       <form id="loginForm">
 
-        <label>
-          E-mail
+        <label for="loginEmail">
+          E-mail ou Telefone
           <input
             id="loginEmail"
-            type="email"
-            autocomplete="email"
+            type="text"
+            inputmode="email"
+            autocomplete="username"
+            placeholder="Ex: 84999998888 ou seu@email.com"
             required
           >
         </label>
 
-        <label>
+        <label for="loginPassword">
           Senha
           <input
             id="loginPassword"
             type="password"
             autocomplete="current-password"
+            placeholder="Digite sua senha"
             required
           >
         </label>
 
         <button
-          class="primary"
+          class="primary btn-login"
           type="submit"
         >
-          Entrar
+          Entrar no Sistema
         </button>
 
       </form>
@@ -75,7 +79,6 @@
       ></div>
 
     </section>
-
 
     <section
       id="appView"
@@ -106,7 +109,6 @@
 
       </div>
 
-
       <div
         id="adminPanel"
         class="hidden"
@@ -126,7 +128,6 @@
 
   </main>
 
-
   <div
     id="modal"
     class="modal hidden"
@@ -137,8 +138,9 @@
       <button
         id="closeModal"
         class="close"
+        aria-label="Fechar"
       >
-        ×
+        &times;
       </button>
 
       <div
@@ -149,48 +151,25 @@
 
   </div>
 
-
   <div
     id="toast"
     class="toast"
   ></div>
 
-
   <script type="module" src="./app.js"></script>
-
-
-  <!--
-    Registro do Service Worker.
-    Ele permite que o aplicativo carregue
-    mesmo quando o aparelho estiver sem internet.
-  -->
 
   <script>
     if ("serviceWorker" in navigator) {
-
       window.addEventListener("load", () => {
-
         navigator.serviceWorker
           .register("./sw.js")
           .then((registration) => {
-
-            console.log(
-              "Service Worker registrado:",
-              registration.scope
-            );
-
+            console.log("Service Worker registrado:", registration.scope);
           })
           .catch((error) => {
-
-            console.error(
-              "Erro ao registrar Service Worker:",
-              error
-            );
-
+            console.error("Erro ao registrar Service Worker:", error);
           });
-
       });
-
     }
   </script>
 
