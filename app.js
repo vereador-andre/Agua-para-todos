@@ -1,4 +1,3 @@
-
 import {
   auth,
   db,
@@ -71,28 +70,17 @@ try {
 
   secondaryAuth = getAuth(secondaryApp);
 } catch (error) {
-  console.error(
-    "Erro ao inicializar Firebase secundário:",
-    error
-  );
+  console.error("Erro ao inicializar Firebase secundário:", error);
 }
 
 /* =========================================================
    ACESSO POR TELEFONE DO BENEFICIÁRIO
-
-   O Firebase Authentication utiliza um e-mail interno
-   derivado do telefone. Esse e-mail não é o e-mail pessoal
-   do beneficiário e não deve ser exibido como tal.
 ========================================================= */
 
 function normalizePhone(value) {
   let digits = String(value || "").replace(/\D/g, "");
 
-  // Aceita telefone brasileiro digitado com ou sem +55.
-  if (
-    (digits.length === 12 || digits.length === 13) &&
-    digits.startsWith("55")
-  ) {
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
     digits = digits.slice(2);
   }
 
@@ -103,9 +91,7 @@ function recipientAuthEmail(phone) {
   const digits = normalizePhone(phone);
 
   if (digits.length < 10 || digits.length > 11) {
-    throw new Error(
-      "Informe um telefone brasileiro válido, com DDD."
-    );
+    throw new Error("Informe um telefone brasileiro válido com DDD (10 ou 11 dígitos).");
   }
 
   return `beneficiario.${digits}@agua-para-todos.app`;
@@ -114,21 +100,18 @@ function recipientAuthEmail(phone) {
 function loginIdentifierToEmail(identifier) {
   const value = String(identifier || "").trim();
 
-  // Administradores e motoristas continuam usando e-mail.
   if (value.includes("@")) {
     return value.toLowerCase();
   }
 
-  // Beneficiários entram usando o telefone cadastrado.
   return recipientAuthEmail(value);
 }
 
 if ($("loginEmail")) {
   $("loginEmail").type = "text";
-  $("loginEmail").inputMode = "text";
+  $("loginEmail").inputMode = "email";
   $("loginEmail").autocomplete = "username";
-  $("loginEmail").placeholder =
-    "E-mail ou telefone do beneficiário";
+  $("loginEmail").placeholder = "Ex: 84999998888 ou seu@email.com";
 }
 
 /* =========================================================
@@ -142,23 +125,12 @@ const DELIVERY_CACHE_STORE = "deliveryCache";
 function openOfflineDB() {
   return new Promise((resolve, reject) => {
     try {
-      const request = indexedDB.open(
-        OFFLINE_DB_NAME,
-        OFFLINE_DB_VERSION
-      );
+      const request = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
 
       request.onupgradeneeded = () => {
         const localDb = request.result;
-
-        if (
-          !localDb.objectStoreNames.contains(
-            DELIVERY_CACHE_STORE
-          )
-        ) {
-          localDb.createObjectStore(
-            DELIVERY_CACHE_STORE,
-            { keyPath: "id" }
-          );
+        if (!localDb.objectStoreNames.contains(DELIVERY_CACHE_STORE)) {
+          localDb.createObjectStore(DELIVERY_CACHE_STORE, { keyPath: "id" });
         }
       };
 
@@ -179,13 +151,8 @@ function prepareDeliveryForCache(delivery) {
     "updatedAt",
     "recipientConfirmedAt"
   ].forEach(field => {
-    if (
-      local[field] &&
-      typeof local[field].toDate === "function"
-    ) {
-      local[field] = local[field]
-        .toDate()
-        .toISOString();
+    if (local[field] && typeof local[field].toDate === "function") {
+      local[field] = local[field].toDate().toISOString();
     }
   });
 
@@ -197,11 +164,7 @@ async function saveDriverDeliveriesToCache(deliveries) {
     const localDb = await openOfflineDB();
 
     await new Promise((resolve, reject) => {
-      const tx = localDb.transaction(
-        DELIVERY_CACHE_STORE,
-        "readwrite"
-      );
-
+      const tx = localDb.transaction(DELIVERY_CACHE_STORE, "readwrite");
       const store = tx.objectStore(DELIVERY_CACHE_STORE);
 
       deliveries.forEach(delivery => {
@@ -215,10 +178,7 @@ async function saveDriverDeliveriesToCache(deliveries) {
 
     localDb.close();
   } catch (error) {
-    console.error(
-      "Erro ao salvar entregas no cache offline:",
-      error
-    );
+    console.error("Erro ao salvar entregas no cache offline:", error);
   }
 }
 
@@ -227,14 +187,8 @@ async function getCachedDriverDeliveries(driverUid) {
     const localDb = await openOfflineDB();
 
     const result = await new Promise((resolve, reject) => {
-      const tx = localDb.transaction(
-        DELIVERY_CACHE_STORE,
-        "readonly"
-      );
-
-      const request = tx
-        .objectStore(DELIVERY_CACHE_STORE)
-        .getAll();
+      const tx = localDb.transaction(DELIVERY_CACHE_STORE, "readonly");
+      const request = tx.objectStore(DELIVERY_CACHE_STORE).getAll();
 
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -245,16 +199,10 @@ async function getCachedDriverDeliveries(driverUid) {
     return result
       .filter(delivery => delivery.driverUid === driverUid)
       .sort((a, b) =>
-        String(a.scheduledDate || "").localeCompare(
-          String(b.scheduledDate || "")
-        )
+        String(a.scheduledDate || "").localeCompare(String(b.scheduledDate || ""))
       );
   } catch (error) {
-    console.error(
-      "Erro ao carregar entregas do cache offline:",
-      error
-    );
-
+    console.error("Erro ao carregar entregas do cache offline:", error);
     return [];
   }
 }
@@ -265,10 +213,7 @@ async function getCachedDriverDeliveries(driverUid) {
 
 function saveProfileToCache(userUid, profile) {
   try {
-    localStorage.setItem(
-      `aguaParaTodosProfile_${userUid}`,
-      JSON.stringify(profile)
-    );
+    localStorage.setItem(`aguaParaTodosProfile_${userUid}`, JSON.stringify(profile));
   } catch (error) {
     console.error("Erro ao salvar perfil local:", error);
   }
@@ -276,10 +221,7 @@ function saveProfileToCache(userUid, profile) {
 
 function getProfileFromCache(userUid) {
   try {
-    const saved = localStorage.getItem(
-      `aguaParaTodosProfile_${userUid}`
-    );
-
+    const saved = localStorage.getItem(`aguaParaTodosProfile_${userUid}`);
     return saved ? JSON.parse(saved) : null;
   } catch (error) {
     console.error("Erro ao recuperar perfil local:", error);
@@ -367,19 +309,14 @@ function esc(value = "") {
 function fmtDate(timestamp) {
   if (!timestamp) return "—";
 
-  const date = timestamp.toDate
-    ? timestamp.toDate()
-    : new Date(timestamp);
-
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return date.toLocaleString("pt-BR");
 }
 
 function dateOnly(value) {
   if (!value) return "—";
-
-  /* =========================================================
-   PIN DE CONFIRMAÇÃO DO BENEFICIÁRIO
-========================================================= */
+  return new Date(value + "T12:00:00").toLocaleDateString("pt-BR");
+}
 
 function generateConfirmationPin() {
   const values = new Uint32Array(1);
@@ -389,13 +326,7 @@ function generateConfirmationPin() {
     return String(values[0] % 1000000).padStart(6, "0");
   }
 
-  return String(
-    Math.floor(Math.random() * 1000000)
-  ).padStart(6, "0");
-}
-
-  return new Date(value + "T12:00:00")
-    .toLocaleDateString("pt-BR");
+  return String(Math.floor(Math.random() * 1000000)).padStart(6, "0");
 }
 
 /* =========================================================
@@ -422,8 +353,7 @@ if ($("loginForm")) {
 
       if ($("loginMsg")) {
         $("loginMsg").textContent =
-          error.message &&
-          error.message.includes("telefone brasileiro válido")
+          error.message && error.message.includes("telefone brasileiro válido")
             ? error.message
             : friendlyAuthError(error);
       }
@@ -433,26 +363,17 @@ if ($("loginForm")) {
 
 function friendlyAuthError(error) {
   const messages = {
-    "auth/invalid-credential":
-      "Telefone/e-mail ou senha inválidos.",
-    "auth/user-not-found":
-      "Usuário não encontrado.",
-    "auth/wrong-password":
-      "Senha incorreta.",
-    "auth/too-many-requests":
-      "Muitas tentativas. Aguarde alguns minutos.",
-    "auth/email-already-in-use":
-      "Este acesso já está cadastrado.",
-    "auth/invalid-email":
-      "O telefone ou e-mail informado é inválido.",
-    "auth/weak-password":
-      "A senha informada é muito fraca.",
-    "auth/network-request-failed":
-      "Falha de conexão. Verifique a internet."
+    "auth/invalid-credential": "Telefone/e-mail ou senha incorretos.",
+    "auth/user-not-found": "Usuário não encontrado.",
+    "auth/wrong-password": "Senha incorreta.",
+    "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos.",
+    "auth/email-already-in-use": "Este acesso já está cadastrado.",
+    "auth/invalid-email": "O telefone ou e-mail informado é inválido.",
+    "auth/weak-password": "A senha informada é muito fraca.",
+    "auth/network-request-failed": "Falha de conexão. Verifique sua internet."
   };
 
-  return messages[error.code] ||
-    "Não foi possível entrar. Verifique os dados e tente novamente.";
+  return messages[error.code] || "Não foi possível entrar. Verifique seus dados.";
 }
 
 /* =========================================================
@@ -464,22 +385,18 @@ onAuthStateChanged(auth, async user => {
     state.user = null;
     state.profile = null;
 
-    if ($("loginView")) {
-      $("loginView").classList.remove("hidden");
-    }
+    document.body.classList.add("login-active");
 
-    if ($("appView")) {
-      $("appView").classList.add("hidden");
-    }
-
-    if ($("logoutBtn")) {
-      $("logoutBtn").classList.add("hidden");
-    }
+    if ($("loginView")) $("loginView").classList.remove("hidden");
+    if ($("appView")) $("appView").classList.add("hidden");
+    if ($("logoutBtn")) $("logoutBtn").classList.add("hidden");
 
     return;
   }
 
   state.user = user;
+
+  document.body.classList.remove("login-active");
 
   if ($("loginView")) $("loginView").classList.add("hidden");
   if ($("appView")) $("appView").classList.remove("hidden");
@@ -491,9 +408,7 @@ onAuthStateChanged(auth, async user => {
     let profile = null;
 
     try {
-      const snapshot = await getDoc(
-        doc(db, "users", user.uid)
-      );
+      const snapshot = await getDoc(doc(db, "users", user.uid));
 
       if (snapshot.exists()) {
         profile = {
@@ -504,10 +419,7 @@ onAuthStateChanged(auth, async user => {
         saveProfileToCache(user.uid, profile);
       }
     } catch (firebaseError) {
-      console.warn(
-        "Não foi possível carregar o perfil do Firebase.",
-        firebaseError
-      );
+      console.warn("Não foi possível carregar o perfil do Firebase.", firebaseError);
     }
 
     if (!profile) {
@@ -515,17 +427,12 @@ onAuthStateChanged(auth, async user => {
     }
 
     if (!profile) {
-      toast(
-        "Usuário autenticado, mas sem perfil cadastrado."
-      );
+      toast("Usuário autenticado, mas sem perfil cadastrado.");
       return;
     }
 
     if (profile.active === false) {
-      toast(
-        "Este usuário está inativo. Procure a administração."
-      );
-
+      toast("Este usuário está inativo. Procure a administração.");
       await signOut(auth);
       return;
     }
@@ -533,8 +440,7 @@ onAuthStateChanged(auth, async user => {
     state.profile = profile;
 
     if ($("userName")) {
-      $("userName").textContent =
-        profile.name || user.email || "Usuário";
+      $("userName").textContent = profile.name || user.email || "Usuário";
     }
 
     if ($("userRole")) {
@@ -543,11 +449,7 @@ onAuthStateChanged(auth, async user => {
 
     await renderByRole();
   } catch (error) {
-    console.error(
-      "Erro ao carregar perfil/aplicativo:",
-      error
-    );
-
+    console.error("Erro ao carregar perfil/aplicativo:", error);
     toast("Erro ao carregar seu perfil.");
   }
 });
@@ -565,11 +467,7 @@ function roleLabel(role) {
 }
 
 async function renderByRole() {
-  [
-    "adminPanel",
-    "driverPanel",
-    "recipientPanel"
-  ].forEach(id => {
+  ["adminPanel", "driverPanel", "recipientPanel"].forEach(id => {
     if ($(id)) $(id).classList.add("hidden");
   });
 
@@ -584,10 +482,7 @@ async function renderByRole() {
   }
 
   if (state.profile.role === "recipient") {
-    if ($("recipientPanel")) {
-      $("recipientPanel").classList.remove("hidden");
-    }
-
+    if ($("recipientPanel")) $("recipientPanel").classList.remove("hidden");
     await renderRecipient();
   }
 }
@@ -598,9 +493,7 @@ async function renderByRole() {
 
 async function renderAdmin() {
   try {
-    const householdSnapshot = await getDocs(
-      collection(db, "households")
-    );
+    const householdSnapshot = await getDocs(collection(db, "households"));
 
     state.households = householdSnapshot.docs
       .map(item => ({
@@ -608,17 +501,11 @@ async function renderAdmin() {
         ...item.data()
       }))
       .sort((a, b) =>
-        String(a.name || "").localeCompare(
-          String(b.name || ""),
-          "pt-BR"
-        )
+        String(a.name || "").localeCompare(String(b.name || ""), "pt-BR")
       );
 
     const deliverySnapshot = await getDocs(
-      query(
-        collection(db, "deliveries"),
-        limit(100)
-      )
+      query(collection(db, "deliveries"), limit(100))
     );
 
     state.deliveries = deliverySnapshot.docs
@@ -627,9 +514,7 @@ async function renderAdmin() {
         ...item.data()
       }))
       .sort((a, b) =>
-        String(b.scheduledDate || "").localeCompare(
-          String(a.scheduledDate || "")
-        )
+        String(b.scheduledDate || "").localeCompare(String(a.scheduledDate || ""))
       );
 
     renderAdminMenu();
@@ -653,17 +538,9 @@ async function renderAdmin() {
 ========================================================= */
 
 function renderAdminMenu() {
-  const pending = state.deliveries.filter(
-    item => item.status === "scheduled"
-  ).length;
-
-  const completed = state.deliveries.filter(
-    item => item.status === "completed"
-  ).length;
-
-  const awaiting = state.deliveries.filter(
-    item => item.status === "awaiting_confirmation"
-  ).length;
+  const pending = state.deliveries.filter(item => item.status === "scheduled").length;
+  const completed = state.deliveries.filter(item => item.status === "completed").length;
+  const awaiting = state.deliveries.filter(item => item.status === "awaiting_confirmation").length;
 
   $("adminPanel").innerHTML = `
     <div class="card">
@@ -677,7 +554,7 @@ function renderAdminMenu() {
       <div class="stats">
         <div class="stat"><b>${state.households.length}</b> famílias</div>
         <div class="stat"><b>${pending}</b> programadas</div>
-        <div class="stat"><b>${awaiting}</b> aguardando confirmação</div>
+        <div class="stat"><b>${awaiting}</b> aguardando</div>
         <div class="stat"><b>${completed}</b> concluídas</div>
       </div>
     </div>
@@ -750,25 +627,10 @@ async function handleAdminMenu(section) {
   if (section === "drivers") return renderAdminDrivers();
   if (section === "users") return renderAdminUsers();
   if (section === "new-delivery") return showDeliveryForm();
-
-  if (section === "scheduled") {
-    return renderAdminDeliveries("scheduled", "Entregas programadas");
-  }
-
-  if (section === "awaiting") {
-    return renderAdminDeliveries(
-      "awaiting_confirmation",
-      "Aguardando confirmação"
-    );
-  }
-
-  if (section === "completed") {
-    return renderAdminDeliveries("completed", "Entregas concluídas");
-  }
-
-  if (section === "history") {
-    return renderAdminDeliveries("all", "Histórico de entregas");
-  }
+  if (section === "scheduled") return renderAdminDeliveries("scheduled", "Entregas programadas");
+  if (section === "awaiting") return renderAdminDeliveries("awaiting_confirmation", "Aguardando confirmação");
+  if (section === "completed") return renderAdminDeliveries("completed", "Entregas concluídas");
+  if (section === "history") return renderAdminDeliveries("all", "Histórico de entregas");
 }
 
 /* =========================================================
@@ -806,35 +668,25 @@ function renderAdminHouseholds() {
   $("adminNewHousehold").onclick = showHouseholdForm;
 
   document.querySelectorAll("[data-edit-household]").forEach(button => {
-    button.onclick = () =>
-      showEditHouseholdForm(button.dataset.editHousehold);
+    button.onclick = () => showEditHouseholdForm(button.dataset.editHousehold);
   });
 }
 
 function householdCard(household) {
-  const accessText = household.recipientUid
-    ? "Acesso criado"
-    : "Sem acesso";
+  const accessText = household.recipientUid ? "Acesso criado" : "Sem acesso";
 
   return `
     <div class="item">
       <div class="row">
         <h3>${esc(household.name || "Sem nome")}</h3>
-
-        <span class="pill ${
-          household.active === false ? "cancelled" : "completed"
-        }">
+        <span class="pill ${household.active === false ? "cancelled" : "completed"}">
           ${household.active === false ? "Inativa" : "Ativa"}
         </span>
       </div>
 
       <p>
         <b>Telefone:</b> ${esc(household.phone || "—")}
-        ${
-          household.cpf
-            ? ` · <b>CPF:</b> ${esc(household.cpf)}`
-            : ""
-        }
+        ${household.cpf ? ` · <b>CPF:</b> ${esc(household.cpf)}` : ""}
       </p>
 
       <p><b>Comunidade:</b> ${esc(household.community || "—")}</p>
@@ -856,9 +708,7 @@ function householdCard(household) {
       </p>
 
       <div class="actions">
-        <button
-          class="secondary"
-          data-edit-household="${esc(household.id)}">
+        <button class="secondary" data-edit-household="${esc(household.id)}">
           ✏️ Editar cadastro
         </button>
       </div>
@@ -867,7 +717,7 @@ function householdCard(household) {
 }
 
 /* =========================================================
-   CADASTRAR FAMÍLIA E ACESSO DO BENEFICIÁRIO
+   CADASTRAR FAMÍLIA E ACESSO
 ========================================================= */
 
 function showHouseholdForm() {
@@ -877,64 +727,47 @@ function showHouseholdForm() {
     <form id="householdForm">
       <label>
         Nome do responsável
-        <input id="hName" autocomplete="name" required>
+        <input id="hName" autocomplete="name" placeholder="Nome completo" required>
       </label>
 
       <label>
         CPF (opcional)
-        <input id="hCpf" inputmode="numeric">
+        <input id="hCpf" inputmode="numeric" placeholder="Apenas números">
       </label>
 
       <label>
-        Telefone do beneficiário
-        <input id="hPhone" type="tel" autocomplete="tel" required>
+        Telefone do beneficiário (com DDD)
+        <input id="hPhone" type="tel" autocomplete="tel" placeholder="Ex: 84999998888" required>
       </label>
 
       <div class="notice">
         <b>Acesso do beneficiário</b><br>
-        O beneficiário entrará no aplicativo usando este telefone
-        e a senha inicial definida abaixo. Não é necessário e-mail pessoal.
+        O beneficiário entrará no aplicativo usando este telefone e a senha definida abaixo. Não é necessário e-mail.
       </div>
 
       <label>
         Senha inicial
-        <input
-          id="hPassword"
-          type="password"
-          minlength="6"
-          autocomplete="new-password"
-          required>
+        <input id="hPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Mínimo 6 dígitos" required>
       </label>
 
       <label>
         Confirmar senha
-        <input
-          id="hPasswordConfirm"
-          type="password"
-          minlength="6"
-          autocomplete="new-password"
-          required>
+        <input id="hPasswordConfirm" type="password" minlength="6" autocomplete="new-password" placeholder="Repita a senha" required>
       </label>
-
-      <p class="small">
-        A senha precisa ter pelo menos 6 caracteres e não será
-        armazenada no banco de dados. Entregue a senha inicial
-        diretamente ao beneficiário.
-      </p>
 
       <label>
         Comunidade / zona rural
-        <input id="hCommunity" required>
+        <input id="hCommunity" placeholder="Ex: Serra Vermelha, Ponta do Mel" required>
       </label>
 
       <label>
         Endereço / referência
-        <input id="hAddress" required>
+        <input id="hAddress" placeholder="Ponto de referência para o motorista" required>
       </label>
 
       <label>
-        Quantidade de pessoas
-        <input id="hPeople" type="number" min="1" required>
+        Quantidade de pessoas na casa
+        <input id="hPeople" type="number" min="1" value="1" required>
       </label>
 
       <label>
@@ -949,17 +782,12 @@ function showHouseholdForm() {
 
       <label>
         Litros programados por entrega
-        <input id="hLiters" type="number" min="1" required>
+        <input id="hLiters" type="number" min="1" placeholder="Ex: 5000" required>
       </label>
 
       <div class="actions">
-        <button type="button" class="secondary" id="cancelNewHousehold">
-          Cancelar
-        </button>
-
-        <button class="primary" id="saveHousehold">
-          Salvar família
-        </button>
+        <button type="button" class="secondary" id="cancelNewHousehold">Cancelar</button>
+        <button class="primary" id="saveHousehold">Salvar família</button>
       </div>
     </form>
   `);
@@ -970,7 +798,6 @@ function showHouseholdForm() {
     event.preventDefault();
 
     const button = $("saveHousehold");
-
     const name = $("hName").value.trim();
     const cpf = $("hCpf").value.trim();
     const phone = $("hPhone").value.trim();
@@ -985,35 +812,20 @@ function showHouseholdForm() {
     if (!name) return toast("Informe o nome do responsável.");
 
     let authEmail;
-
     try {
       authEmail = recipientAuthEmail(phone);
     } catch (error) {
       return toast(error.message);
     }
 
-    if (password.length < 6) {
-      return toast("A senha precisa ter pelo menos 6 caracteres.");
-    }
-
-    if (password !== passwordConfirm) {
-      return toast("As senhas não conferem.");
-    }
-
+    if (password.length < 6) return toast("A senha precisa ter pelo menos 6 caracteres.");
+    if (password !== passwordConfirm) return toast("As senhas não conferem.");
     if (!community) return toast("Informe a comunidade ou zona rural.");
     if (!address) return toast("Informe o endereço ou referência.");
+    if (!Number.isFinite(people) || people < 1) return toast("Informe uma quantidade válida de pessoas.");
+    if (!Number.isFinite(defaultLiters) || defaultLiters < 1) return toast("Informe uma quantidade válida de litros.");
 
-    if (!Number.isFinite(people) || people < 1) {
-      return toast("Informe uma quantidade válida de pessoas.");
-    }
-
-    if (!Number.isFinite(defaultLiters) || defaultLiters < 1) {
-      return toast("Informe uma quantidade válida de litros.");
-    }
-
-    if (!secondaryAuth) {
-      return toast("Não foi possível preparar o cadastro do beneficiário.");
-    }
+    if (!secondaryAuth) return toast("Não foi possível preparar o cadastro do beneficiário.");
 
     let createdUser = null;
     let createdUserProfile = false;
@@ -1031,39 +843,33 @@ function showHouseholdForm() {
 
       createdUser = credential.user;
 
-      const householdRef = await addDoc(
-        collection(db, "households"),
-        {
-          name,
-          cpf,
-          phone,
-          recipientUid: createdUser.uid,
-          community,
-          address,
-          people,
-          frequency,
-          defaultLiters,
-          active: true,
-          createdAt: serverTimestamp(),
-          createdBy: state.user.uid
-        }
-      );
+      const householdRef = await addDoc(collection(db, "households"), {
+        name,
+        cpf,
+        phone,
+        recipientUid: createdUser.uid,
+        community,
+        address,
+        people,
+        frequency,
+        defaultLiters,
+        active: true,
+        createdAt: serverTimestamp(),
+        createdBy: state.user.uid
+      });
 
       createdHouseholdId = householdRef.id;
 
-      await setDoc(
-        doc(db, "users", createdUser.uid),
-        {
-          name,
-          phone,
-          authEmail,
-          role: "recipient",
-          active: true,
-          householdId: createdHouseholdId,
-          createdAt: serverTimestamp(),
-          createdBy: state.user.uid
-        }
-      );
+      await setDoc(doc(db, "users", createdUser.uid), {
+        name,
+        phone,
+        authEmail,
+        role: "recipient",
+        active: true,
+        householdId: createdHouseholdId,
+        createdAt: serverTimestamp(),
+        createdBy: state.user.uid
+      });
 
       createdUserProfile = true;
 
@@ -1072,37 +878,27 @@ function showHouseholdForm() {
       } catch (_) {}
 
       closeModal();
-      toast("Família e acesso do beneficiário cadastrados com sucesso.");
-
+      toast("Família cadastrada com sucesso.");
       await renderAdmin();
     } catch (error) {
-      console.error(
-        "Erro ao cadastrar família e beneficiário:",
-        error
-      );
+      console.error("Erro ao cadastrar família e beneficiário:", error);
 
       if (createdHouseholdId) {
         try {
           await deleteDoc(doc(db, "households", createdHouseholdId));
-        } catch (cleanupError) {
-          console.warn("Falha ao remover família incompleta:", cleanupError);
-        }
+        } catch (_) {}
       }
 
       if (createdUserProfile && createdUser) {
         try {
           await deleteDoc(doc(db, "users", createdUser.uid));
-        } catch (cleanupError) {
-          console.warn("Falha ao remover perfil incompleto:", cleanupError);
-        }
+        } catch (_) {}
       }
 
       if (createdUser) {
         try {
           await deleteUser(createdUser);
-        } catch (cleanupError) {
-          console.warn("Falha ao remover usuário incompleto:", cleanupError);
-        }
+        } catch (_) {}
       }
 
       try {
@@ -1110,22 +906,9 @@ function showHouseholdForm() {
       } catch (_) {}
 
       if (error.code === "auth/email-already-in-use") {
-        toast(
-          "Já existe um acesso cadastrado com esse telefone. Verifique os cadastros."
-        );
-      } else if (error.code === "auth/weak-password") {
-        toast("A senha é muito fraca.");
-      } else if (
-        error.code === "permission-denied" ||
-        error.code === "firestore/permission-denied"
-      ) {
-        toast(
-          "O Firestore bloqueou o cadastro. Verifique as regras do banco."
-        );
+        toast("Já existe um acesso cadastrado com esse telefone.");
       } else {
-        toast(
-          "Não foi possível cadastrar a família e o acesso. Verifique a conexão e as regras do Firebase."
-        );
+        toast("Não foi possível cadastrar a família. Verifique a conexão.");
       }
     } finally {
       button.disabled = false;
@@ -1140,11 +923,7 @@ function showHouseholdForm() {
 
 function showEditHouseholdForm(id) {
   const household = state.households.find(item => item.id === id);
-
-  if (!household) {
-    toast("Família não encontrada.");
-    return;
-  }
+  if (!household) return toast("Família não encontrada.");
 
   openModal(`
     <h2>Editar família / imóvel</h2>
@@ -1162,20 +941,8 @@ function showEditHouseholdForm(id) {
 
       <label>
         Telefone
-        <input
-          id="ehPhone"
-          value="${esc(household.phone || "")}"
-          ${household.recipientUid ? "disabled" : ""}
-          required>
+        <input id="ehPhone" value="${esc(household.phone || "")}" ${household.recipientUid ? "disabled" : ""} required>
       </label>
-
-      <div class="notice">
-        ${
-          household.recipientUid
-            ? "Este beneficiário já possui acesso. O telefone de login está bloqueado nesta tela para evitar que o cadastro fique diferente do telefone usado para entrar."
-            : "Este cadastro ainda não possui acesso ao aplicativo. Ao criar o acesso, o telefone informado será usado para entrar."
-        }
-      </div>
 
       <label>
         Comunidade / zona rural
@@ -1273,10 +1040,7 @@ async function loadDrivers() {
   state.drivers = snapshot.docs
     .map(item => ({ id: item.id, ...item.data() }))
     .sort((a, b) =>
-      String(a.name || "").localeCompare(
-        String(b.name || ""),
-        "pt-BR"
-      )
+      String(a.name || "").localeCompare(String(b.name || ""), "pt-BR")
     );
 
   return state.drivers;
@@ -1315,7 +1079,6 @@ async function renderAdminDrivers() {
 
                 <p><b>E-mail:</b> ${esc(driver.email || "Não informado")}</p>
                 <p><b>Telefone:</b> ${esc(driver.phone || "Não informado")}</p>
-                <p class="small">UID: ${esc(driver.id)}</p>
 
                 <div class="actions">
                   <button class="secondary" data-edit-driver="${esc(driver.id)}">
@@ -1323,8 +1086,7 @@ async function renderAdminDrivers() {
                   </button>
                 </div>
               </div>
-            `).join("") ||
-            "<p class='small'>Nenhum motorista cadastrado.</p>"
+            `).join("") || "<p class='small'>Nenhum motorista cadastrado.</p>"
           }
         </div>
       </div>
@@ -1337,7 +1099,6 @@ async function renderAdminDrivers() {
     });
   } catch (error) {
     console.error("Erro ao carregar motoristas:", error);
-
     content.innerHTML = `
       <div class="card">
         <h2>Erro ao carregar motoristas</h2>
@@ -1351,33 +1112,26 @@ function showDriverForm() {
   openModal(`
     <h2>Cadastrar motorista</h2>
 
-    <div class="notice">
-      Será criado um usuário de acesso próprio para o motorista.
-      O motorista continua entrando com e-mail e senha.
-    </div>
-
     <form id="driverForm">
       <label>
         Nome completo
-        <input id="driverName" type="text" autocomplete="name" required>
+        <input id="driverName" type="text" autocomplete="name" placeholder="Nome do motorista" required>
       </label>
 
       <label>
         E-mail de acesso
-        <input id="driverEmail" type="email" autocomplete="email" required>
+        <input id="driverEmail" type="email" autocomplete="email" placeholder="motorista@exemplo.com" required>
       </label>
 
       <label>
         Telefone
-        <input id="driverPhone" type="tel" autocomplete="tel" required>
+        <input id="driverPhone" type="tel" autocomplete="tel" placeholder="84999998888" required>
       </label>
 
       <label>
         Senha inicial
-        <input id="driverPassword" type="password" minlength="6" autocomplete="new-password" required>
+        <input id="driverPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Mínimo 6 dígitos" required>
       </label>
-
-      <p class="small">A senha precisa ter pelo menos 6 caracteres.</p>
 
       <div class="actions">
         <button type="button" class="secondary" id="cancelDriver">Cancelar</button>
@@ -1397,26 +1151,15 @@ function showDriverForm() {
     const phone = $("driverPhone").value.trim();
     const password = $("driverPassword").value;
 
-    if (!name) return toast("Informe o nome do motorista.");
-    if (!email) return toast("Informe o e-mail do motorista.");
-    if (!phone) return toast("Informe o telefone do motorista.");
-    if (password.length < 6) {
-      return toast("A senha precisa ter pelo menos 6 caracteres.");
-    }
-    if (!secondaryAuth) {
-      return toast("Não foi possível preparar o cadastro do motorista.");
-    }
+    if (!name || !email || !phone) return toast("Preencha todos os campos.");
+    if (password.length < 6) return toast("A senha precisa ter pelo menos 6 caracteres.");
+    if (!secondaryAuth) return toast("Não foi possível preparar o cadastro do motorista.");
 
     try {
       button.disabled = true;
       button.textContent = "Cadastrando...";
 
-      const credential = await createUserWithEmailAndPassword(
-        secondaryAuth,
-        email,
-        password
-      );
-
+      const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
       const newUser = credential.user;
 
       await setDoc(doc(db, "users", newUser.uid), {
@@ -1433,28 +1176,15 @@ function showDriverForm() {
 
       closeModal();
       toast("Motorista cadastrado com sucesso.");
-
       await renderAdmin();
       await renderAdminDrivers();
     } catch (error) {
       console.error("Erro ao cadastrar motorista:", error);
-
-      if (error.code === "auth/email-already-in-use") {
-        toast("Este e-mail já está cadastrado.");
-      } else if (error.code === "auth/invalid-email") {
-        toast("O e-mail informado é inválido.");
-      } else if (error.code === "auth/weak-password") {
-        toast("A senha é muito fraca.");
-      } else if (error.code === "permission-denied") {
-        toast("O Firestore bloqueou a criação do perfil.");
-      } else {
-        toast("Não foi possível cadastrar o motorista.");
-      }
-
+      toast("Não foi possível cadastrar o motorista. Verifique os dados.");
       try {
         await signOutSecondary(secondaryAuth);
       } catch (_) {}
-
+    } finally {
       button.disabled = false;
       button.textContent = "Cadastrar motorista";
     }
@@ -1463,15 +1193,10 @@ function showDriverForm() {
 
 function showEditDriverForm(id) {
   const driver = state.drivers.find(item => item.id === id);
-
   if (!driver) return toast("Motorista não encontrado.");
 
   openModal(`
     <h2>Editar motorista</h2>
-
-    <div class="notice">
-      O e-mail de acesso não será alterado nesta tela.
-    </div>
 
     <form id="editDriverForm">
       <label>
@@ -1497,8 +1222,6 @@ function showEditDriverForm(id) {
         </select>
       </label>
 
-      <p class="small">O UID permanece o mesmo para preservar as entregas vinculadas.</p>
-
       <div class="actions">
         <button type="button" class="secondary" id="cancelEditDriver">Cancelar</button>
         <button type="submit" class="primary">Salvar alterações</button>
@@ -1522,7 +1245,6 @@ function showEditDriverForm(id) {
 
       closeModal();
       toast("Motorista atualizado com sucesso.");
-
       await renderAdmin();
       await renderAdminDrivers();
     } catch (error) {
@@ -1541,17 +1263,12 @@ async function renderAdminUsers() {
   if (!content) return;
 
   try {
-    const snapshot = await getDocs(
-      query(collection(db, "users"), limit(100))
-    );
+    const snapshot = await getDocs(query(collection(db, "users"), limit(100)));
 
     const users = snapshot.docs
       .map(item => ({ id: item.id, ...item.data() }))
       .sort((a, b) =>
-        String(a.name || "").localeCompare(
-          String(b.name || ""),
-          "pt-BR"
-        )
+        String(a.name || "").localeCompare(String(b.name || ""), "pt-BR")
       );
 
     state.users = users;
@@ -1571,7 +1288,6 @@ async function renderAdminUsers() {
               <div class="item">
                 <div class="row">
                   <h3>${esc(user.name || "Usuário")}</h3>
-
                   <span class="pill ${user.active === false ? "cancelled" : "completed"}">
                     ${user.active === false ? "Inativo" : roleLabel(user.role)}
                   </span>
@@ -1581,14 +1297,12 @@ async function renderAdminUsers() {
                   <b>Login:</b>
                   ${
                     user.role === "recipient"
-                      ? "Telefone"
+                      ? "Telefone: " + esc(user.phone || "Não informado")
                       : esc(user.email || "Não informado")
                   }
                 </p>
 
-                <p><b>Telefone:</b> ${esc(user.phone || "Não informado")}</p>
                 <p><b>Perfil:</b> ${esc(roleLabel(user.role))}</p>
-                <p class="small">UID: ${esc(user.id)}</p>
 
                 <div class="actions">
                   <button class="secondary" data-edit-user="${esc(user.id)}">
@@ -1596,8 +1310,7 @@ async function renderAdminUsers() {
                   </button>
                 </div>
               </div>
-            `).join("") ||
-            "<p class='small'>Nenhum usuário cadastrado.</p>"
+            `).join("") || "<p class='small'>Nenhum usuário cadastrado.</p>"
           }
         </div>
       </div>
@@ -1608,7 +1321,6 @@ async function renderAdminUsers() {
     });
   } catch (error) {
     console.error("Erro ao carregar usuários:", error);
-
     content.innerHTML = `
       <div class="card">
         <h2>Erro ao carregar usuários</h2>
@@ -1620,16 +1332,10 @@ async function renderAdminUsers() {
 
 function showEditUserForm(id) {
   const user = state.users.find(item => item.id === id);
-
   if (!user) return toast("Usuário não encontrado.");
 
   openModal(`
     <h2>Editar usuário</h2>
-
-    <div class="notice">
-      O login não será alterado nesta tela.
-      Beneficiários entram usando o telefone cadastrado.
-    </div>
 
     <form id="editUserForm">
       <label>
@@ -1639,21 +1345,12 @@ function showEditUserForm(id) {
 
       <label>
         Login
-        <input
-          value="${esc(
-            user.role === "recipient"
-              ? user.phone || "Telefone não informado"
-              : user.email || ""
-          )}"
-          disabled>
+        <input value="${esc(user.role === "recipient" ? user.phone || "" : user.email || "")}" disabled>
       </label>
 
       <label>
         Telefone
-        <input
-          id="euPhone"
-          value="${esc(user.phone || "")}"
-          ${user.role === "recipient" ? "disabled" : ""}>
+        <input id="euPhone" value="${esc(user.phone || "")}" ${user.role === "recipient" ? "disabled" : ""}>
       </label>
 
       <label>
@@ -1702,7 +1399,6 @@ function showEditUserForm(id) {
 
       closeModal();
       toast("Usuário atualizado com sucesso.");
-
       await renderAdmin();
       await renderAdminUsers();
     } catch (error) {
@@ -1758,10 +1454,7 @@ function renderAdminDeliveries(filter, title) {
 }
 
 function deliveryCard(delivery) {
-  const canEdit = [
-    "scheduled",
-    "awaiting_confirmation"
-  ].includes(delivery.status);
+  const canEdit = ["scheduled", "awaiting_confirmation"].includes(delivery.status);
 
   return `
     <div class="item">
@@ -1784,23 +1477,7 @@ function deliveryCard(delivery) {
 
       ${
         delivery.completedAt
-          ? `
-            <p>
-              <b>Registro:</b> ${fmtDate(delivery.completedAt)}
-              · <b>Recebido:</b> ${esc(delivery.receivedLiters ?? "—")} L
-            </p>
-          `
-          : ""
-      }
-
-      ${
-        delivery.recipientConfirmedAt
-          ? `
-            <p>
-              <b>Confirmado pelo beneficiário:</b>
-              ${fmtDate(delivery.recipientConfirmedAt)}
-            </p>
-          `
+          ? `<p><b>Registro:</b> ${fmtDate(delivery.completedAt)} · <b>Recebido:</b> ${esc(delivery.receivedLiters ?? "—")} L</p>`
           : ""
       }
 
@@ -1811,11 +1488,7 @@ function deliveryCard(delivery) {
 
         ${
           canEdit
-            ? `
-              <button class="secondary" data-edit-delivery="${esc(delivery.id)}">
-                ✏️ Editar entrega
-              </button>
-            `
+            ? `<button class="secondary" data-edit-delivery="${esc(delivery.id)}">✏️ Editar</button>`
             : ""
         }
       </div>
@@ -1831,38 +1504,31 @@ async function showDeliveryDetails(id) {
   try {
     const snapshot = await getDoc(doc(db, "deliveries", id));
 
-    if (!snapshot.exists()) {
-      toast("Entrega não encontrada.");
-      return;
+    if (!snapshot.exists()) return toast("Entrega não encontrada.");
+
+    let delivery = {
+      id: snapshot.id,
+      ...snapshot.data()
+    };
+
+    if (
+      ["scheduled", "awaiting_confirmation"].includes(delivery.status) &&
+      !delivery.confirmationPin
+    ) {
+      const confirmationPin = generateConfirmationPin();
+
+      await updateDoc(doc(db, "deliveries", id), {
+        confirmationPin,
+        updatedAt: serverTimestamp(),
+        updatedBy: state.user.uid
+      });
+
+      delivery.confirmationPin = confirmationPin;
+
+      state.deliveries = state.deliveries.map(item =>
+        item.id === id ? { ...item, confirmationPin } : item
+      );
     }
-
-   let delivery = {
-  id: snapshot.id,
-  ...snapshot.data()
-};
-
-// Corrige entregas antigas que foram programadas sem PIN.
-// O código é gerado uma única vez e salvo no Firestore.
-if (
-  ["scheduled", "awaiting_confirmation"].includes(delivery.status) &&
-  !delivery.confirmationPin
-) {
-  const confirmationPin = generateConfirmationPin();
-
-  await updateDoc(doc(db, "deliveries", id), {
-    confirmationPin,
-    updatedAt: serverTimestamp(),
-    updatedBy: state.user.uid
-  });
-
-  delivery.confirmationPin = confirmationPin;
-
-  state.deliveries = state.deliveries.map(item =>
-    item.id === id
-      ? { ...item, confirmationPin }
-      : item
-  );
-}
 
     const presentText = delivery.recipientPresent === true
       ? "Sim"
@@ -1872,13 +1538,10 @@ if (
 
     const signatureHtml = delivery.signatureData
       ? `
-        <div style="margin-top:18px">
+        <div style="margin-top:16px">
           <h3>Assinatura do beneficiário</h3>
-          <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:10px">
-            <img
-              src="${esc(delivery.signatureData)}"
-              alt="Assinatura do beneficiário"
-              style="display:block;width:100%;max-width:500px;height:auto;background:#fff">
+          <div style="background:#fff;border:1px solid #dfe5ee;border-radius:12px;padding:8px">
+            <img src="${esc(delivery.signatureData)}" alt="Assinatura" style="display:block;width:100%;max-width:480px;height:auto">
           </div>
         </div>
       `
@@ -1886,18 +1549,9 @@ if (
 
     const photoHtml = delivery.photoUrl
       ? `
-        <div style="margin-top:18px">
+        <div style="margin-top:16px">
           <h3>Foto de comprovação</h3>
-          <img
-            src="${esc(delivery.photoUrl)}"
-            alt="Foto da entrega"
-            style="display:block;width:100%;max-width:600px;border-radius:8px">
-
-          <p style="margin-top:10px">
-            <a href="${esc(delivery.photoUrl)}" target="_blank" rel="noopener noreferrer">
-              Abrir foto em tamanho maior
-            </a>
-          </p>
+          <img src="${esc(delivery.photoUrl)}" alt="Foto da entrega" style="display:block;width:100%;max-width:540px;border-radius:12px">
         </div>
       `
       : "";
@@ -1910,89 +1564,43 @@ if (
       </div>
 
       <div class="item">
-        <h3>Beneficiário</h3>
-        <p><b>Nome:</b> ${esc(delivery.recipientName || "—")}</p>
-        <p><b>Telefone:</b> ${esc(delivery.recipientPhone || "—")}</p>
+        <h3>PIN do beneficiário</h3>
+        <p style="font-size:1.6rem;font-weight:800;letter-spacing:4px;color:var(--navy);margin:4px 0">
+          ${esc(delivery.confirmationPin || "Não gerado")}
+        </p>
       </div>
 
       <div class="item">
-        <h3>Local do abastecimento</h3>
-        <p>
-  <b>PIN do beneficiário:</b>
-  <span style="font-size:1.2rem;font-weight:800;letter-spacing:3px">
-    ${esc(delivery.confirmationPin || "Não gerado")}
-  </span>
-</p>
+        <h3>Beneficiário e Local</h3>
+        <p><b>Nome:</b> ${esc(delivery.recipientName || "—")}</p>
+        <p><b>Telefone:</b> ${esc(delivery.recipientPhone || "—")}</p>
         <p><b>Comunidade:</b> ${esc(delivery.community || "—")}</p>
         <p><b>Endereço:</b> ${esc(delivery.address || "—")}</p>
       </div>
 
       <div class="item">
-        <h3>Programação</h3>
-        <p><b>Data programada:</b> ${esc(delivery.scheduledDate || "—")}</p>
-        <p><b>Quantidade planejada:</b> ${esc(delivery.plannedLiters ?? "—")} L</p>
+        <h3>Dados Operacionais</h3>
+        <p><b>Data:</b> ${esc(delivery.scheduledDate || "—")}</p>
+        <p><b>Planejado:</b> ${esc(delivery.plannedLiters ?? "—")} L</p>
+        <p><b>Entregue:</b> ${delivery.receivedLiters != null ? `${esc(delivery.receivedLiters)} L` : "Pendente"}</p>
         <p><b>Motorista:</b> ${esc(delivery.driverName || "—")}</p>
-        <p><b>UID do motorista:</b> ${esc(delivery.driverUid || "—")}</p>
+        <p><b>Presente no local:</b> ${presentText}</p>
       </div>
-
-      <div class="item">
-        <h3>Resultado do abastecimento</h3>
-        <p>
-          <b>Quantidade entregue:</b>
-          ${delivery.receivedLiters != null
-            ? `${esc(delivery.receivedLiters)} L`
-            : "Ainda não registrada"}
-        </p>
-        <p><b>Beneficiário presente:</b> ${presentText}</p>
-        <p><b>Data/hora do registro:</b> ${fmtDate(delivery.completedAt)}</p>
-        <p><b>Registrado pelo UID:</b> ${esc(delivery.completedBy || "—")}</p>
-        <p><b>Observação:</b> ${esc(delivery.note || "Nenhuma")}</p>
-      </div>
-
-      ${
-        delivery.recipientConfirmedAt
-          ? `
-            <div class="notice">
-              <b>Recebimento confirmado</b><br>
-              ${fmtDate(delivery.recipientConfirmedAt)}
-            </div>
-          `
-          : ""
-      }
 
       ${signatureHtml}
       ${photoHtml}
 
-      <div class="item">
-        <h3>Controle e auditoria</h3>
-        <p><b>ID da entrega:</b> ${esc(delivery.id)}</p>
-        <p><b>Criada em:</b> ${fmtDate(delivery.createdAt)}</p>
-        <p><b>Criada pelo UID:</b> ${esc(delivery.createdBy || "—")}</p>
-        <p><b>Última alteração:</b> ${fmtDate(delivery.updatedAt)}</p>
-        <p><b>Alterada pelo UID:</b> ${esc(delivery.updatedBy || "—")}</p>
-      </div>
-
-      <div class="actions">
+      <div class="actions" style="margin-top:18px">
         ${
           ["scheduled", "awaiting_confirmation"].includes(delivery.status)
-            ? `
-              <button type="button" class="secondary" id="editFromDetails">
-                ✏️ Editar entrega
-              </button>
-            `
+            ? `<button type="button" class="secondary" id="editFromDetails">✏️ Editar programação</button>`
             : ""
         }
-
-        <button type="button" class="primary" id="closeDeliveryDetails">
-          Fechar
-        </button>
+        <button type="button" class="primary" id="closeDeliveryDetails">Fechar</button>
       </div>
     `);
 
-    if ($("closeDeliveryDetails")) {
-      $("closeDeliveryDetails").onclick = closeModal;
-    }
-
+    if ($("closeDeliveryDetails")) $("closeDeliveryDetails").onclick = closeModal;
     if ($("editFromDetails")) {
       $("editFromDetails").onclick = () => {
         closeModal();
@@ -2011,29 +1619,16 @@ if (
 
 async function showEditDeliveryForm(id) {
   const delivery = state.deliveries.find(item => item.id === id);
-
   if (!delivery) return toast("Entrega não encontrada.");
-
-  if (!["scheduled", "awaiting_confirmation"].includes(delivery.status)) {
-    return toast(
-      "Esta entrega já possui registro de execução e não pode ter sua programação alterada por esta tela."
-    );
-  }
 
   try {
     await loadDrivers();
   } catch (error) {
-    console.error(error);
-    return toast("Não foi possível carregar os motoristas.");
+    return toast("Erro ao carregar motoristas.");
   }
 
   openModal(`
     <h2>Editar entrega</h2>
-
-    <div class="notice">
-      Esta tela altera somente a programação.
-      Os registros feitos pelo motorista permanecem preservados.
-    </div>
 
     <form id="editDeliveryForm">
       <label>
@@ -2043,9 +1638,7 @@ async function showEditDeliveryForm(id) {
             state.households
               .filter(h => h.active !== false || h.id === delivery.householdId)
               .map(h => `
-                <option
-                  value="${esc(h.id)}"
-                  ${h.id === delivery.householdId ? "selected" : ""}>
+                <option value="${esc(h.id)}" ${h.id === delivery.householdId ? "selected" : ""}>
                   ${esc(h.name)} — ${esc(h.community)}
                 </option>
               `).join("")
@@ -2068,11 +1661,8 @@ async function showEditDeliveryForm(id) {
         <select id="edDeliveryDriver" required>
           ${
             state.drivers.map(driver => `
-              <option
-                value="${esc(driver.id)}"
-                ${driver.id === delivery.driverUid ? "selected" : ""}>
+              <option value="${esc(driver.id)}" ${driver.id === delivery.driverUid ? "selected" : ""}>
                 ${esc(driver.name || "Motorista")}
-                ${driver.active === false ? " (Inativo)" : ""}
               </option>
             `).join("")
           }
@@ -2093,30 +1683,14 @@ async function showEditDeliveryForm(id) {
 
   $("cancelEditDelivery").onclick = closeModal;
 
-  $("edDeliveryHousehold").onchange = () => {
-    const household = state.households.find(
-      item => item.id === $("edDeliveryHousehold").value
-    );
-
-    if (household) {
-      $("edDeliveryLiters").value = household.defaultLiters || "";
-    }
-  };
-
   $("editDeliveryForm").onsubmit = async event => {
     event.preventDefault();
 
     try {
-      const household = state.households.find(
-        item => item.id === $("edDeliveryHousehold").value
-      );
+      const household = state.households.find(item => item.id === $("edDeliveryHousehold").value);
+      const driver = state.drivers.find(item => item.id === $("edDeliveryDriver").value);
 
-      if (!household) return toast("Família não encontrada.");
-
-      const driverUid = $("edDeliveryDriver").value;
-      const driver = state.drivers.find(item => item.id === driverUid);
-
-      if (!driver) return toast("Motorista não encontrado.");
+      if (!household || !driver) return toast("Selecione os dados corretamente.");
 
       await updateDoc(doc(db, "deliveries", id), {
         householdId: household.id,
@@ -2127,7 +1701,7 @@ async function showEditDeliveryForm(id) {
         recipientPhone: household.phone,
         scheduledDate: $("edDeliveryDate").value,
         plannedLiters: Number($("edDeliveryLiters").value),
-        driverUid,
+        driverUid: driver.id,
         driverName: driver.name || "Motorista",
         note: $("edDeliveryNote").value.trim(),
         updatedAt: serverTimestamp(),
@@ -2148,38 +1722,20 @@ async function showEditDeliveryForm(id) {
    PROGRAMAR ENTREGA
 ========================================================= */
 
-
 async function showDeliveryForm() {
-  if (!state.households.length) {
-    return toast("Cadastre uma família primeiro.");
-  }
+  if (!state.households.length) return toast("Cadastre uma família primeiro.");
 
   try {
     await loadDrivers();
   } catch (error) {
-    console.error(error);
-    return toast("Não foi possível carregar os motoristas.");
+    return toast("Erro ao carregar motoristas.");
   }
 
-  if (!state.drivers.length) {
-    return toast("Nenhum motorista cadastrado foi encontrado.");
-  }
+  const activeHouseholds = state.households.filter(h => h.active !== false);
+  const activeDrivers = state.drivers.filter(d => d.active !== false);
 
-  const activeHouseholds = state.households.filter(
-    household => household.active !== false
-  );
-
-  const activeDrivers = state.drivers.filter(
-    driver => driver.active !== false
-  );
-
-  if (!activeHouseholds.length) {
-    return toast("Nenhuma família ativa encontrada.");
-  }
-
-  if (!activeDrivers.length) {
-    return toast("Nenhum motorista ativo encontrado.");
-  }
+  if (!activeHouseholds.length) return toast("Nenhuma família ativa encontrada.");
+  if (!activeDrivers.length) return toast("Nenhum motorista ativo encontrado.");
 
   openModal(`
     <h2>Programar entrega</h2>
@@ -2190,9 +1746,7 @@ async function showDeliveryForm() {
         <select id="dHousehold" required>
           ${
             activeHouseholds.map(h => `
-              <option value="${esc(h.id)}">
-                ${esc(h.name)} — ${esc(h.community)}
-              </option>
+              <option value="${esc(h.id)}">${esc(h.name)} — ${esc(h.community)}</option>
             `).join("")
           }
         </select>
@@ -2211,14 +1765,10 @@ async function showDeliveryForm() {
       <label>
         Motorista
         <select id="dDriverUid" required>
-          <option value="" disabled selected>
-            Selecione o motorista
-          </option>
+          <option value="" disabled selected>Selecione o motorista</option>
           ${
-            activeDrivers.map(driver => `
-              <option value="${esc(driver.id)}">
-                ${esc(driver.name || "Motorista")}
-              </option>
+            activeDrivers.map(d => `
+              <option value="${esc(d.id)}">${esc(d.name || "Motorista")}</option>
             `).join("")
           }
         </select>
@@ -2226,29 +1776,12 @@ async function showDeliveryForm() {
 
       <label>
         Observação
-        <textarea id="dNote"></textarea>
+        <textarea id="dNote" placeholder="Instruções de acesso ao reservatório"></textarea>
       </label>
 
-      <div class="notice">
-        Um PIN de seis dígitos será gerado automaticamente.
-        A administração poderá consultá-lo nos detalhes da entrega
-        para repassá-lo ao beneficiário.
-      </div>
-
       <div class="actions">
-        <button
-          type="button"
-          class="secondary"
-          id="cancelNewDelivery">
-          Cancelar
-        </button>
-
-        <button
-          type="submit"
-          class="primary"
-          id="saveNewDelivery">
-          Programar entrega
-        </button>
+        <button type="button" class="secondary" id="cancelNewDelivery">Cancelar</button>
+        <button type="submit" class="primary" id="saveNewDelivery">Programar entrega</button>
       </div>
     </form>
   `);
@@ -2256,10 +1789,7 @@ async function showDeliveryForm() {
   $("cancelNewDelivery").onclick = closeModal;
 
   $("dHousehold").onchange = () => {
-    const household = state.households.find(
-      item => item.id === $("dHousehold").value
-    );
-
+    const household = state.households.find(item => item.id === $("dHousehold").value);
     $("dLiters").value = household?.defaultLiters || "";
   };
 
@@ -2269,40 +1799,17 @@ async function showDeliveryForm() {
     event.preventDefault();
 
     const button = $("saveNewDelivery");
-
     if (button.disabled) return;
 
     try {
-      const household = state.households.find(
-        item => item.id === $("dHousehold").value
-      );
-
-      if (!household) {
-        return toast("Família selecionada não encontrada.");
-      }
-
-      if (household.active === false) {
-        return toast("Esta família está inativa.");
-      }
-
+      const household = state.households.find(item => item.id === $("dHousehold").value);
       const scheduledDate = $("dDate").value;
       const plannedLiters = Number($("dLiters").value);
       const driverUid = $("dDriverUid").value.trim();
+      const driver = state.drivers.find(item => item.id === driverUid);
 
-      const driver = state.drivers.find(
-        item => item.id === driverUid
-      );
-
-      if (!scheduledDate) {
-        return toast("Informe a data da entrega.");
-      }
-
-      if (!Number.isFinite(plannedLiters) || plannedLiters < 1) {
-        return toast("Informe uma quantidade válida de litros.");
-      }
-
-      if (!driver || driver.active === false) {
-        return toast("Selecione um motorista ativo.");
+      if (!scheduledDate || !plannedLiters || !driver) {
+        return toast("Preencha todos os campos obrigatórios.");
       }
 
       button.disabled = true;
@@ -2329,46 +1836,24 @@ async function showDeliveryForm() {
         createdBy: state.user.uid
       };
 
-      const deliveryRef = await addDoc(
-        collection(db, "deliveries"),
-        deliveryData
-      );
+      await addDoc(collection(db, "deliveries"), deliveryData);
 
       closeModal();
 
       openModal(`
-        <h2>Entrega programada!</h2>
+        <h2>Entrega programada com sucesso!</h2>
 
-        <div class="notice">
-          A entrega foi cadastrada com sucesso.
-        </div>
-
-        <div class="item">
-          <h3>PIN do beneficiário</h3>
-
-          <p>
-            Informe este código ao beneficiário antes da entrega.
-            O motorista precisará dele quando o beneficiário estiver
-            presente.
-          </p>
-
-          <p style="font-size:2rem;font-weight:800;letter-spacing:6px;text-align:center">
+        <div class="item" style="text-align:center">
+          <p>PIN de confirmação gerado para este abastecimento:</p>
+          <p style="font-size:2.2rem;font-weight:800;letter-spacing:6px;color:var(--navy);margin:10px 0">
             ${esc(confirmationPin)}
           </p>
-
-          <p class="small">
-            Guarde o código e repasse-o diretamente ao beneficiário.
-          </p>
+          <p class="small">Repasse este código ao beneficiário.</p>
         </div>
 
         <div class="actions">
-          <button type="button" class="secondary" id="copyDeliveryPin">
-            Copiar PIN
-          </button>
-
-          <button type="button" class="primary" id="closeDeliveryPin">
-            Fechar
-          </button>
+          <button type="button" class="secondary" id="copyDeliveryPin">Copiar PIN</button>
+          <button type="button" class="primary" id="closeDeliveryPin">Concluir</button>
         </div>
       `);
 
@@ -2376,9 +1861,8 @@ async function showDeliveryForm() {
         try {
           await navigator.clipboard.writeText(confirmationPin);
           toast("PIN copiado.");
-        } catch (error) {
-          console.error("Erro ao copiar PIN:", error);
-          toast("Não foi possível copiar. Anote o PIN exibido.");
+        } catch (_) {
+          toast("Anote o PIN exibido acima.");
         }
       };
 
@@ -2386,27 +1870,9 @@ async function showDeliveryForm() {
         closeModal();
         await renderAdmin();
       };
-
-      // Atualiza a lista local para que o novo registro apareça
-      // também na listagem administrativa.
-      state.deliveries = [
-        {
-          id: deliveryRef.id,
-          ...deliveryData
-        },
-        ...state.deliveries.filter(
-          item => item.id !== deliveryRef.id
-        )
-      ];
     } catch (error) {
       console.error("Erro ao programar entrega:", error);
-
-      toast(
-        error.code === "permission-denied"
-          ? "O Firebase bloqueou a programação. Verifique as regras do Firestore."
-          : "Não foi possível programar a entrega."
-      );
-
+      toast("Não foi possível programar a entrega.");
       if (button) {
         button.disabled = false;
         button.textContent = "Programar entrega";
@@ -2448,42 +1914,19 @@ async function renderDriver() {
     state.deliveries = snapshot.docs
       .map(item => ({ id: item.id, ...item.data() }))
       .sort((a, b) =>
-        String(a.scheduledDate || "").localeCompare(
-          String(b.scheduledDate || "")
-        )
+        String(a.scheduledDate || "").localeCompare(String(b.scheduledDate || ""))
       );
 
     loadedFromFirebase = true;
-
     await saveDriverDeliveriesToCache(state.deliveries);
   } catch (error) {
-    console.warn("Tentando cache offline:", error);
-
-    state.deliveries = await getCachedDriverDeliveries(
-      state.user.uid
-    );
+    console.warn("Recuperando do cache offline:", error);
+    state.deliveries = await getCachedDriverDeliveries(state.user.uid);
   }
 
   const offlineMessage = !navigator.onLine
-    ? `
-      <div class="notice">
-        <b>Modo offline</b><br>
-        Sem conexão com a internet.
-      </div>
-    `
-    : loadedFromFirebase
-      ? `
-        <div class="notice">
-          <b>Online</b><br>
-          Entregas atualizadas pelo sistema.
-        </div>
-      `
-      : `
-        <div class="notice">
-          <b>Modo offline</b><br>
-          Foram carregados os dados salvos anteriormente neste aparelho.
-        </div>
-      `;
+    ? `<div class="notice"><b>Modo offline:</b> Registros serão sincronizados quando houver conexão.</div>`
+    : `<div class="notice"><b>Status da rota:</b> Todas as entregas estão sincronizadas.</div>`;
 
   $("driverPanel").innerHTML = `
     <div class="card">
@@ -2491,24 +1934,9 @@ async function renderDriver() {
 
       ${offlineMessage}
 
-      <div class="notice" style="margin-top:10px">
-        Ao registrar uma entrega, mantenha o procedimento de PIN
-        e assinatura quando o beneficiário estiver presente.
-        Depois do registro, a entrega aguardará a confirmação no
-        aplicativo do beneficiário.
-      </div>
-
       ${
         !state.deliveries.length
-          ? `
-            <div class="notice" style="margin-top:14px">
-              ${
-                navigator.onLine
-                  ? "Nenhuma entrega atribuída."
-                  : "Nenhuma entrega disponível no cache."
-              }
-            </div>
-          `
+          ? `<p class="small" style="margin-top:16px">Nenhuma entrega atribuída no momento.</p>`
           : `
             <div class="grid" style="margin-top:14px">
               ${state.deliveries.map(driverCard).join("")}
@@ -2526,9 +1954,11 @@ async function renderDriver() {
 function driverCard(delivery) {
   const action = delivery.status === "scheduled"
     ? `
-      <button class="primary" data-complete="${esc(delivery.id)}">
-        Registrar entrega
-      </button>
+      <div class="actions" style="margin-top:12px">
+        <button class="primary" data-complete="${esc(delivery.id)}" style="width:100%">
+          🚚 Registrar entrega
+        </button>
+      </div>
     `
     : "";
 
@@ -2542,8 +1972,8 @@ function driverCard(delivery) {
       </div>
 
       <p>
-        <b>Quando:</b> ${esc(delivery.scheduledDate || "—")}
-        · <b>Planejado:</b> ${esc(delivery.plannedLiters ?? "—")} L
+        <b>Data:</b> ${esc(delivery.scheduledDate || "—")}
+        · <b>Volume:</b> ${esc(delivery.plannedLiters ?? "—")} L
       </p>
 
       <p>
@@ -2557,37 +1987,20 @@ function driverCard(delivery) {
 }
 
 /* =========================================================
-   REGISTRAR ENTREGA
-   MANTÉM PIN, ASSINATURA E FOTO DE COMPROVAÇÃO
+   REGISTRAR FORNECIMENTO
 ========================================================= */
 
 function showCompleteForm(id) {
   const delivery = state.deliveries.find(item => item.id === id);
-
-  if (!delivery) return toast("Entrega não encontrada.");
-
-  if (delivery.status !== "scheduled") {
-    return toast("Esta entrega não está disponível para registro.");
-  }
+  if (!delivery || delivery.status !== "scheduled") return;
 
   openModal(`
     <h2>Registrar fornecimento</h2>
 
-    <div class="notice">
-      Informe a quantidade realmente entregue e se havia alguém no local.
-      Se o beneficiário estiver presente, o PIN e a assinatura continuam
-      obrigatórios.
-    </div>
-
     <form id="completeForm">
       <label>
-        Quantidade realmente entregue (litros)
-        <input
-          id="cLiters"
-          type="number"
-          min="1"
-          value="${esc(delivery.plannedLiters ?? "")}"
-          required>
+        Quantidade entregue (litros)
+        <input id="cLiters" type="number" min="1" value="${esc(delivery.plannedLiters ?? "")}" required>
       </label>
 
       <label>
@@ -2601,34 +2014,32 @@ function showCompleteForm(id) {
       <div id="recipientFields">
         <label>
           PIN de confirmação do beneficiário
-          <input id="cPin" inputmode="numeric" maxlength="8" placeholder="PIN do beneficiário">
+          <input id="cPin" inputmode="numeric" maxlength="6" placeholder="Código de 6 dígitos">
         </label>
 
-        <label>Assinatura do beneficiário</label>
+        <label>Assinatura digital do beneficiário</label>
         <canvas id="signature" class="signature"></canvas>
 
-        <div class="actions">
-          <button type="button" class="secondary" id="clearSig">
-            Limpar assinatura
-          </button>
+        <div class="actions" style="margin-top:6px">
+          <button type="button" class="secondary" id="clearSig">Limpar assinatura</button>
         </div>
       </div>
 
       <div id="photoFields" class="hidden">
         <label>
-          Foto de prova
+          Foto de comprovação do imóvel/caixa d'água
           <input id="cPhoto" type="file" accept="image/*" capture="environment">
         </label>
       </div>
 
       <label>
         Observação
-        <textarea id="cNote"></textarea>
+        <textarea id="cNote" placeholder="Ex: abastecido reservatório superior"></textarea>
       </label>
 
       <div class="actions">
         <button type="button" class="secondary" id="cancelComplete">Cancelar</button>
-        <button class="primary">Registrar fornecimento</button>
+        <button class="primary">Concluir registro</button>
       </div>
     </form>
   `);
@@ -2647,62 +2058,43 @@ function showCompleteForm(id) {
     canvas.height = rect.height * ratio;
 
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.lineWidth = 2;
+    context.lineWidth = 2.5;
     context.lineCap = "round";
-    context.strokeStyle = "#172033";
+    context.strokeStyle = "#0D2B5C";
   }
 
-  resizeCanvas();
+  setTimeout(resizeCanvas, 50);
 
   function position(event) {
     const rect = canvas.getBoundingClientRect();
     const point = event.touches ? event.touches[0] : event;
-
-    return [
-      point.clientX - rect.left,
-      point.clientY - rect.top
-    ];
+    return [point.clientX - rect.left, point.clientY - rect.top];
   }
 
   const startDrawing = event => {
     drawing = true;
-
     const [x, y] = position(event);
-
     context.beginPath();
     context.moveTo(x, y);
-
     event.preventDefault();
   };
 
   const draw = event => {
     if (!drawing) return;
-
     const [x, y] = position(event);
-
     context.lineTo(x, y);
     context.stroke();
-
     event.preventDefault();
   };
 
-  const stopDrawing = () => {
-    drawing = false;
-  };
+  const stopDrawing = () => { drawing = false; };
 
   canvas.addEventListener("mousedown", startDrawing);
   canvas.addEventListener("mousemove", draw);
   canvas.addEventListener("mouseup", stopDrawing);
   canvas.addEventListener("mouseleave", stopDrawing);
-
-  canvas.addEventListener("touchstart", startDrawing, {
-    passive: false
-  });
-
-  canvas.addEventListener("touchmove", draw, {
-    passive: false
-  });
-
+  canvas.addEventListener("touchstart", startDrawing, { passive: false });
+  canvas.addEventListener("touchmove", draw, { passive: false });
   canvas.addEventListener("touchend", stopDrawing);
 
   $("clearSig").onclick = () => {
@@ -2711,14 +2103,12 @@ function showCompleteForm(id) {
 
   $("cPresence").onchange = () => {
     const present = $("cPresence").value === "yes";
-
     $("recipientFields").classList.toggle("hidden", !present);
     $("photoFields").classList.toggle("hidden", present);
   };
 
   $("completeForm").onsubmit = async event => {
     event.preventDefault();
-
     const button = event.submitter;
 
     try {
@@ -2726,21 +2116,15 @@ function showCompleteForm(id) {
       const receivedLiters = Number($("cLiters").value);
 
       if (!Number.isFinite(receivedLiters) || receivedLiters < 1) {
-        return toast("Informe a quantidade realmente entregue.");
+        return toast("Informe a quantidade entregue.");
       }
 
-      if (
-        present &&
-        (
-          !delivery.confirmationPin ||
-          $("cPin").value.trim() !== String(delivery.confirmationPin)
-        )
-      ) {
+      if (present && $("cPin").value.trim() !== String(delivery.confirmationPin || "")) {
         return toast("PIN de confirmação incorreto.");
       }
 
       if (present && isBlankCanvas(canvas)) {
-        return toast("Faça a assinatura do beneficiário.");
+        return toast("Faça a assinatura do beneficiário no quadro.");
       }
 
       if (!present && !$("cPhoto").files[0]) {
@@ -2749,7 +2133,7 @@ function showCompleteForm(id) {
 
       if (button) {
         button.disabled = true;
-        button.textContent = "Registrando...";
+        button.textContent = "Gravando...";
       }
 
       let photoUrl = null;
@@ -2759,19 +2143,12 @@ function showCompleteForm(id) {
         signatureData = canvas.toDataURL("image/png");
       } else {
         const file = $("cPhoto").files[0];
-
-        const safeName = file.name.replace(
-          /[^a-zA-Z0-9._-]/g,
-          "_"
-        );
-
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
         const path = `delivery-proof/${id}/${Date.now()}-${safeName}`;
 
-        const uploaded = await uploadBytes(
-          ref(storage, path),
-          file,
-          { contentType: file.type }
-        );
+        const uploaded = await uploadBytes(ref(storage, path), file, {
+          contentType: file.type
+        });
 
         photoUrl = await getDownloadURL(uploaded.ref);
       }
@@ -2791,39 +2168,24 @@ function showCompleteForm(id) {
       });
 
       closeModal();
-
-      toast(
-        present
-          ? "Fornecimento registrado. Aguardando confirmação do beneficiário."
-          : "Registro realizado. A entrega foi marcada como ninguém no local."
-      );
-
+      toast(present ? "Fornecimento registrado! Aguardando confirmação do beneficiário." : "Registrado como 'Ninguém no local'.");
       await renderDriver();
     } catch (error) {
       console.error("Erro ao registrar fornecimento:", error);
-      toast("Não foi possível registrar o fornecimento.");
-
+      toast("Não foi possível salvar o registro.");
       if (button) {
         button.disabled = false;
-        button.textContent = "Registrar fornecimento";
+        button.textContent = "Concluir registro";
       }
     }
   };
 }
 
-/* =========================================================
-   ASSINATURA
-========================================================= */
-
 function isBlankCanvas(canvas) {
-  const data = canvas
-    .getContext("2d")
-    .getImageData(0, 0, canvas.width, canvas.height).data;
-
-  for (let index = 3; index < data.length; index += 4) {
-    if (data[index] > 0) return false;
+  const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] > 0) return false;
   }
-
   return true;
 }
 
@@ -2843,21 +2205,12 @@ async function renderRecipient() {
       )
     );
 
-    list = snapshot.docs.map(item => ({
-      id: item.id,
-      ...item.data()
-    }));
+    list = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
   } catch (error) {
-    console.warn(
-      "Não foi possível carregar entregas pelo UID:",
-      error
-    );
+    console.warn("Erro ao buscar por UID:", error);
   }
 
-  // Compatibilidade com registros antigos sem recipientUid.
-  // Esta busca é apenas complementar; novas entregas devem
-  // estar vinculadas ao UID do beneficiário.
-  if (!list.length && state.profile.phone) {
+  if (!list.length && state.profile?.phone) {
     try {
       const snapshot = await getDocs(
         query(
@@ -2869,19 +2222,14 @@ async function renderRecipient() {
 
       list = snapshot.docs
         .map(item => ({ id: item.id, ...item.data() }))
-        .filter(item =>
-          !item.recipientUid ||
-          item.recipientUid === state.user.uid
-        );
+        .filter(item => !item.recipientUid || item.recipientUid === state.user.uid);
     } catch (error) {
-      console.warn("Erro ao carregar entregas antigas:", error);
+      console.warn("Erro ao buscar entregas complementares:", error);
     }
   }
 
   list.sort((a, b) =>
-    String(b.scheduledDate || "").localeCompare(
-      String(a.scheduledDate || "")
-    )
+    String(b.scheduledDate || "").localeCompare(String(a.scheduledDate || ""))
   );
 
   $("recipientPanel").innerHTML = `
@@ -2891,23 +2239,20 @@ async function renderRecipient() {
       </div>
 
       <div class="notice">
-        Confira a data, a quantidade e a situação de cada fornecimento.
-        Quando uma entrega estiver aguardando confirmação, confira
-        os dados e confirme somente se o abastecimento realmente ocorreu.
+        Confira seu histórico de fornecimento de água. Quando houver uma entrega pendente de confirmação, verifique a quantidade e confirme abaixo.
       </div>
 
       <div class="grid" style="margin-top:14px">
         ${
           list.map(recipientCard).join("") ||
-          "<p class='small'>Nenhum fornecimento localizado.</p>"
+          "<p class='small'>Nenhum fornecimento registrado até o momento.</p>"
         }
       </div>
     </div>
   `;
 
   document.querySelectorAll("[data-confirm-recipient]").forEach(button => {
-    button.onclick = () =>
-      confirmRecipientDelivery(button.dataset.confirmRecipient);
+    button.onclick = () => confirmRecipientDelivery(button.dataset.confirmRecipient);
   });
 }
 
@@ -2921,63 +2266,27 @@ function recipientCard(delivery) {
     <div class="item">
       <div class="row">
         <h3>${esc(dateOnly(delivery.scheduledDate))}</h3>
-
         <span class="pill ${esc(delivery.status)}">
           ${statusLabel(delivery.status)}
         </span>
       </div>
 
-      <p>
-        <b>Quantidade programada:</b>
-        ${esc(delivery.plannedLiters ?? "—")} L
-      </p>
-
-      <p>
-        <b>Quantidade registrada:</b>
-        ${
-          delivery.receivedLiters !== undefined &&
-          delivery.receivedLiters !== null
-            ? `${esc(delivery.receivedLiters)} L`
-            : "Ainda não registrada"
-        }
-      </p>
-
-      <p><b>Local:</b> ${esc(delivery.address || "—")}</p>
+      <p><b>Quantidade programada:</b> ${esc(delivery.plannedLiters ?? "—")} L</p>
+      <p><b>Quantidade entregue:</b> ${delivery.receivedLiters != null ? `${esc(delivery.receivedLiters)} L` : "Pendente"}</p>
+      <p><b>Endereço atendido:</b> ${esc(delivery.address || "—")}</p>
 
       ${
-        delivery.status === "awaiting_confirmation"
-          ? `
-            <p>
-              <b>Importante:</b>
-              confira as informações antes de confirmar o recebimento.
-            </p>
-          `
-          : ""
-      }
-
-      ${
-        delivery.status === "completed"
-          ? `
-            <div class="notice">
-              Recebimento confirmado.
-              ${
-                delivery.recipientConfirmedAt
-                  ? `Data da confirmação: ${fmtDate(delivery.recipientConfirmedAt)}`
-                  : ""
-              }
-            </div>
-          `
+        delivery.status === "completed" && delivery.recipientConfirmedAt
+          ? `<div class="notice" style="margin-top:10px">Confirmado em: ${fmtDate(delivery.recipientConfirmedAt)}</div>`
           : ""
       }
 
       ${
         canConfirm
           ? `
-            <div class="actions">
-              <button
-                class="primary"
-                data-confirm-recipient="${esc(delivery.id)}">
-                ✅ Confirmar recebimento
+            <div class="actions" style="margin-top:12px">
+              <button class="primary" data-confirm-recipient="${esc(delivery.id)}" style="width:100%">
+                ✅ Confirmar recebimento da água
               </button>
             </div>
           `
@@ -2987,66 +2296,31 @@ function recipientCard(delivery) {
   `;
 }
 
-/* =========================================================
-   CONFIRMAR RECEBIMENTO PELO BENEFICIÁRIO
-========================================================= */
-
 async function confirmRecipientDelivery(id) {
   try {
-    const snapshot = await getDoc(
-      doc(db, "deliveries", id)
-    );
-
-    if (!snapshot.exists()) {
-      toast("Entrega não encontrada.");
-      return;
-    }
+    const snapshot = await getDoc(doc(db, "deliveries", id));
+    if (!snapshot.exists()) return toast("Entrega não encontrada.");
 
     const delivery = snapshot.data();
 
-    // Impede que o usuário confirme entrega de outra pessoa.
-    if (delivery.recipientUid !== state.user.uid) {
-      toast("Você não tem autorização para confirmar esta entrega.");
-      return;
-    }
-
-    if (delivery.status !== "awaiting_confirmation") {
-      toast("Esta entrega não está aguardando confirmação.");
-      await renderRecipient();
-      return;
-    }
-
-    if (delivery.recipientPresent !== true) {
-      toast("Esta entrega não está registrada como recebida pelo beneficiário.");
-      return;
+    if (delivery.recipientUid !== state.user.uid || delivery.status !== "awaiting_confirmation") {
+      return toast("Entrega indisponível para confirmação.");
     }
 
     openModal(`
-      <h2>Confirmar recebimento</h2>
+      <h2>Confirmar recebimento de água</h2>
 
       <div class="notice">
         <b>Data:</b> ${esc(dateOnly(delivery.scheduledDate))}<br>
-        <b>Quantidade registrada:</b> ${esc(delivery.receivedLiters ?? "—")} litros<br>
+        <b>Quantidade informada:</b> ${esc(delivery.receivedLiters ?? "—")} litros<br>
         <b>Local:</b> ${esc(delivery.address || "—")}
       </div>
 
-      <p>
-        Você confirma que recebeu o abastecimento informado acima?
-      </p>
-
-      <p class="small">
-        Confirme somente se a entrega realmente foi realizada.
-        Após a confirmação, o registro passará para “Concluída”.
-      </p>
+      <p style="margin:16px 0">Você confirma que o caminhão-pipa realizou este abastecimento no seu imóvel?</p>
 
       <div class="actions">
-        <button type="button" class="secondary" id="cancelRecipientConfirmation">
-          Voltar
-        </button>
-
-        <button type="button" class="primary" id="approveRecipientConfirmation">
-          Sim, confirmar recebimento
-        </button>
+        <button type="button" class="secondary" id="cancelRecipientConfirmation">Voltar</button>
+        <button type="button" class="primary" id="approveRecipientConfirmation">Confirmar</button>
       </div>
     `);
 
@@ -3059,30 +2333,6 @@ async function confirmRecipientDelivery(id) {
         button.disabled = true;
         button.textContent = "Confirmando...";
 
-        // Revalida os dados imediatamente antes da gravação.
-        const latestSnapshot = await getDoc(
-          doc(db, "deliveries", id)
-        );
-
-        if (!latestSnapshot.exists()) {
-          closeModal();
-          toast("A entrega não foi encontrada.");
-          return;
-        }
-
-        const latest = latestSnapshot.data();
-
-        if (
-          latest.recipientUid !== state.user.uid ||
-          latest.status !== "awaiting_confirmation" ||
-          latest.recipientPresent !== true
-        ) {
-          closeModal();
-          toast("A entrega mudou de situação e não pode ser confirmada.");
-          await renderRecipient();
-          return;
-        }
-
         await updateDoc(doc(db, "deliveries", id), {
           status: "completed",
           recipientConfirmed: true,
@@ -3093,27 +2343,14 @@ async function confirmRecipientDelivery(id) {
         });
 
         closeModal();
-        toast("Recebimento confirmado com sucesso.");
-
+        toast("Abastecimento confirmado com sucesso!");
         await renderRecipient();
       } catch (error) {
-        console.error("Erro ao confirmar recebimento:", error);
-
-        toast(
-          error.code === "permission-denied"
-            ? "O banco bloqueou a confirmação. É necessário ajustar as regras do Firestore."
-            : "Não foi possível confirmar o recebimento. Verifique a conexão."
-        );
-
-        if ($("approveRecipientConfirmation")) {
-          $("approveRecipientConfirmation").disabled = false;
-          $("approveRecipientConfirmation").textContent =
-            "Sim, confirmar recebimento";
-        }
+        console.error("Erro na confirmação:", error);
+        toast("Não foi possível confirmar o recebimento.");
       }
     };
   } catch (error) {
-    console.error("Erro ao iniciar confirmação:", error);
-    toast("Não foi possível abrir a confirmação do recebimento.");
+    console.error("Erro ao abrir confirmação:", error);
   }
 }
