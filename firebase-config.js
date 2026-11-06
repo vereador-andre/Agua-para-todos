@@ -1,80 +1,9 @@
-// Firebase SDK
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-import {
-  getAuth,
-  setPersistence,
-  browserLocalPersistence
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-
-import {
-  getFirestore
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-
-import {
-  getStorage
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
-
-
-// ======================================================
-// CONFIGURAÇÃO DO PROJETO ÁGUA PARA TODOS
-// ======================================================
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBuftlms0LcdZrM9dpcf5wIk7eWjK3_o4A",
-  authDomain: "agua-para-todos-19454.firebaseapp.com",
-  projectId: "agua-para-todos-19454",
-  storageBucket: "agua-para-todos-19454.firebasestorage.app",
-  messagingSenderId: "799145802902",
-  appId: "1:799145802902:web:b40f090db609b71c3696b7"
-};
-
-
-// ======================================================
-// APLICAÇÃO PRINCIPAL
-// ======================================================
-
-const app = initializeApp(firebaseConfig);
-
-
-// ======================================================
-// FIREBASE AUTHENTICATION PRINCIPAL
-// ======================================================
-
-const auth = getAuth(app);
-
-
-// Mantém a sessão do usuário no navegador
-// mesmo depois de fechar a página.
-setPersistence(
-  auth,
-  browserLocalPersistence
-).catch((error) => {
-  console.error(
-    "Erro ao configurar persistência do login:",
-    error
-  );
-});
-
-
-// ======================================================
-// FIRESTORE
-// ======================================================
-
-const db = getFirestore(app);
-
-
-// ======================================================
-// STORAGE
-// ======================================================
-
-const storage = getStorage(app);
-
-
-// ======================================================
-// EXPORTA OS SERVIÇOS
-// ======================================================
-
+// Your web app's Firebase configuration
 export const firebaseConfig = {
   apiKey: "AIzaSyAAf5Tfvh0Ow-iusTMuvax5VlxBgjtVFeo",
   authDomain: "agua-para-todos-18167.firebaseapp.com",
@@ -83,3 +12,6 @@ export const firebaseConfig = {
   messagingSenderId: "154424742994",
   appId: "1:154424742994:web:46f14ccf8fc781e8867b8b"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
