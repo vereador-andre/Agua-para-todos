@@ -11,7 +11,7 @@
 
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./styles.css?v=99">
+  <link rel="stylesheet" href="./styles.css?v=2026">
 
   <title>Água para Todos - Areia Branca/RN</title>
 </head>
@@ -103,6 +103,15 @@
   <div id="toast" class="toast" role="status"></div>
 
   <script>
+    // Limpeza forçada de Service Worker antigo para destravar a tela
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var i = 0; i < registrations.length; i++) {
+          registrations[i].unregister();
+        }
+      });
+    }
+
     window.addEventListener("error", function (e) {
       var msgBox = document.getElementById("loginMsg");
       if (msgBox) {
@@ -112,6 +121,6 @@
     });
   </script>
 
-  <script type="module" src="./app.js?v=99"></script>
+  <script type="module" src="./app.js?v=2026"></script>
 </body>
 </html>
