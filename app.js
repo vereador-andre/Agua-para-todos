@@ -22,23 +22,19 @@ import {
   getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-// Importa todas as credenciais agrupadas em um único objeto seguro
-import * as MeuFirebaseModulo from "./firebase-config.js";
+import { configAppFirebase } from "./firebase-config.js";
 
-// Captura as chaves independente de como foram exportadas
-const dadosConfiguracao = MeuFirebaseModulo.firebaseConfig || MeuFirebaseModulo.default || MeuFirebaseModulo;
-
-// Inicialização
+// Inicialização segura
 let app = null;
 let auth = null;
 let db = null;
 let storage = null;
 
 try {
-  if (!dadosConfiguracao || !dadosConfiguracao.apiKey) {
-    throw new Error("As chaves de acesso do Firebase não foram encontradas no firebase-config.js");
+  if (!configAppFirebase || !configAppFirebase.apiKey) {
+    throw new Error("As credenciais não foram encontradas em firebase-config.js");
   }
-  app = initializeApp(dadosConfiguracao);
+  app = initializeApp(configAppFirebase);
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
@@ -46,12 +42,12 @@ try {
   console.error("Falha ao inicializar Firebase:", e);
   const msgBox = document.getElementById("loginMsg");
   if (msgBox) {
-    msgBox.textContent = "Erro na configuração: " + e.message;
+    msgBox.textContent = "Erro na inicialização: " + e.message;
     msgBox.classList.add("visible");
   }
 }
 
-// Seletores do DOM
+// Elementos DOM
 const loginView = document.getElementById("loginView");
 const appView = document.getElementById("appView");
 const loginForm = document.getElementById("loginForm");
@@ -98,7 +94,7 @@ function limparErroLogin() {
   loginMsg.classList.remove("visible");
 }
 
-// Controle de Telas Dedicadas (Modal)
+// Controle de Telas Flutuantes
 function openDedicatedScreen(title, htmlBody) {
   modalTitle.textContent = title;
   modalContent.innerHTML = htmlBody;
@@ -129,7 +125,7 @@ function showToast(msg) {
   }, 3500);
 }
 
-// Login
+// Execução de Login
 async function executarLogin() {
   limparErroLogin();
 
@@ -142,7 +138,7 @@ async function executarLogin() {
   }
 
   if (!auth) {
-    exibirErroLogin("Firebase Auth não carregado. Verifique as credenciais.");
+    exibirErroLogin("Firebase Auth não carregado. Verifique o console.");
     return;
   }
 
