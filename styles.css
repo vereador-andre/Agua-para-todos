@@ -58,8 +58,8 @@ textarea {
 button {
   border: 0;
   border-radius: var(--radius-md);
-  padding: 14px 20px;
-  min-height: 50px;
+  padding: 13px 18px;
+  min-height: 48px;
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
@@ -227,7 +227,7 @@ textarea {
   padding: 13px 14px;
   background: #fff;
   color: var(--text);
-  min-height: 50px;
+  min-height: 48px;
 }
 
 input:focus,
@@ -254,6 +254,9 @@ textarea {
 .secondary {
   background: #eaf0f8;
   color: var(--navy);
+}
+.secondary:hover {
+  background: #dde7f3;
 }
 
 .danger {
@@ -296,12 +299,13 @@ textarea {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 16px 18px;
+  padding: 16px 20px;
 }
 
-.welcome-user strong {
-  display: block;
-  font-size: 18px;
+.welcome-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .badge,
@@ -309,7 +313,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 4px 10px;
   border-radius: 99px;
   background: #edf2f8;
@@ -368,6 +372,7 @@ textarea {
   color: var(--navy);
 }
 
+/* Área de botões de gestão */
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -377,7 +382,8 @@ textarea {
 }
 
 .actions button {
-  flex: 1 1 140px;
+  flex: 1 1 calc(25% - 10px);
+  min-width: 160px;
 }
 
 .item {
@@ -435,7 +441,7 @@ textarea {
   margin-bottom: 14px;
 }
 
-/* Janela Modal Dedicada */
+/* Modal em tela inteira */
 .fullscreen-modal {
   position: fixed;
   top: 0;
