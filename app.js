@@ -24,19 +24,27 @@ import {
 
 import { firebaseConfig } from "./firebase-config.js";
 
-// Inicialização
+// Inicialização com diagnóstico
 let app = null;
 let auth = null;
 let db = null;
 let storage = null;
 
 try {
+  if (!firebaseConfig || !firebaseConfig.apiKey) {
+    throw new Error("firebaseConfig não encontrada ou sem apiKey no firebase-config.js");
+  }
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
 } catch (e) {
-  console.error("Erro ao inicializar Firebase:", e);
+  console.error("Falha ao inicializar Firebase:", e);
+  const msgBox = document.getElementById("loginMsg");
+  if (msgBox) {
+    msgBox.textContent = "Erro na configuração: " + e.message;
+    msgBox.classList.add("visible");
+  }
 }
 
 // Seletores do DOM
@@ -119,22 +127,8 @@ function showToast(msg) {
   }, 3500);
 }
 
-// Status de Conexão
-window.addEventListener("online", () => {
-  if (connectionStatusEl) {
-    connectionStatusEl.textContent = "Online";
-    connectionStatusEl.className = "status ok";
-  }
-});
-window.addEventListener("offline", () => {
-  if (connectionStatusEl) {
-    connectionStatusEl.textContent = "Sem internet";
-    connectionStatusEl.className = "status";
-  }
-});
-
 // ==========================================
-// EXECUÇÃO DO LOGIN
+// FLUXO DE LOGIN
 // ==========================================
 async function executarLogin() {
   limparErroLogin();
@@ -148,16 +142,16 @@ async function executarLogin() {
   }
 
   if (!auth) {
-    exibirErroLogin("Erro de conexão com o Firebase. Verifique o console.");
+    exibirErroLogin("Firebase Auth não carregado. Verifique as credenciais.");
     return;
   }
 
   btnSubmitLogin.disabled = true;
-  btnSubmitLogin.textContent = "Entrando...";
+  btnSubmitLogin.textContent = "Conectando ao Firebase...";
 
   let finalEmail = rawInput;
 
-  // Converte telefone para e-mail padrão se não tiver @
+  // Converte telefone digitado para formato de e-mail padrão
   const digitsOnly = rawInput.replace(/\D/g, "");
   if (!rawInput.includes("@")) {
     if (digitsOnly.length >= 8) {
@@ -171,12 +165,11 @@ async function executarLogin() {
   }
 
   try {
-    const credencial = await signInWithEmailAndPassword(auth, finalEmail, password);
-    console.log("Autenticado com sucesso:", credencial.user.uid);
+    await signInWithEmailAndPassword(auth, finalEmail, password);
   } catch (err) {
-    console.error("Erro Auth detalhado:", err);
+    console.error("Erro no Login:", err);
 
-    let mensagem = "Não foi possível entrar. Verifique seus dados.";
+    let mensagem = "Não foi possível entrar.";
 
     if (
       err.code === "auth/invalid-credential" ||
@@ -201,7 +194,7 @@ async function executarLogin() {
   }
 }
 
-// Liga eventos ao botão de login
+// Liga eventos ao botão de entrar
 if (btnSubmitLogin) {
   btnSubmitLogin.addEventListener("click", (e) => {
     e.preventDefault();
@@ -216,7 +209,7 @@ if (loginForm) {
   });
 }
 
-// Botão Sair
+// Sair da Sessão
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     try {
@@ -226,7 +219,7 @@ if (logoutBtn) {
   });
 }
 
-// Monitora o estado de autenticação do Firebase
+// Observador de Autenticação
 if (auth) {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -236,7 +229,7 @@ if (auth) {
         if (userSnap.exists()) {
           currentUserProfile = userSnap.data();
         } else {
-          // Se não houver documento na coleção users, define padrão como admin
+          // Se o usuário ainda não tiver perfil salvo na coleção 'users', assume perfil Administrador
           currentUserProfile = {
             name: user.email.split("@")[0],
             role: "admin"
@@ -244,7 +237,7 @@ if (auth) {
         }
         iniciarSessao();
       } catch (e) {
-        console.error("Erro ao ler documento de usuário:", e);
+        console.error("Erro leitura users:", e);
         currentUserProfile = { name: "Administrador", role: "admin" };
         iniciarSessao();
       }
