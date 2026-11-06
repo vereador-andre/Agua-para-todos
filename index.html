@@ -7,13 +7,13 @@
   <meta name="theme-color" content="#0D2B5C">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Controle seguro do abastecimento rural - Areia Branca-RN">
+  <meta name="description" content="Controle seguro do abastecimento rural - Água para Todos">
 
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./styles.css">
 
-  <title>Água para Todos - Areia Branca</title>
+  <title>Água para Todos - Areia Branca/RN</title>
 </head>
 
 <body>
@@ -21,7 +21,7 @@
   <header class="topbar">
     <div>
       <div class="brand">ÁGUA <span>PARA TODOS</span></div>
-      <small>Areia Branca-RN • Abastecimento Rural</small>
+      <small>Controle de abastecimento rural • Areia Branca-RN</small>
     </div>
 
     <button id="logoutBtn" class="ghost hidden" type="button">
@@ -29,80 +29,73 @@
     </button>
   </header>
 
-  <main class="container">
-
-    <!-- Tela de Login com fundo temático -->
-    <section id="loginView" class="auth-wrapper">
-      <div class="card auth-card">
-        <div class="auth-header">
-          <span class="location-badge">📍 Areia Branca - RN</span>
-          <h1>Água para Todos</h1>
-          <p>
-            Entre com seus dados para gerenciar ou acompanhar o fornecimento de água.
-          </p>
-        </div>
-
-        <form id="loginForm">
-          <label for="loginIdentifier">
-            E-mail ou Telefone
-            <input
-              id="loginIdentifier"
-              type="text"
-              inputmode="email"
-              autocomplete="username"
-              placeholder="Insira seu telefone ou e-mail"
-              required
-            >
-          </label>
-
-          <label for="loginPassword">
-            Senha
-            <input
-              id="loginPassword"
-              type="password"
-              autocomplete="current-password"
-              placeholder="Digite sua senha"
-              required
-            >
-          </label>
-
-          <button class="primary btn-block" type="submit" id="loginSubmitBtn">
-            Entrar no Sistema
-          </button>
-        </form>
-
-        <div id="loginMsg" class="message" role="alert"></div>
+  <!-- Container de Login com imagem de fundo de Areia Branca -->
+  <section id="loginView" class="login-screen">
+    <div class="card auth-card">
+      <div class="auth-header">
+        <span class="auth-badge">Areia Branca - RN</span>
+        <h1>Água para Todos</h1>
+        <p>Acesse com seu e-mail ou telefone para registrar ou acompanhar o abastecimento.</p>
       </div>
-    </section>
 
-    <!-- Tela Principal do App -->
+      <form id="loginForm" novalidate>
+        <label for="loginEmail">
+          E-mail ou Telefone
+          <input
+            id="loginEmail"
+            name="username"
+            type="text"
+            autocomplete="username"
+            placeholder="Insira seu telefone ou e-mail"
+            required
+          >
+        </label>
+
+        <label for="loginPassword">
+          Senha
+          <input
+            id="loginPassword"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Digite sua senha"
+            required
+          >
+        </label>
+
+        <button class="primary auth-submit" type="submit">
+          Entrar no Sistema
+        </button>
+      </form>
+
+      <div id="loginMsg" class="message" role="alert"></div>
+    </div>
+  </section>
+
+  <!-- Área Principal autenticada -->
+  <main class="container">
     <section id="appView" class="hidden">
       <div class="welcome card">
         <div>
           <strong id="userName">Usuário</strong>
-          <span id="userRole" class="badge">Acesso</span>
+          <span id="userRole" class="badge"></span>
         </div>
-
-        <span id="connectionStatus" class="status">
-          Conectando…
-        </span>
+        <span id="connectionStatus" class="status">Conectando…</span>
       </div>
 
-      <!-- Painéis dinâmicos -->
       <div id="adminPanel" class="hidden"></div>
       <div id="driverPanel" class="hidden"></div>
       <div id="recipientPanel" class="hidden"></div>
     </section>
-
   </main>
 
-  <!-- Janela Modal / Tela Sobreposta Segura para iOS -->
+  <!-- Modal / Tela sobreposta adaptada com rolagem segura para iPhone -->
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-box">
       <div class="modal-header">
         <h2 id="modalTitle">Detalhes</h2>
-        <button id="closeModal" class="close" type="button" aria-label="Fechar janela">
-          ✕
+        <button id="closeModal" class="close" type="button" aria-label="Fechar">
+          &times;
         </button>
       </div>
 
@@ -110,7 +103,6 @@
     </div>
   </div>
 
-  <!-- Notificações Toast -->
   <div id="toast" class="toast" role="status"></div>
 
   <script type="module" src="./app.js"></script>
@@ -120,11 +112,14 @@
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("./sw.js")
-          .then((reg) => console.log("Service Worker pronto:", reg.scope))
-          .catch((err) => console.error("Erro no Service Worker:", err));
+          .then((registration) => {
+            console.log("Service Worker registrado:", registration.scope);
+          })
+          .catch((error) => {
+            console.error("Erro ao registrar Service Worker:", error);
+          });
       });
     }
   </script>
-
 </body>
 </html>
