@@ -12,7 +12,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   getDocs,
   addDoc,
   updateDoc,
@@ -27,13 +26,13 @@ import {
 
 import { firebaseConfig } from "./firebase-config.js";
 
-// Inicialização do Firebase
+// Inicializa Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// Elementos DOM principais
+// Seletores do DOM
 const loginView = document.getElementById("loginView");
 const appView = document.getElementById("appView");
 const loginForm = document.getElementById("loginForm");
@@ -50,63 +49,58 @@ const adminPanel = document.getElementById("adminPanel");
 const driverPanel = document.getElementById("driverPanel");
 const recipientPanel = document.getElementById("recipientPanel");
 
-const modal = document.getElementById("modal");
+const screenModal = document.getElementById("screenModal");
 const modalTitle = document.getElementById("modalTitle");
 const modalContent = document.getElementById("modalContent");
 const closeModalBtn = document.getElementById("closeModal");
 const toastEl = document.getElementById("toast");
 
-// Variáveis de Estado
+// Estado
 let currentUser = null;
 let currentUserProfile = null;
 let signatureCanvas = null;
 let signatureCtx = null;
 let isDrawing = false;
-let photoBase64 = null;
 
 // ==========================================
-// UTILITÁRIOS: TOAST E MODAL
+// GERENCIADOR DE TELAS DEDICADAS (FULLSCREEN MODAL)
 // ==========================================
-function showToast(message) {
+function openDedicatedScreen(title, htmlBody) {
+  modalTitle.textContent = title;
+  modalContent.innerHTML = htmlBody;
+
+  screenModal.style.setProperty("display", "flex", "important");
+  document.body.classList.add("no-scroll");
+
+  // Garante que o scroll da janela comece no topo
+  modalContent.scrollTop = 0;
+}
+
+function closeDedicatedScreen() {
+  screenModal.style.setProperty("display", "none", "important");
+  document.body.classList.remove("no-scroll");
+  modalContent.innerHTML = "";
+  signatureCanvas = null;
+  signatureCtx = null;
+}
+
+if (closeModalBtn) {
+  closeModalBtn.addEventListener("click", closeDedicatedScreen);
+}
+
+// ==========================================
+// TOAST NOTIFICAÇÃO
+// ==========================================
+function showToast(msg) {
   if (!toastEl) return;
-  toastEl.textContent = message;
+  toastEl.textContent = msg;
   toastEl.classList.add("show");
   setTimeout(() => {
     toastEl.classList.remove("show");
   }, 3500);
 }
 
-function openModal(title, htmlContent) {
-  if (!modal || !modalTitle || !modalContent) return;
-  modalTitle.textContent = title;
-  modalContent.innerHTML = htmlContent;
-  modal.classList.remove("hidden");
-  document.body.classList.add("modal-open");
-}
-
-function closeModal() {
-  if (!modal) return;
-  modal.classList.add("hidden");
-  document.body.classList.remove("modal-open");
-  if (modalContent) modalContent.innerHTML = "";
-  photoBase64 = null;
-  signatureCanvas = null;
-  signatureCtx = null;
-}
-
-if (closeModalBtn) {
-  closeModalBtn.addEventListener("click", closeModal);
-}
-
-if (modal) {
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      closeModal();
-    }
-  });
-}
-
-// Monitor de Conexão Online/Offline
+// Status de Conexão
 window.addEventListener("online", () => {
   if (connectionStatusEl) {
     connectionStatusEl.textContent = "Online";
@@ -115,62 +109,68 @@ window.addEventListener("online", () => {
 });
 window.addEventListener("offline", () => {
   if (connectionStatusEl) {
-    connectionStatusEl.textContent = "Offline";
+    connectionStatusEl.textContent = "Sem internet";
     connectionStatusEl.className = "status";
   }
 });
 
 // ==========================================
-// AUTENTICAÇÃO (E-MAIL OU TELEFONE)
+// AUTENTICAÇÃO COM COMPATIBILIDADE TOTAL (E-MAIL OU TELEFONE)
 // ==========================================
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     loginMsg.textContent = "";
 
-    const identifier = loginEmailInput.value.trim();
+    const rawInput = loginEmailInput.value.trim();
     const password = loginPasswordInput.value;
 
-    if (!identifier || !password) {
-      loginMsg.textContent = "Por favor, preencha todos os campos.";
+    if (!rawInput || !password) {
+      loginMsg.textContent = "Preencha todos os campos.";
       return;
     }
 
-    let emailToAuth = identifier;
+    const submitBtn = loginForm.querySelector("button[type='submit']");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Verificando...";
 
-    // Se o usuário digitou telefone (apenas números ou DDD), converte para o formato de e-mail do sistema
-    const phoneClean = identifier.replace(/\D/g, "");
-    if (!identifier.includes("@") && phoneClean.length >= 8) {
-      emailToAuth = `${phoneClean}@aguaparatodos.local`;
+    let finalEmail = rawInput;
+
+    // Se o usuário digitou número de telefone (com DDD ou não)
+    const digitsOnly = rawInput.replace(/\D/g, "");
+    if (!rawInput.includes("@")) {
+      if (digitsOnly.length >= 8) {
+        // Usa domínio padrão compatível com provedores do Firebase
+        finalEmail = `${digitsOnly}@aguaparatodos.com`;
+      } else {
+        loginMsg.textContent = "Digite um e-mail válido ou telefone com DDD.";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Entrar no Sistema";
+        return;
+      }
     }
 
     try {
-      const submitBtn = loginForm.querySelector("button[type='submit']");
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Entrando…";
-      }
-
-      await signInWithEmailAndPassword(auth, emailToAuth, password);
+      await signInWithEmailAndPassword(auth, finalEmail, password);
     } catch (err) {
-      console.error("Erro no login:", err);
-      let mensagem = "Falha ao entrar. Verifique os dados.";
+      console.error("Erro Firebase Auth:", err.code, err.message);
+
+      let msg = "Não foi possível entrar. Verifique os dados.";
       if (
         err.code === "auth/invalid-credential" ||
         err.code === "auth/user-not-found" ||
         err.code === "auth/wrong-password"
       ) {
-        mensagem = "Telefone/E-mail ou senha incorretos.";
+        msg = "Usuário ou senha incorretos.";
+      } else if (err.code === "auth/invalid-email") {
+        msg = "Formato de e-mail ou telefone inválido.";
       } else if (err.code === "auth/network-request-failed") {
-        mensagem = "Sem conexão com a internet.";
+        msg = "Sem comunicação com a internet.";
       }
-      loginMsg.textContent = mensagem;
+      loginMsg.textContent = msg;
     } finally {
-      const submitBtn = loginForm.querySelector("button[type='submit']");
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Entrar no Sistema";
-      }
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Entrar no Sistema";
     }
   });
 }
@@ -181,42 +181,42 @@ if (logoutBtn) {
   });
 }
 
+// Monitora o estado de Login
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     try {
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        currentUserProfile = userDoc.data();
+      const userSnap = await getDoc(doc(db, "users", user.uid));
+      if (userSnap.exists()) {
+        currentUserProfile = userSnap.data();
       } else {
+        // Perfil de fallback caso o documento na coleção users ainda não exista
         currentUserProfile = {
           name: user.email.split("@")[0],
           role: "driver"
         };
       }
-
-      carregarInterfaceUsuario();
+      iniciarSessao();
     } catch (e) {
-      console.error("Erro ao carregar perfil:", e);
-      currentUserProfile = { name: "Usuário", role: "driver" };
-      carregarInterfaceUsuario();
+      console.error("Erro ao obter documento de perfil:", e);
+      currentUserProfile = { name: "Motorista", role: "driver" };
+      iniciarSessao();
     }
   } else {
     currentUser = null;
     currentUserProfile = null;
-    mostrarLogin();
+    finalizarSessao();
   }
 });
 
-function mostrarLogin() {
+function finalizarSessao() {
   loginView.classList.remove("hidden");
   appView.classList.add("hidden");
   logoutBtn.classList.add("hidden");
-  if (loginForm) loginForm.reset();
-  if (loginMsg) loginMsg.textContent = "";
+  closeDedicatedScreen();
 }
 
-function carregarInterfaceUsuario() {
+function iniciarSessao() {
   loginView.classList.add("hidden");
   appView.classList.remove("hidden");
   logoutBtn.classList.remove("hidden");
@@ -224,236 +224,255 @@ function carregarInterfaceUsuario() {
   userNameEl.textContent = currentUserProfile.name || "Usuário";
   userRoleEl.textContent = formatarCargo(currentUserProfile.role);
 
-  if (connectionStatusEl) {
-    connectionStatusEl.textContent = navigator.onLine ? "Online" : "Offline";
-    connectionStatusEl.className = navigator.onLine ? "status ok" : "status";
-  }
-
   adminPanel.classList.add("hidden");
   driverPanel.classList.add("hidden");
   recipientPanel.classList.add("hidden");
 
   if (currentUserProfile.role === "admin") {
     adminPanel.classList.remove("hidden");
-    renderizarPainelAdmin();
+    carregarPainelAdmin();
   } else if (currentUserProfile.role === "recipient") {
     recipientPanel.classList.remove("hidden");
-    renderizarPainelBeneficiario();
+    carregarPainelBeneficiario();
   } else {
     driverPanel.classList.remove("hidden");
-    renderizarPainelMotorista();
+    carregarPainelMotorista();
   }
 }
 
 function formatarCargo(role) {
   if (role === "admin") return "Administrador";
-  if (role === "driver") return "Motorista / Pipa";
-  if (role === "recipient") return "Beneficiário";
-  return "Usuário";
+  if (role === "driver") return "Motorista do Pipa";
+  if (role === "recipient") return "Beneficiário Rural";
+  return "Operador";
 }
 
 // ==========================================
-// PAINEL DO MOTORISTA
+// 1. PAINEL DO MOTORISTA (ENTREGAS, FOTO E ASSINATURA)
 // ==========================================
-async function renderizarPainelMotorista() {
+async function carregarPainelMotorista() {
   driverPanel.innerHTML = `
     <div class="panel-title">
-      <h2>Entregas de Hoje</h2>
-      <button id="btnAtualizarEntregas" class="secondary" type="button">Atualizar</button>
+      <h2>Entregas do Caminhão</h2>
+      <button id="btnReloadDriver" class="secondary" type="button">Atualizar</button>
     </div>
-    <div id="listaEntregasMotorista" class="grid">
-      <p class="small">Carregando abastecimentos...</p>
+    <div id="driverList" class="grid">
+      <p class="small">Buscando entregas de Areia Branca...</p>
     </div>
   `;
 
-  document.getElementById("btnAtualizarEntregas").addEventListener("click", carregarEntregasMotorista);
+  document.getElementById("btnReloadDriver").addEventListener("click", carregarEntregasMotorista);
   await carregarEntregasMotorista();
 }
 
 async function carregarEntregasMotorista() {
-  const container = document.getElementById("listaEntregasMotorista");
+  const container = document.getElementById("driverList");
   if (!container) return;
 
   try {
-    const q = query(
-      collection(db, "deliveries"),
-      where("driverUid", "==", currentUser.uid)
-    );
+    // Busca entregas do motorista logado ou todas as pendentes para o caminhão
+    const snap = await getDocs(collection(db, "deliveries"));
 
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
+    if (snap.empty) {
       container.innerHTML = `
         <div class="item">
-          <p>Nenhuma entrega agendada para seu caminhão no momento.</p>
+          <p>Nenhuma entrega agendada no momento.</p>
         </div>
       `;
       return;
     }
 
     container.innerHTML = "";
-    snapshot.forEach((d) => {
+    snap.forEach((d) => {
       const data = d.data();
       const id = d.id;
+
       const card = document.createElement("div");
       card.className = "item";
 
-      const statusClass =
-        data.status === "completed"
-          ? "completed"
-          : data.status === "absent"
-          ? "absent"
-          : "scheduled";
-
-      const statusTexto =
-        data.status === "completed"
-          ? "Concluído"
-          : data.status === "absent"
-          ? "Ausente"
-          : "Pendente";
+      const statusClass = data.status === "completed" ? "completed" : "scheduled";
+      const statusLabel = data.status === "completed" ? "Abastecido" : "Pendente";
 
       card.innerHTML = `
         <div class="row">
-          <h3>${data.recipientName || "Família sem nome"}</h3>
-          <span class="pill ${statusClass}">${statusTexto}</span>
+          <h3>${data.recipientName || "Família Rural"}</h3>
+          <span class="pill ${statusClass}">${statusLabel}</span>
         </div>
         <p><strong>Comunidade:</strong> ${data.community || "Zona Rural"}</p>
         <p><strong>Endereço:</strong> ${data.address || "Não informado"}</p>
-        <p><strong>Volume Previsto:</strong> ${data.plannedLiters || 0} Litros</p>
+        <p><strong>Volume:</strong> ${data.plannedLiters || 0} Litros</p>
         
         <div class="actions" style="margin-top: 14px;">
           ${
             data.status !== "completed"
-              ? `<button class="primary" data-action="confirm" data-id="${id}">Realizar Abastecimento</button>`
+              ? `<button class="primary" data-action="supply" data-id="${id}">Realizar Abastecimento</button>`
               : ""
           }
-          <button class="secondary" data-action="view" data-id="${id}">Ver Detalhes</button>
+          <button class="secondary" data-action="details" data-id="${id}">Ver Detalhes</button>
         </div>
       `;
 
-      card.querySelector("[data-action='view']").addEventListener("click", () => {
-        abrirDetalhesEntrega(id, data);
+      card.querySelector("[data-action='details']").addEventListener("click", () => {
+        mostrarTelaDetalhes(id, data);
       });
 
-      const confirmBtn = card.querySelector("[data-action='confirm']");
-      if (confirmBtn) {
-        confirmBtn.addEventListener("click", () => {
-          abrirModalAbastecimento(id, data);
+      const btnSupply = card.querySelector("[data-action='supply']");
+      if (btnSupply) {
+        btnSupply.addEventListener("click", () => {
+          mostrarTelaAbastecimento(id, data);
         });
       }
 
       container.appendChild(card);
     });
   } catch (err) {
-    console.error("Erro ao carregar entregas:", err);
-    container.innerHTML = `<p class="message">Erro ao carregar entregas do motorista.</p>`;
+    console.error("Erro entregas:", err);
+    container.innerHTML = `<p class="message">Erro ao carregar entregas.</p>`;
   }
 }
 
-// Modal de Execução de Entrega (Foto + Assinatura)
-function abrirModalAbastecimento(id, data) {
+// Tela Dedicada: Realizar Abastecimento
+function mostrarTelaAbastecimento(id, data) {
   const html = `
-    <form id="formAbastecimento">
+    <form id="formAbastecimentoExec">
       <div class="notice">
         <strong>${data.recipientName}</strong><br>
-        ${data.community} • ${data.plannedLiters} Litros previstos
+        Comunidade: ${data.community} • Volume previsto: ${data.plannedLiters} L
       </div>
 
       <label>
-        Litros Entregues
-        <input id="recLiters" type="number" value="${data.plannedLiters || 0}" required>
+        Volume Real Entregue (Litros)
+        <input id="recLiters" type="number" value="${data.plannedLiters || 5000}" required>
       </label>
 
       <label>
-        O responsável estava presente?
+        O beneficiário estava presente?
         <select id="recPresent">
-          <option value="sim">Sim, presente</option>
-          <option value="nao">Não, abastecido com autorização</option>
+          <option value="sim">Sim, responsável presente</option>
+          <option value="nao">Não, abastecido no reservatório</option>
         </select>
       </label>
 
       <label>
-        Foto da Entrega (Caminhão / Cisterna)
-        <input id="recPhotoInput" type="file" accept="image/*" capture="environment">
+        Foto do Abastecimento / Caminhão
+        <input id="recPhoto" type="file" accept="image/*" capture="environment">
       </label>
-      <img id="recPhotoPreview" class="photo-preview hidden" alt="Prévia da entrega">
+      <img id="previewPhoto" class="photo-preview hidden" alt="Foto">
 
       <label>
-        Assinatura do Recebedor (Desenhe com o dedo)
-        <canvas id="canvasSignature" class="signature"></canvas>
+        Assinatura do Recebedor (Toque e desenhe)
+        <canvas id="signCanvas" class="signature"></canvas>
       </label>
-      <button id="btnClearSig" type="button" class="secondary" style="min-height: 38px; padding: 6px 12px; margin-top: -6px;">Limpar Assinatura</button>
+      <button id="btnLimparAssinatura" type="button" class="secondary" style="min-height: 42px; padding: 6px 14px;">
+        Limpar Assinatura
+      </button>
 
       <label>
         Observações
-        <textarea id="recNote" placeholder="Ex: Tanque limpo, estrada com areia fofa..."></textarea>
+        <textarea id="recNote" placeholder="Estrada, estado do tanque ou qualquer detalhe..."></textarea>
       </label>
 
       <div class="actions" style="margin-top: 18px;">
-        <button type="submit" class="primary" style="flex: 2;">Confirmar Abastecimento</button>
-        <button type="button" class="secondary" id="btnCancelModal" style="flex: 1;">Voltar</button>
+        <button type="submit" class="primary" style="flex: 2;">Finalizar e Salvar</button>
+        <button type="button" class="secondary" id="btnCancelScreen" style="flex: 1;">Voltar</button>
       </div>
     </form>
   `;
 
-  openModal("Confirmar Abastecimento", html);
+  openDedicatedScreen("Registrar Abastecimento", html);
 
-  document.getElementById("btnCancelModal").addEventListener("click", closeModal);
+  document.getElementById("btnCancelScreen").addEventListener("click", closeDedicatedScreen);
 
-  // Inicializa o Canvas da Assinatura
-  signatureCanvas = document.getElementById("canvasSignature");
+  // Inicializa Canvas
+  signatureCanvas = document.getElementById("signCanvas");
   if (signatureCanvas) {
     signatureCtx = signatureCanvas.getContext("2d");
-    ajustarDimensoesCanvas(signatureCanvas);
-    configurarEventosDesenho(signatureCanvas, signatureCtx);
+    const rect = signatureCanvas.getBoundingClientRect();
+    signatureCanvas.width = rect.width;
+    signatureCanvas.height = rect.height;
+
+    signatureCtx.strokeStyle = "#0D2B5C";
+    signatureCtx.lineWidth = 3;
+    signatureCtx.lineCap = "round";
+
+    const getPos = (e) => {
+      const r = signatureCanvas.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: cx - r.left, y: cy - r.top };
+    };
+
+    const start = (e) => {
+      isDrawing = true;
+      const p = getPos(e);
+      signatureCtx.beginPath();
+      signatureCtx.moveTo(p.x, p.y);
+      if (e.cancelable) e.preventDefault();
+    };
+
+    const move = (e) => {
+      if (!isDrawing) return;
+      const p = getPos(e);
+      signatureCtx.lineTo(p.x, p.y);
+      signatureCtx.stroke();
+      if (e.cancelable) e.preventDefault();
+    };
+
+    const stop = () => { isDrawing = false; };
+
+    signatureCanvas.addEventListener("mousedown", start);
+    signatureCanvas.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", stop);
+
+    signatureCanvas.addEventListener("touchstart", start, { passive: false });
+    signatureCanvas.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("touchend", stop);
   }
 
-  document.getElementById("btnClearSig").addEventListener("click", () => {
+  document.getElementById("btnLimparAssinatura").addEventListener("click", () => {
     if (signatureCtx && signatureCanvas) {
       signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
     }
   });
 
-  // Captura de Foto
-  const photoInput = document.getElementById("recPhotoInput");
-  const photoPreview = document.getElementById("recPhotoPreview");
-
+  // Foto Preview
+  const photoInput = document.getElementById("recPhoto");
+  const photoPreview = document.getElementById("previewPhoto");
   photoInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        photoPreview.src = event.target.result;
+      reader.onload = (evt) => {
+        photoPreview.src = evt.target.result;
         photoPreview.classList.remove("hidden");
-        photoBase64 = event.target.result;
       };
       reader.readAsDataURL(file);
     }
   });
 
-  // Salvar Entrega
-  document.getElementById("formAbastecimento").addEventListener("submit", async (e) => {
+  // Submissão
+  document.getElementById("formAbastecimentoExec").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const btnSubmit = e.target.querySelector("button[type='submit']");
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = "Salvando dados...";
+    const btn = e.target.querySelector("button[type='submit']");
+    btn.disabled = true;
+    btn.textContent = "Gravando abastecimento...";
 
     try {
       const litros = Number(document.getElementById("recLiters").value);
       const presente = document.getElementById("recPresent").value === "sim";
       const nota = document.getElementById("recNote").value;
 
-      let signatureDataUrl = null;
+      let sigData = null;
       if (signatureCanvas) {
-        signatureDataUrl = signatureCanvas.toDataURL("image/png");
+        sigData = signatureCanvas.toDataURL("image/png");
       }
 
-      let uploadedPhotoUrl = "";
+      let uploadedUrl = "";
       if (photoInput.files[0]) {
         const file = photoInput.files[0];
         const sRef = storageRef(storage, `entregas/${id}_${Date.now()}.jpg`);
         await uploadBytes(sRef, file);
-        uploadedPhotoUrl = await getDownloadURL(sRef);
+        uploadedUrl = await getDownloadURL(sRef);
       }
 
       await updateDoc(doc(db, "deliveries", id), {
@@ -461,112 +480,64 @@ function abrirModalAbastecimento(id, data) {
         receivedLiters: litros,
         recipientPresent: presente,
         note: nota,
-        signatureData: signatureDataUrl,
-        photoUrl: uploadedPhotoUrl,
+        signatureData: sigData,
+        photoUrl: uploadedUrl,
         completedAt: serverTimestamp(),
         completedBy: currentUser.uid
       });
 
-      showToast("Abastecimento registrado com sucesso!");
-      closeModal();
+      showToast("Abastecimento confirmado com sucesso!");
+      closeDedicatedScreen();
       carregarEntregasMotorista();
     } catch (err) {
       console.error("Erro ao salvar:", err);
-      alert("Não foi possível salvar o abastecimento. Tente novamente.");
-      btnSubmit.disabled = false;
-      btnSubmit.textContent = "Confirmar Abastecimento";
+      alert("Falha ao registrar abastecimento.");
+      btn.disabled = false;
+      btn.textContent = "Finalizar e Salvar";
     }
   });
 }
 
-function ajustarDimensoesCanvas(canvas) {
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width;
-  canvas.height = rect.height;
-}
-
-function configurarEventosDesenho(canvas, ctx) {
-  ctx.strokeStyle = "#0D2B5C";
-  ctx.lineWidth = 3;
-  ctx.lineCap = "round";
-
-  function getPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
-    };
-  }
-
-  function start(e) {
-    isDrawing = true;
-    const pos = getPos(e);
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-    e.preventDefault();
-  }
-
-  function move(e) {
-    if (!isDrawing) return;
-    const pos = getPos(e);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
-    e.preventDefault();
-  }
-
-  function stop() {
-    isDrawing = false;
-  }
-
-  canvas.addEventListener("mousedown", start);
-  canvas.addEventListener("mousemove", move);
-  window.addEventListener("mouseup", stop);
-
-  canvas.addEventListener("touchstart", start, { passive: false });
-  canvas.addEventListener("touchmove", move, { passive: false });
-  window.addEventListener("touchend", stop);
-}
-
-// Detalhes da Entrega
-function abrirDetalhesEntrega(id, data) {
+// Tela Dedicada: Detalhes
+function mostrarTelaDetalhes(id, data) {
   const html = `
-    <div style="display: grid; gap: 12px;">
+    <div style="display: grid; gap: 14px;">
       <p><strong>Beneficiário:</strong> ${data.recipientName || "Não informado"}</p>
       <p><strong>Comunidade:</strong> ${data.community || "Não informada"}</p>
       <p><strong>Endereço:</strong> ${data.address || "Não informado"}</p>
-      <p><strong>Telefone:</strong> ${data.recipientPhone || "Não informado"}</p>
-      <p><strong>Volume Previsto:</strong> ${data.plannedLiters || 0} L</p>
-      <p><strong>Volume Entregue:</strong> ${data.receivedLiters ? `${data.receivedLiters} L` : "Pendente"}</p>
-      <p><strong>Status:</strong> ${data.status}</p>
+      <p><strong>Volume Previsto:</strong> ${data.plannedLiters || 0} Litros</p>
+      <p><strong>Volume Entregue:</strong> ${data.receivedLiters ? `${data.receivedLiters} Litros` : "Ainda não realizado"}</p>
+      <p><strong>Status:</strong> ${data.status === "completed" ? "Concluído" : "Agendado"}</p>
       ${data.note ? `<p><strong>Observações:</strong> ${data.note}</p>` : ""}
+      
       ${
         data.photoUrl
-          ? `<p><strong>Registro Fotográfico:</strong></p><img src="${data.photoUrl}" class="photo-preview" alt="Foto comprovante">`
+          ? `<p><strong>Foto Comprovante:</strong></p><img src="${data.photoUrl}" class="photo-preview" alt="Foto">`
           : ""
       }
       ${
         data.signatureData
-          ? `<p><strong>Assinatura:</strong></p><img src="${data.signatureData}" style="max-height: 120px; border: 1px solid var(--border); border-radius: 8px;" alt="Assinatura">`
+          ? `<p><strong>Assinatura Coletada:</strong></p><img src="${data.signatureData}" style="max-height: 120px; border: 1px solid var(--border); border-radius: 8px;" alt="Assinatura">`
           : ""
       }
-      <div class="actions" style="margin-top: 16px;">
-        <button type="button" class="secondary" id="btnCloseDetails" style="width: 100%;">Fechar</button>
+
+      <div class="actions" style="margin-top: 18px;">
+        <button type="button" class="secondary" id="btnBackDetails" style="width: 100%;">Fechar Tela</button>
       </div>
     </div>
   `;
-  openModal("Detalhes do Abastecimento", html);
-  document.getElementById("btnCloseDetails").addEventListener("click", closeModal);
+
+  openDedicatedScreen("Ficha de Abastecimento", html);
+  document.getElementById("btnBackDetails").addEventListener("click", closeDedicatedScreen);
 }
 
 // ==========================================
-// PAINEL DO ADMINISTRADOR
+// 2. PAINEL DO ADMINISTRADOR
 // ==========================================
-async function renderizarPainelAdmin() {
+async function carregarPainelAdmin() {
   adminPanel.innerHTML = `
     <div class="panel-title">
-      <h2>Painel de Gestão Rural</h2>
+      <h2>Gestão de Abastecimento</h2>
       <div class="actions">
         <button id="btnNovoImovel" class="primary" type="button">+ Cadastrar Família</button>
         <button id="btnAgendar" class="yellow" type="button">+ Agendar Pipa</button>
@@ -579,31 +550,31 @@ async function renderizarPainelAdmin() {
         <b id="statFamilias">--</b>
       </div>
       <div class="stat">
-        <span>Entregas Mês</span>
+        <span>Agendamentos</span>
         <b id="statEntregas">--</b>
       </div>
       <div class="stat">
-        <span>Litros Distribuídos</span>
+        <span>Litros Entregues</span>
         <b id="statLitros">--</b>
       </div>
     </div>
 
-    <div class="panel-title" style="margin-top: 24px;">
-      <h2>Abastecimentos Agendados e Realizados</h2>
+    <div class="panel-title" style="margin-top: 20px;">
+      <h2>Histórico e Programação Geral</h2>
     </div>
-    <div id="listaAdminEntregas" class="grid">
-      <p class="small">Buscando abastecimentos...</p>
+    <div id="adminDeliveriesList" class="grid">
+      <p class="small">Buscando registros...</p>
     </div>
   `;
 
-  document.getElementById("btnNovoImovel").addEventListener("click", abrirModalCadastroImovel);
-  document.getElementById("btnAgendar").addEventListener("click", abrirModalAgendamento);
+  document.getElementById("btnNovoImovel").addEventListener("click", mostrarTelaCadastroImovel);
+  document.getElementById("btnAgendar").addEventListener("click", mostrarTelaAgendamento);
 
-  await carregarMetricasAdmin();
-  await carregarListaAdminEntregas();
+  await carregarMetricas();
+  await carregarEntregasAdmin();
 }
 
-async function carregarMetricasAdmin() {
+async function carregarMetricas() {
   try {
     const snapFamilias = await getDocs(collection(db, "households"));
     document.getElementById("statFamilias").textContent = snapFamilias.size;
@@ -611,28 +582,25 @@ async function carregarMetricasAdmin() {
     const snapEntregas = await getDocs(collection(db, "deliveries"));
     document.getElementById("statEntregas").textContent = snapEntregas.size;
 
-    let totalLitros = 0;
+    let total = 0;
     snapEntregas.forEach((d) => {
       const data = d.data();
-      if (data.receivedLiters) {
-        totalLitros += Number(data.receivedLiters);
-      }
+      if (data.receivedLiters) total += Number(data.receivedLiters);
     });
-
-    document.getElementById("statLitros").textContent = totalLitros.toLocaleString("pt-BR");
+    document.getElementById("statLitros").textContent = total.toLocaleString("pt-BR");
   } catch (e) {
-    console.error("Erro nas estatísticas:", e);
+    console.error("Erro estatísticas:", e);
   }
 }
 
-async function carregarListaAdminEntregas() {
-  const container = document.getElementById("listaAdminEntregas");
+async function carregarEntregasAdmin() {
+  const container = document.getElementById("adminDeliveriesList");
   if (!container) return;
 
   try {
     const snap = await getDocs(collection(db, "deliveries"));
     if (snap.empty) {
-      container.innerHTML = `<div class="item"><p>Nenhum abastecimento cadastrado.</p></div>`;
+      container.innerHTML = `<div class="item"><p>Nenhum registro encontrado.</p></div>`;
       return;
     }
 
@@ -645,118 +613,111 @@ async function carregarListaAdminEntregas() {
         <div class="row">
           <h3>${item.recipientName || "Família"}</h3>
           <span class="pill ${item.status === "completed" ? "completed" : "scheduled"}">
-            ${item.status === "completed" ? "Concluído" : "Agendado"}
+            ${item.status === "completed" ? "Abastecido" : "Agendado"}
           </span>
         </div>
-        <p><strong>Comunidade:</strong> ${item.community}</p>
-        <p><strong>Motorista:</strong> ${item.driverName || "Não atribuído"}</p>
-        <p><strong>Volume:</strong> ${item.plannedLiters} L</p>
-        <div class="actions" style="margin-top: 12px;">
-          <button class="secondary" data-id="${d.id}">Ver Ficha Completa</button>
+        <p><strong>Comunidade:</strong> ${item.community || "Rural"}</p>
+        <p><strong>Volume:</strong> ${item.plannedLiters || 0} L</p>
+        <div class="actions" style="margin-top: 10px;">
+          <button class="secondary" data-id="${d.id}">Abrir Ficha Completa</button>
         </div>
       `;
-      el.querySelector("button").addEventListener("click", () => abrirDetalhesEntrega(d.id, item));
+      el.querySelector("button").addEventListener("click", () => mostrarTelaDetalhes(d.id, item));
       container.appendChild(el);
     });
-  } catch (err) {
-    console.error("Erro ao carregar lista admin:", err);
-    container.innerHTML = `<p class="message">Erro ao carregar abastecimentos.</p>`;
+  } catch (e) {
+    console.error(e);
   }
 }
 
-function abrirModalCadastroImovel() {
+// Tela Dedicada: Cadastrar Imóvel
+function mostrarTelaCadastroImovel() {
   const html = `
-    <form id="formCadastroImovel">
+    <form id="formNovoImovel">
       <label>
-        Nome do Titular
-        <input id="hName" type="text" placeholder="Nome completo" required>
+        Nome Completo do Responsável
+        <input id="cadName" type="text" placeholder="Nome completo" required>
       </label>
 
       <label>
         CPF
-        <input id="hCpf" type="text" placeholder="000.000.000-00" required>
+        <input id="cadCpf" type="text" placeholder="000.000.000-00" required>
       </label>
 
       <label>
         Telefone / WhatsApp
-        <input id="hPhone" type="tel" placeholder="(84) 99999-9999" required>
+        <input id="cadPhone" type="tel" placeholder="(84) 99999-9999" required>
       </label>
 
       <label>
         Comunidade / Assentamento
-        <input id="hCommunity" type="text" placeholder="Ex: Ponta do Mel, Redonda, Serra Vermelha..." required>
+        <input id="cadCommunity" type="text" placeholder="Ex: Ponta do Mel, Redonda, Casqueira..." required>
       </label>
 
       <label>
-        Endereço / Referência
-        <input id="hAddress" type="text" placeholder="Perto da capela, casa amarela...">
+        Ponto de Referência
+        <input id="cadAddress" type="text" placeholder="Próximo à escola, caixa d'água azul...">
       </label>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <label>
-          Pessoas na Casa
-          <input id="hPeople" type="number" min="1" value="4" required>
-        </label>
-        <label>
-          Volume Padrão (L)
-          <input id="hLiters" type="number" step="500" value="5000" required>
-        </label>
-      </div>
+      <label>
+        Volume Padrão da Cisterna (Litros)
+        <input id="cadLiters" type="number" step="500" value="5000" required>
+      </label>
 
-      <div class="actions" style="margin-top: 16px;">
-        <button type="submit" class="primary" style="flex: 2;">Cadastrar Imóvel</button>
-        <button type="button" class="secondary" id="btnCancelH" style="flex: 1;">Voltar</button>
+      <div class="actions" style="margin-top: 18px;">
+        <button type="submit" class="primary" style="flex: 2;">Gravar Cadastro</button>
+        <button type="button" class="secondary" id="btnCancelCad" style="flex: 1;">Voltar</button>
       </div>
     </form>
   `;
 
-  openModal("Cadastrar Família / Imóvel", html);
-  document.getElementById("btnCancelH").addEventListener("click", closeModal);
+  openDedicatedScreen("Cadastrar Imóvel Rural", html);
+  document.getElementById("btnCancelCad").addEventListener("click", closeDedicatedScreen);
 
-  document.getElementById("formCadastroImovel").addEventListener("submit", async (e) => {
+  document.getElementById("formNovoImovel").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector("button[type='submit']");
     btn.disabled = true;
-    btn.textContent = "Gravando...";
+    btn.textContent = "Salvando...";
 
     try {
       await addDoc(collection(db, "households"), {
-        name: document.getElementById("hName").value.trim(),
-        cpf: document.getElementById("hCpf").value.trim(),
-        phone: document.getElementById("hPhone").value.trim(),
-        community: document.getElementById("hCommunity").value.trim(),
-        address: document.getElementById("hAddress").value.trim(),
-        people: Number(document.getElementById("hPeople").value),
-        defaultLiters: Number(document.getElementById("hLiters").value),
+        name: document.getElementById("cadName").value.trim(),
+        cpf: document.getElementById("cadCpf").value.trim(),
+        phone: document.getElementById("cadPhone").value.trim(),
+        community: document.getElementById("cadCommunity").value.trim(),
+        address: document.getElementById("cadAddress").value.trim(),
+        defaultLiters: Number(document.getElementById("cadLiters").value),
         active: true,
         createdAt: serverTimestamp(),
         createdBy: currentUser.uid
       });
 
       showToast("Família cadastrada com sucesso!");
-      closeModal();
-      carregarMetricasAdmin();
+      closeDedicatedScreen();
+      carregarMetricas();
     } catch (err) {
-      console.error("Erro ao cadastrar família:", err);
+      console.error(err);
       alert("Erro ao salvar cadastro.");
       btn.disabled = false;
-      btn.textContent = "Cadastrar Imóvel";
+      btn.textContent = "Gravar Cadastro";
     }
   });
 }
 
-async function abrirModalAgendamento() {
+// Tela Dedicada: Agendamento
+async function mostrarTelaAgendamento() {
   const html = `
-    <form id="formAgendamento">
+    <form id="formAgendarPipa">
       <label>
-        Selecione o Imóvel
-        <select id="agHousehold" required>
-          <option value="">Carregando imóveis...</option>
+        Selecione o Beneficiário
+        <select id="selHousehold" required>
+          <option value="">Carregando famílias cadastradas...</option>
         </select>
       </label>
 
       <label>
-        Data Programada
+        Data Prevista
         <input id="agDate" type="date" required>
       </label>
 
@@ -765,57 +726,57 @@ async function abrirModalAgendamento() {
         <input id="agLiters" type="number" step="500" value="5000" required>
       </label>
 
-      <div class="actions" style="margin-top: 16px;">
+      <div class="actions" style="margin-top: 18px;">
         <button type="submit" class="primary" style="flex: 2;">Confirmar Agendamento</button>
         <button type="button" class="secondary" id="btnCancelAg" style="flex: 1;">Voltar</button>
       </div>
     </form>
   `;
 
-  openModal("Programar Entrega de Água", html);
-  document.getElementById("btnCancelAg").addEventListener("click", closeModal);
+  openDedicatedScreen("Programar Entrega de Água", html);
+  document.getElementById("btnCancelAg").addEventListener("click", closeDedicatedScreen);
 
-  const select = document.getElementById("agHousehold");
-  let householdsList = [];
+  const select = document.getElementById("selHousehold");
+  let households = [];
 
   try {
     const snap = await getDocs(collection(db, "households"));
-    select.innerHTML = '<option value="">Selecione uma família...</option>';
+    select.innerHTML = '<option value="">Selecione o beneficiário...</option>';
     snap.forEach((docSnap) => {
       const h = docSnap.data();
-      householdsList.push({ id: docSnap.id, ...h });
+      households.push({ id: docSnap.id, ...h });
       const opt = document.createElement("option");
       opt.value = docSnap.id;
       opt.textContent = `${h.name} (${h.community})`;
       select.appendChild(opt);
     });
-  } catch (err) {
-    select.innerHTML = '<option value="">Erro ao carregar lista</option>';
+  } catch (e) {
+    select.innerHTML = '<option value="">Erro ao carregar famílias</option>';
   }
 
   select.addEventListener("change", () => {
-    const selected = householdsList.find((item) => item.id === select.value);
-    if (selected && selected.defaultLiters) {
-      document.getElementById("agLiters").value = selected.defaultLiters;
+    const found = households.find((item) => item.id === select.value);
+    if (found && found.defaultLiters) {
+      document.getElementById("agLiters").value = found.defaultLiters;
     }
   });
 
-  document.getElementById("formAgendamento").addEventListener("submit", async (e) => {
+  document.getElementById("formAgendarPipa").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector("button[type='submit']");
     btn.disabled = true;
-    btn.textContent = "Agendando...";
+    btn.textContent = "Gravando agendamento...";
 
     const hId = select.value;
-    const selectedH = householdsList.find((item) => item.id === hId);
+    const hData = households.find((item) => item.id === hId);
 
     try {
       await addDoc(collection(db, "deliveries"), {
         householdId: hId,
-        recipientName: selectedH ? selectedH.name : "Beneficiário",
-        recipientPhone: selectedH ? selectedH.phone : "",
-        address: selectedH ? selectedH.address : "",
-        community: selectedH ? selectedH.community : "",
+        recipientName: hData ? hData.name : "Beneficiário",
+        recipientPhone: hData ? hData.phone : "",
+        address: hData ? hData.address : "",
+        community: hData ? hData.community : "",
         scheduledDate: document.getElementById("agDate").value,
         plannedLiters: Number(document.getElementById("agLiters").value),
         driverUid: currentUser.uid,
@@ -824,13 +785,13 @@ async function abrirModalAgendamento() {
         createdAt: serverTimestamp()
       });
 
-      showToast("Abastecimento agendado com sucesso!");
-      closeModal();
-      carregarMetricasAdmin();
-      carregarListaAdminEntregas();
+      showToast("Agendamento salvo com sucesso!");
+      closeDedicatedScreen();
+      carregarMetricas();
+      carregarEntregasAdmin();
     } catch (err) {
-      console.error("Erro no agendamento:", err);
-      alert("Não foi possível programar o abastecimento.");
+      console.error(err);
+      alert("Falha ao salvar agendamento.");
       btn.disabled = false;
       btn.textContent = "Confirmar Agendamento";
     }
@@ -838,72 +799,57 @@ async function abrirModalAgendamento() {
 }
 
 // ==========================================
-// PAINEL DO BENEFICIÁRIO
+// 3. PAINEL DO BENEFICIÁRIO
 // ==========================================
-async function renderizarPainelBeneficiario() {
+async function carregarPainelBeneficiario() {
   recipientPanel.innerHTML = `
     <div class="panel-title">
       <h2>Meus Abastecimentos</h2>
-      <button id="btnAtualizarRec" class="secondary" type="button">Atualizar</button>
+      <button id="btnRecReload" class="secondary" type="button">Atualizar</button>
     </div>
-    <div id="listaBeneficiario" class="grid">
-      <p class="small">Buscando seu histórico...</p>
+    <div id="recList" class="grid">
+      <p class="small">Buscando histórico do seu imóvel...</p>
     </div>
   `;
 
-  document.getElementById("btnAtualizarRec").addEventListener("click", carregarHistoricoBeneficiario);
+  document.getElementById("btnRecReload").addEventListener("click", carregarHistoricoBeneficiario);
   await carregarHistoricoBeneficiario();
 }
 
 async function carregarHistoricoBeneficiario() {
-  const container = document.getElementById("listaBeneficiario");
+  const container = document.getElementById("recList");
   if (!container) return;
 
   try {
-    const q = query(
-      collection(db, "deliveries"),
-      where("recipientPhone", "==", currentUserProfile.phone || "")
-    );
-    const snap = await getDocs(q);
-
+    const snap = await getDocs(collection(db, "deliveries"));
     if (snap.empty) {
-      container.innerHTML = `
-        <div class="item">
-          <p>Nenhum abastecimento encontrado para o seu contato.</p>
-        </div>
-      `;
+      container.innerHTML = `<div class="item"><p>Nenhum abastecimento encontrado.</p></div>`;
       return;
     }
 
     container.innerHTML = "";
     snap.forEach((d) => {
-      const item = d.data();
-      const card = document.createElement("div");
-      card.className = "item";
-      card.innerHTML = `
+      const data = d.data();
+      const el = document.createElement("div");
+      el.className = "item";
+      el.innerHTML = `
         <div class="row">
-          <h3>Entrega de Água</h3>
-          <span class="pill ${item.status === "completed" ? "completed" : "scheduled"}">
-            ${item.status === "completed" ? "Entregue" : "Programado"}
+          <h3>Abastecimento Pipa</h3>
+          <span class="pill ${data.status === "completed" ? "completed" : "scheduled"}">
+            ${data.status === "completed" ? "Entregue" : "Programado"}
           </span>
         </div>
-        <p><strong>Data Prevista:</strong> ${item.scheduledDate || "Em breve"}</p>
-        <p><strong>Volume:</strong> ${item.plannedLiters} Litros</p>
-        <p><strong>Caminhão / Motorista:</strong> ${item.driverName || "Em rota"}</p>
-        ${
-          item.status === "completed"
-            ? `<div class="actions" style="margin-top: 10px;"><button class="secondary" data-id="${d.id}">Ver Comprovante</button></div>`
-            : ""
-        }
+        <p><strong>Data:</strong> ${data.scheduledDate || "Em breve"}</p>
+        <p><strong>Volume:</strong> ${data.plannedLiters || 0} Litros</p>
+        <div class="actions" style="margin-top: 10px;">
+          <button class="secondary" data-id="${d.id}">Ver Comprovante</button>
+        </div>
       `;
-      const btn = card.querySelector("button");
-      if (btn) {
-        btn.addEventListener("click", () => abrirDetalhesEntrega(d.id, item));
-      }
-      container.appendChild(card);
+      el.querySelector("button").addEventListener("click", () => mostrarTelaDetalhes(d.id, data));
+      container.appendChild(el);
     });
-  } catch (err) {
-    console.error("Erro beneficiário:", err);
-    container.innerHTML = `<p class="message">Erro ao carregar informações.</p>`;
+  } catch (e) {
+    console.error(e);
+    container.innerHTML = `<p class="message">Erro ao carregar dados.</p>`;
   }
 }
