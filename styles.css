@@ -41,14 +41,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Trava a tela de trás quando uma janela cheia abrir */
 body.no-scroll {
   overflow: hidden !important;
   height: 100vh !important;
   touch-action: none;
 }
 
-/* Evita zoom automático no iPhone */
 button,
 input,
 select,
@@ -83,7 +81,7 @@ button:disabled {
   transform: none;
 }
 
-/* Topbar com área de segurança para iPhone */
+/* Barra superior com safe area para iPhone */
 .topbar {
   background: var(--navy);
   color: #fff;
@@ -93,7 +91,7 @@ button:disabled {
   padding-right: 16px;
   position: sticky;
   top: 0;
-  z-index: 200;
+  z-index: 100;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   display: flex;
   justify-content: space-between;
@@ -142,20 +140,24 @@ button:disabled {
 }
 
 /* =========================================================
-   TELA DE LOGIN COM IMAGEM DE AREIA BRANCA
+   FUNDO AÉREO DE AREIA BRANCA (SALINAS E LITORAL COSTA BRANCA)
    ========================================================= */
 .login-screen {
-  min-height: calc(100vh - 70px);
-  min-height: calc(100dvh - 70px);
+  min-height: calc(100vh - 72px);
+  min-height: calc(100dvh - 72px);
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px 16px;
   padding-bottom: max(32px, env(safe-area-inset-bottom));
-  background: 
-    linear-gradient(180deg, rgba(13, 43, 92, 0.86) 0%, rgba(8, 29, 61, 0.94) 100%),
-    url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80") center/cover no-repeat;
+  background-color: var(--navy);
+  background-image: 
+    linear-gradient(180deg, rgba(13, 43, 92, 0.82) 0%, rgba(8, 29, 61, 0.92) 100%),
+    url("https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1600&q=80");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .auth-card {
@@ -163,8 +165,8 @@ button:disabled {
   max-width: 440px;
   background: #ffffff;
   border-radius: var(--radius-lg);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-  padding: 26px 20px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.4);
+  padding: 28px 22px;
 }
 
 .auth-header {
@@ -202,7 +204,6 @@ button:disabled {
   margin-top: 10px;
 }
 
-/* Formulários */
 form {
   display: grid;
   gap: 16px;
@@ -243,7 +244,6 @@ textarea {
   resize: vertical;
 }
 
-/* Botões */
 .primary {
   background: var(--navy);
   color: #fff;
@@ -271,6 +271,7 @@ textarea {
   background: var(--yellow-hover);
 }
 
+/* Regra absoluta para ocultar elementos */
 .hidden {
   display: none !important;
 }
@@ -284,7 +285,6 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-/* Header de Usuário */
 .welcome {
   display: flex;
   justify-content: space-between;
@@ -315,7 +315,6 @@ textarea {
   color: var(--green);
 }
 
-/* Grids e itens */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
@@ -431,91 +430,85 @@ textarea {
 }
 
 /* =========================================================
-   TELA DEDICADA 100% BLINDADA CONTRA BARRAS DO IPHONE
+   TELA CHEIA DEDICADA (SÓ APARECE QUANDO SOLICITADA)
    ========================================================= */
 .fullscreen-modal {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  height: 100dvh !important;
-  background: rgba(10, 23, 51, 0.75) !important;
-  z-index: 99999 !important;
-  display: flex !important;
-  justify-content: center !important;
-  align-items: flex-end !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(10, 23, 51, 0.75);
+  z-index: 99999;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0;
 }
 
 .fullscreen-box {
-  width: 100% !important;
-  max-width: 640px !important;
-  height: calc(100vh - max(20px, env(safe-area-inset-top))) !important;
-  height: calc(100dvh - max(20px, env(safe-area-inset-top))) !important;
-  background: #ffffff !important;
-  border-radius: 20px 20px 0 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  box-shadow: 0 -8px 30px rgba(0,0,0,0.4) !important;
-  overflow: hidden !important;
+  width: 100%;
+  max-width: 640px;
+  height: calc(100vh - max(20px, env(safe-area-inset-top)));
+  height: calc(100dvh - max(20px, env(safe-area-inset-top)));
+  background: #ffffff;
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -8px 30px rgba(0,0,0,0.4);
+  overflow: hidden;
 }
 
-/* Cabeçalho fixo no topo da tela com botão Fechar X bem destacado */
 .fullscreen-header {
-  padding-top: 14px !important;
-  padding-bottom: 14px !important;
-  padding-left: 18px !important;
-  padding-right: 18px !important;
-  background: #ffffff !important;
-  border-bottom: 1.5px solid var(--border) !important;
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  flex-shrink: 0 !important;
-  z-index: 10 !important;
+  padding: 14px 18px;
+  background: #ffffff;
+  border-bottom: 1.5px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  z-index: 10;
 }
 
 .fullscreen-header h2 {
-  margin: 0 !important;
-  font-size: 19px !important;
-  color: var(--navy) !important;
-  font-weight: 800 !important;
+  margin: 0;
+  font-size: 19px;
+  color: var(--navy);
+  font-weight: 800;
 }
 
 .fullscreen-close {
-  background: #eef2f7 !important;
-  color: var(--navy) !important;
-  font-size: 20px !important;
-  line-height: 1 !important;
-  padding: 0 !important;
-  width: 44px !important;
-  height: 44px !important;
-  min-height: 44px !important;
-  border-radius: 50% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
+  background: #eef2f7;
+  color: var(--navy);
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .fullscreen-close:active {
-  background: #d8e2ef !important;
+  background: #d8e2ef;
 }
 
-/* Área interna rolável com folga inferior para barra de gestos do iPhone */
 .fullscreen-content {
-  flex: 1 1 auto !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  padding: 20px 18px !important;
-  padding-bottom: calc(50px + env(safe-area-inset-bottom)) !important;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 18px;
+  padding-bottom: calc(50px + env(safe-area-inset-bottom));
 }
 
-/* Assinatura touch e Foto */
 .signature {
   display: block;
   width: 100%;
@@ -536,7 +529,6 @@ textarea {
   margin-top: 8px;
 }
 
-/* Toast */
 .toast {
   position: fixed;
   left: 50%;
@@ -562,12 +554,12 @@ textarea {
 
 @media (min-width: 641px) {
   .fullscreen-modal {
-    align-items: center !important;
-    padding: 20px !important;
+    align-items: center;
+    padding: 20px;
   }
   .fullscreen-box {
-    height: auto !important;
-    max-height: 88vh !important;
-    border-radius: 20px !important;
+    height: auto;
+    max-height: 88vh;
+    border-radius: 20px;
   }
 }
