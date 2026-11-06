@@ -76,10 +76,10 @@ const storage = getStorage(app);
 // ======================================================
 
 export const firebaseConfig = {
-  apiKey: "...",
-  authDomain: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
+  apiKey: "SUA_API_KEY_AQUI",
+  authDomain: "agua-para-todos-18167.firebaseapp.com",
+  projectId: "agua-para-todos-18167",
+  storageBucket: "agua-para-todos-18167.appspot.com",
+  messagingSenderId: "SEU_NUMERO_AQUI",
+  appId: "SEU_APP_ID_AQUI"
 };
