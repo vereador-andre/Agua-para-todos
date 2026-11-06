@@ -22,7 +22,15 @@ import {
   getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-import { configAppFirebase } from "./firebase-config.js";
+// Credenciais diretas sem necessidade de import externo (evita erros de módulo no navegador)
+const firebaseConfig = {
+  apiKey: "AIzaSyAAf5Tfvh0Ow-iusTMuvax5VlxBgjtVFeo",
+  authDomain: "agua-para-todos-18167.firebaseapp.com",
+  projectId: "agua-para-todos-18167",
+  storageBucket: "agua-para-todos-18167.firebasestorage.app",
+  messagingSenderId: "154424742994",
+  appId: "1:154424742994:web:46f14ccf8fc781e8867b8b"
+};
 
 // Inicialização segura
 let app = null;
@@ -31,10 +39,7 @@ let db = null;
 let storage = null;
 
 try {
-  if (!configAppFirebase || !configAppFirebase.apiKey) {
-    throw new Error("As credenciais não foram encontradas em firebase-config.js");
-  }
-  app = initializeApp(configAppFirebase);
+  app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
