@@ -2,9 +2,11 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 
   <meta name="theme-color" content="#0D2B5C">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="description" content="Controle seguro do abastecimento rural - Água para Todos">
 
   <link rel="manifest" href="./manifest.webmanifest">
@@ -22,7 +24,7 @@
       <small>Controle seguro do abastecimento rural • Areia Branca-RN</small>
     </div>
 
-    <button id="logoutBtn" class="ghost hidden">
+    <button id="logoutBtn" class="ghost hidden" type="button">
       Sair
     </button>
   </header>
@@ -128,6 +130,7 @@
 
   </main>
 
+  <!-- Modal com barra de cabeçalho fixa para fechar sem sobreposição no iPhone -->
   <div
     id="modal"
     class="modal hidden"
@@ -135,16 +138,21 @@
 
     <div class="modal-box">
 
-      <button
-        id="closeModal"
-        class="close"
-        aria-label="Fechar"
-      >
-        &times;
-      </button>
+      <div class="modal-header">
+        <h2 id="modalTitle" class="modal-title-text">Atenção</h2>
+        <button
+          id="closeModal"
+          class="close"
+          type="button"
+          aria-label="Fechar"
+        >
+          ✕ Fechar
+        </button>
+      </div>
 
       <div
         id="modalContent"
+        class="modal-body"
       ></div>
 
     </div>
