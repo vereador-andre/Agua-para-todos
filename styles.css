@@ -59,7 +59,7 @@ button {
   border: 0;
   border-radius: var(--radius-md);
   padding: 14px 20px;
-  min-height: 52px;
+  min-height: 50px;
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
@@ -140,7 +140,7 @@ button:disabled {
 }
 
 /* =========================================================
-   FUNDO AÉREO DE AREIA BRANCA (SALINAS E LITORAL COSTA BRANCA)
+   FUNDO AÉREO COM A FOTO REAL DE AREIA BRANCA
    ========================================================= */
 .login-screen {
   min-height: calc(100vh - 72px);
@@ -153,8 +153,8 @@ button:disabled {
   padding-bottom: max(32px, env(safe-area-inset-bottom));
   background-color: var(--navy);
   background-image: 
-    linear-gradient(180deg, rgba(13, 43, 92, 0.82) 0%, rgba(8, 29, 61, 0.92) 100%),
-    url("https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1600&q=80");
+    linear-gradient(180deg, rgba(13, 43, 92, 0.78) 0%, rgba(8, 29, 61, 0.88) 100%),
+    url("./fundo-areia-branca.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -163,9 +163,11 @@ button:disabled {
 .auth-card {
   width: 100%;
   max-width: 440px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius-lg);
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
   padding: 28px 22px;
 }
 
@@ -271,7 +273,6 @@ textarea {
   background: var(--yellow-hover);
 }
 
-/* Regra absoluta para ocultar elementos */
 .hidden {
   display: none !important;
 }
@@ -430,7 +431,7 @@ textarea {
 }
 
 /* =========================================================
-   TELA CHEIA DEDICADA (SÓ APARECE QUANDO SOLICITADA)
+   TELA CHEIA DEDICADA
    ========================================================= */
 .fullscreen-modal {
   position: fixed;
