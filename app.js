@@ -22,19 +22,20 @@ import {
   getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-import { firebaseConfig } from "./firebase-config.js";
+// Importa com alias para evitar 'Identifier already declared'
+import { firebaseConfig as appFirebaseConfig } from "./firebase-config.js";
 
-// Inicialização com diagnóstico
+// Inicialização segura
 let app = null;
 let auth = null;
 let db = null;
 let storage = null;
 
 try {
-  if (!firebaseConfig || !firebaseConfig.apiKey) {
-    throw new Error("firebaseConfig não encontrada ou sem apiKey no firebase-config.js");
+  if (!appFirebaseConfig || !appFirebaseConfig.apiKey) {
+    throw new Error("Credenciais do Firebase não encontradas.");
   }
-  app = initializeApp(firebaseConfig);
+  app = initializeApp(appFirebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
@@ -71,7 +72,7 @@ const modalContent = document.getElementById("modalContent");
 const closeModalBtn = document.getElementById("closeModal");
 const toastEl = document.getElementById("toast");
 
-// Estado
+// Variáveis de Estado
 let currentUser = null;
 let currentUserProfile = null;
 let signatureCanvas = null;
@@ -95,7 +96,7 @@ function limparErroLogin() {
 }
 
 // ==========================================
-// CONTROLE DE TELAS DEDICADAS
+// CONTROLE DE TELAS DEDICADAS (MODAL FLUTUANTE)
 // ==========================================
 function openDedicatedScreen(title, htmlBody) {
   modalTitle.textContent = title;
@@ -142,7 +143,7 @@ async function executarLogin() {
   }
 
   if (!auth) {
-    exibirErroLogin("Firebase Auth não carregado. Verifique as credenciais.");
+    exibirErroLogin("Firebase Auth não carregado. Verifique o console.");
     return;
   }
 
@@ -151,7 +152,7 @@ async function executarLogin() {
 
   let finalEmail = rawInput;
 
-  // Converte telefone digitado para formato de e-mail padrão
+  // Se for telefone (apenas números ou caracteres especiais sem @)
   const digitsOnly = rawInput.replace(/\D/g, "");
   if (!rawInput.includes("@")) {
     if (digitsOnly.length >= 8) {
@@ -167,7 +168,7 @@ async function executarLogin() {
   try {
     await signInWithEmailAndPassword(auth, finalEmail, password);
   } catch (err) {
-    console.error("Erro no Login:", err);
+    console.error("Erro no login:", err);
 
     let mensagem = "Não foi possível entrar.";
 
@@ -180,7 +181,7 @@ async function executarLogin() {
     } else if (err.code === "auth/invalid-email") {
       mensagem = "Formato de e-mail inválido.";
     } else if (err.code === "auth/unauthorized-domain") {
-      mensagem = "Domínio GitHub Pages não autorizado no console do Firebase.";
+      mensagem = "Domínio GitHub Pages não autorizado no Firebase.";
     } else if (err.code === "auth/network-request-failed") {
       mensagem = "Sem comunicação com a internet.";
     } else {
@@ -194,7 +195,6 @@ async function executarLogin() {
   }
 }
 
-// Liga eventos ao botão de entrar
 if (btnSubmitLogin) {
   btnSubmitLogin.addEventListener("click", (e) => {
     e.preventDefault();
@@ -219,7 +219,7 @@ if (logoutBtn) {
   });
 }
 
-// Observador de Autenticação
+// Monitor de Sessão
 if (auth) {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -229,7 +229,7 @@ if (auth) {
         if (userSnap.exists()) {
           currentUserProfile = userSnap.data();
         } else {
-          // Se o usuário ainda não tiver perfil salvo na coleção 'users', assume perfil Administrador
+          // Se for o seu e-mail principal ou se ainda não tiver documento salvo, define como admin
           currentUserProfile = {
             name: user.email.split("@")[0],
             role: "admin"
