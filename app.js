@@ -10,8 +10,6 @@ import {
   doc,
   getDoc,
   collection,
-  query,
-  where,
   getDocs,
   addDoc,
   updateDoc,
@@ -62,22 +60,25 @@ let signatureCanvas = null;
 let signatureCtx = null;
 let isDrawing = false;
 
+// Garante que o modal comece 100% fechado logo ao carregar a página
+if (screenModal) {
+  screenModal.classList.add("hidden");
+}
+
 // ==========================================
-// GERENCIADOR DE TELAS DEDICADAS (FULLSCREEN MODAL)
+// CONTROLE DE TELAS DEDICADAS (ABRIR E FECHAR)
 // ==========================================
 function openDedicatedScreen(title, htmlBody) {
   modalTitle.textContent = title;
   modalContent.innerHTML = htmlBody;
 
-  screenModal.style.setProperty("display", "flex", "important");
+  screenModal.classList.remove("hidden");
   document.body.classList.add("no-scroll");
-
-  // Garante que o scroll da janela comece no topo
   modalContent.scrollTop = 0;
 }
 
 function closeDedicatedScreen() {
-  screenModal.style.setProperty("display", "none", "important");
+  screenModal.classList.add("hidden");
   document.body.classList.remove("no-scroll");
   modalContent.innerHTML = "";
   signatureCanvas = null;
@@ -115,7 +116,7 @@ window.addEventListener("offline", () => {
 });
 
 // ==========================================
-// AUTENTICAÇÃO COM COMPATIBILIDADE TOTAL (E-MAIL OU TELEFONE)
+// LOGIN POR E-MAIL OU TELEFONE
 // ==========================================
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
@@ -136,11 +137,10 @@ if (loginForm) {
 
     let finalEmail = rawInput;
 
-    // Se o usuário digitou número de telefone (com DDD ou não)
+    // Se digitou telefone em vez de e-mail
     const digitsOnly = rawInput.replace(/\D/g, "");
     if (!rawInput.includes("@")) {
       if (digitsOnly.length >= 8) {
-        // Usa domínio padrão compatível com provedores do Firebase
         finalEmail = `${digitsOnly}@aguaparatodos.com`;
       } else {
         loginMsg.textContent = "Digite um e-mail válido ou telefone com DDD.";
@@ -153,7 +153,7 @@ if (loginForm) {
     try {
       await signInWithEmailAndPassword(auth, finalEmail, password);
     } catch (err) {
-      console.error("Erro Firebase Auth:", err.code, err.message);
+      console.error("Erro Firebase Auth:", err.code);
 
       let msg = "Não foi possível entrar. Verifique os dados.";
       if (
@@ -190,7 +190,6 @@ onAuthStateChanged(auth, async (user) => {
       if (userSnap.exists()) {
         currentUserProfile = userSnap.data();
       } else {
-        // Perfil de fallback caso o documento na coleção users ainda não exista
         currentUserProfile = {
           name: user.email.split("@")[0],
           role: "driver"
@@ -248,7 +247,7 @@ function formatarCargo(role) {
 }
 
 // ==========================================
-// 1. PAINEL DO MOTORISTA (ENTREGAS, FOTO E ASSINATURA)
+// 1. PAINEL DO MOTORISTA
 // ==========================================
 async function carregarPainelMotorista() {
   driverPanel.innerHTML = `
@@ -270,7 +269,6 @@ async function carregarEntregasMotorista() {
   if (!container) return;
 
   try {
-    // Busca entregas do motorista logado ou todas as pendentes para o caminhão
     const snap = await getDocs(collection(db, "deliveries"));
 
     if (snap.empty) {
@@ -331,7 +329,7 @@ async function carregarEntregasMotorista() {
   }
 }
 
-// Tela Dedicada: Realizar Abastecimento
+// Tela de Abastecimento com Assinatura e Foto
 function mostrarTelaAbastecimento(id, data) {
   const html = `
     <form id="formAbastecimentoExec">
@@ -435,7 +433,6 @@ function mostrarTelaAbastecimento(id, data) {
     }
   });
 
-  // Foto Preview
   const photoInput = document.getElementById("recPhoto");
   const photoPreview = document.getElementById("previewPhoto");
   photoInput.addEventListener("change", (e) => {
@@ -450,7 +447,6 @@ function mostrarTelaAbastecimento(id, data) {
     }
   });
 
-  // Submissão
   document.getElementById("formAbastecimentoExec").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector("button[type='submit']");
@@ -498,7 +494,6 @@ function mostrarTelaAbastecimento(id, data) {
   });
 }
 
-// Tela Dedicada: Detalhes
 function mostrarTelaDetalhes(id, data) {
   const html = `
     <div style="display: grid; gap: 14px;">
@@ -630,7 +625,6 @@ async function carregarEntregasAdmin() {
   }
 }
 
-// Tela Dedicada: Cadastrar Imóvel
 function mostrarTelaCadastroImovel() {
   const html = `
     <form id="formNovoImovel">
@@ -705,7 +699,6 @@ function mostrarTelaCadastroImovel() {
   });
 }
 
-// Tela Dedicada: Agendamento
 async function mostrarTelaAgendamento() {
   const html = `
     <form id="formAgendarPipa">
