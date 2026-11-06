@@ -24,15 +24,19 @@ import {
 
 import { firebaseConfig } from "./firebase-config.js";
 
-// Inicializa Firebase com tratamento de erro
-let app, auth, db, storage;
+// Inicialização
+let app = null;
+let auth = null;
+let db = null;
+let storage = null;
+
 try {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
 } catch (e) {
-  console.error("Erro na inicialização do Firebase:", e);
+  console.error("Erro ao inicializar Firebase:", e);
 }
 
 // Seletores do DOM
@@ -44,9 +48,6 @@ const loginPasswordInput = document.getElementById("loginPassword");
 const loginMsg = document.getElementById("loginMsg");
 const logoutBtn = document.getElementById("logoutBtn");
 const btnSubmitLogin = document.getElementById("btnSubmitLogin");
-
-const btnDemoAdmin = document.getElementById("btnDemoAdmin");
-const btnDemoDriver = document.getElementById("btnDemoDriver");
 
 const userNameEl = document.getElementById("userName");
 const userRoleEl = document.getElementById("userRole");
@@ -69,9 +70,20 @@ let signatureCanvas = null;
 let signatureCtx = null;
 let isDrawing = false;
 
-// Garante que a tela modal comece 100% oculta
 if (screenModal) {
   screenModal.classList.add("hidden");
+}
+
+function exibirErroLogin(texto) {
+  if (!loginMsg) return;
+  loginMsg.textContent = texto;
+  loginMsg.classList.add("visible");
+}
+
+function limparErroLogin() {
+  if (!loginMsg) return;
+  loginMsg.textContent = "";
+  loginMsg.classList.remove("visible");
 }
 
 // ==========================================
@@ -98,9 +110,6 @@ if (closeModalBtn) {
   closeModalBtn.addEventListener("click", closeDedicatedScreen);
 }
 
-// ==========================================
-// TOAST NOTIFICAÇÃO
-// ==========================================
 function showToast(msg) {
   if (!toastEl) return;
   toastEl.textContent = msg;
@@ -125,21 +134,26 @@ window.addEventListener("offline", () => {
 });
 
 // ==========================================
-// FLUXO DE LOGIN (BLINDADO CONTRA RELOAD)
+// EXECUÇÃO DO LOGIN
 // ==========================================
 async function executarLogin() {
-  loginMsg.textContent = "";
+  limparErroLogin();
 
   const rawInput = loginEmailInput.value.trim();
   const password = loginPasswordInput.value;
 
   if (!rawInput || !password) {
-    loginMsg.textContent = "Por favor, preencha o e-mail/telefone e a senha.";
+    exibirErroLogin("Por favor, preencha o e-mail/telefone e a senha.");
+    return;
+  }
+
+  if (!auth) {
+    exibirErroLogin("Erro de conexão com o Firebase. Verifique o console.");
     return;
   }
 
   btnSubmitLogin.disabled = true;
-  btnSubmitLogin.textContent = "Acessando...";
+  btnSubmitLogin.textContent = "Entrando...";
 
   let finalEmail = rawInput;
 
@@ -149,7 +163,7 @@ async function executarLogin() {
     if (digitsOnly.length >= 8) {
       finalEmail = `${digitsOnly}@aguaparatodos.com`;
     } else {
-      loginMsg.textContent = "Digite um e-mail válido ou telefone com DDD.";
+      exibirErroLogin("Digite um e-mail válido ou telefone com DDD.");
       btnSubmitLogin.disabled = false;
       btnSubmitLogin.textContent = "Entrar no Sistema";
       return;
@@ -157,32 +171,37 @@ async function executarLogin() {
   }
 
   try {
-    await signInWithEmailAndPassword(auth, finalEmail, password);
+    const credencial = await signInWithEmailAndPassword(auth, finalEmail, password);
+    console.log("Autenticado com sucesso:", credencial.user.uid);
   } catch (err) {
-    console.error("Erro Firebase Auth:", err);
+    console.error("Erro Auth detalhado:", err);
 
-    let msg = "Não foi possível entrar. Verifique os dados.";
+    let mensagem = "Não foi possível entrar. Verifique seus dados.";
+
     if (
       err.code === "auth/invalid-credential" ||
       err.code === "auth/user-not-found" ||
       err.code === "auth/wrong-password"
     ) {
-      msg = "E-mail/Telefone ou senha incorretos.";
+      mensagem = "E-mail/Telefone ou senha incorretos.";
     } else if (err.code === "auth/invalid-email") {
-      msg = "Formato de e-mail ou telefone inválido.";
+      mensagem = "Formato de e-mail inválido.";
+    } else if (err.code === "auth/unauthorized-domain") {
+      mensagem = "Domínio GitHub Pages não autorizado no console do Firebase.";
     } else if (err.code === "auth/network-request-failed") {
-      msg = "Sem comunicação com a internet.";
+      mensagem = "Sem comunicação com a internet.";
     } else {
-      msg = `Erro: ${err.message || err.code}`;
+      mensagem = `Falha: ${err.message || err.code}`;
     }
-    loginMsg.textContent = msg;
+
+    exibirErroLogin(mensagem);
   } finally {
     btnSubmitLogin.disabled = false;
     btnSubmitLogin.textContent = "Entrar no Sistema";
   }
 }
 
-// Vincula o botão Entrar
+// Liga eventos ao botão de login
 if (btnSubmitLogin) {
   btnSubmitLogin.addEventListener("click", (e) => {
     e.preventDefault();
@@ -190,7 +209,6 @@ if (btnSubmitLogin) {
   });
 }
 
-// Impede que a tecla ENTER no teclado do celular recarregue a página
 if (loginForm) {
   loginForm.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -198,38 +216,17 @@ if (loginForm) {
   });
 }
 
-// ==========================================
-// BOTÕES DE TESTE DIRETO (DEMO)
-// ==========================================
-if (btnDemoAdmin) {
-  btnDemoAdmin.addEventListener("click", () => {
-    currentUser = { uid: "demo-admin", email: "admin@areia-branca.gov" };
-    currentUserProfile = { name: "Gestor Areia Branca", role: "admin" };
-    iniciarSessao();
-    showToast("Modo Demonstração: Administrador");
-  });
-}
-
-if (btnDemoDriver) {
-  btnDemoDriver.addEventListener("click", () => {
-    currentUser = { uid: "demo-driver", email: "motorista@areia-branca.gov" };
-    currentUserProfile = { name: "Motorista do Pipa", role: "driver" };
-    iniciarSessao();
-    showToast("Modo Demonstração: Motorista");
-  });
-}
-
 // Botão Sair
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     try {
-      await signOut(auth);
+      if (auth) await signOut(auth);
     } catch (e) {}
     finalizarSessao();
   });
 }
 
-// Monitora Firebase Auth
+// Monitora o estado de autenticação do Firebase
 if (auth) {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -239,21 +236,20 @@ if (auth) {
         if (userSnap.exists()) {
           currentUserProfile = userSnap.data();
         } else {
+          // Se não houver documento na coleção users, define padrão como admin
           currentUserProfile = {
             name: user.email.split("@")[0],
-            role: "driver"
+            role: "admin"
           };
         }
         iniciarSessao();
       } catch (e) {
-        console.error("Erro doc perfil:", e);
-        currentUserProfile = { name: "Motorista", role: "driver" };
+        console.error("Erro ao ler documento de usuário:", e);
+        currentUserProfile = { name: "Administrador", role: "admin" };
         iniciarSessao();
       }
     } else {
-      if (!currentUserProfile) {
-        finalizarSessao();
-      }
+      finalizarSessao();
     }
   });
 }
@@ -328,26 +324,13 @@ async function carregarEntregasMotorista() {
       snap.forEach((d) => entregas.push({ id: d.id, ...d.data() }));
     }
 
-    // Se estiver em modo de teste ou sem entregas no banco, insere dados visuais de exemplo
     if (entregas.length === 0) {
-      entregas = [
-        {
-          id: "ex1",
-          recipientName: "Maria da Penha",
-          community: "Ponta do Mel",
-          address: "Próximo ao Farol",
-          plannedLiters: 5000,
-          status: "scheduled"
-        },
-        {
-          id: "ex2",
-          recipientName: "João Batista Silva",
-          community: "Redonda",
-          address: "Rua Principal, casa verde",
-          plannedLiters: 10000,
-          status: "scheduled"
-        }
-      ];
+      container.innerHTML = `
+        <div class="item">
+          <p>Nenhuma entrega agendada no momento.</p>
+        </div>
+      `;
+      return;
     }
 
     container.innerHTML = "";
@@ -392,7 +375,7 @@ async function carregarEntregasMotorista() {
     });
   } catch (err) {
     console.error("Erro entregas:", err);
-    container.innerHTML = `<p class="message">Erro ao carregar entregas.</p>`;
+    container.innerHTML = `<p class="message visible">Erro ao carregar entregas.</p>`;
   }
 }
 
@@ -535,7 +518,7 @@ function mostrarTelaAbastecimento(id, data) {
         uploadedUrl = await getDownloadURL(sRef);
       }
 
-      if (db && !id.startsWith("ex")) {
+      if (db) {
         await updateDoc(doc(db, "deliveries", id), {
           status: "completed",
           receivedLiters: litros,
@@ -544,7 +527,7 @@ function mostrarTelaAbastecimento(id, data) {
           signatureData: sigData,
           photoUrl: uploadedUrl,
           completedAt: serverTimestamp(),
-          completedBy: currentUser ? currentUser.uid : "demo"
+          completedBy: currentUser ? currentUser.uid : "admin"
         });
       }
 
@@ -637,12 +620,7 @@ async function carregarPainelAdmin() {
 
 async function carregarMetricas() {
   try {
-    if (!db) {
-      document.getElementById("statFamilias").textContent = "12";
-      document.getElementById("statEntregas").textContent = "28";
-      document.getElementById("statLitros").textContent = "140.000";
-      return;
-    }
+    if (!db) return;
     const snapFamilias = await getDocs(collection(db, "households"));
     document.getElementById("statFamilias").textContent = snapFamilias.size;
 
@@ -656,9 +634,7 @@ async function carregarMetricas() {
     });
     document.getElementById("statLitros").textContent = total.toLocaleString("pt-BR");
   } catch (e) {
-    document.getElementById("statFamilias").textContent = "12";
-    document.getElementById("statEntregas").textContent = "28";
-    document.getElementById("statLitros").textContent = "140.000";
+    console.error("Erro metricas:", e);
   }
 }
 
@@ -674,23 +650,8 @@ async function carregarEntregasAdmin() {
     }
 
     if (entregas.length === 0) {
-      entregas = [
-        {
-          id: "adm1",
-          recipientName: "Francisco Ferreira",
-          community: "Casqueira",
-          plannedLiters: 5000,
-          status: "scheduled"
-        },
-        {
-          id: "adm2",
-          recipientName: "Antônia Alves",
-          community: "Serra Vermelha",
-          plannedLiters: 10000,
-          status: "completed",
-          receivedLiters: 10000
-        }
-      ];
+      container.innerHTML = `<div class="item"><p>Nenhum registro encontrado no banco de dados.</p></div>`;
+      return;
     }
 
     container.innerHTML = "";
@@ -799,8 +760,7 @@ async function mostrarTelaAgendamento() {
       <label>
         Selecione o Beneficiário
         <select id="selHousehold" required>
-          <option value="1">Família Maria da Penha (Ponta do Mel)</option>
-          <option value="2">Família João Batista (Redonda)</option>
+          <option value="">Carregando famílias cadastradas...</option>
         </select>
       </label>
 
@@ -824,18 +784,51 @@ async function mostrarTelaAgendamento() {
   openDedicatedScreen("Programar Entrega de Água", html);
   document.getElementById("btnCancelAg").addEventListener("click", closeDedicatedScreen);
 
+  const select = document.getElementById("selHousehold");
+  let households = [];
+
+  try {
+    const snap = await getDocs(collection(db, "households"));
+    select.innerHTML = '<option value="">Selecione o beneficiário...</option>';
+    snap.forEach((docSnap) => {
+      const h = docSnap.data();
+      households.push({ id: docSnap.id, ...h });
+      const opt = document.createElement("option");
+      opt.value = docSnap.id;
+      opt.textContent = `${h.name} (${h.community})`;
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    select.innerHTML = '<option value="">Nenhuma família encontrada</option>';
+  }
+
+  select.addEventListener("change", () => {
+    const found = households.find((item) => item.id === select.value);
+    if (found && found.defaultLiters) {
+      document.getElementById("agLiters").value = found.defaultLiters;
+    }
+  });
+
   document.getElementById("btnSalvarAgendamento").addEventListener("click", async () => {
     const btn = document.getElementById("btnSalvarAgendamento");
     btn.disabled = true;
     btn.textContent = "Agendando...";
 
+    const hId = select.value;
+    const hData = households.find((item) => item.id === hId);
+
     try {
       if (db) {
         await addDoc(collection(db, "deliveries"), {
-          recipientName: "Beneficiário Agendado",
-          community: "Areia Branca",
+          householdId: hId,
+          recipientName: hData ? hData.name : "Beneficiário",
+          recipientPhone: hData ? hData.phone : "",
+          address: hData ? hData.address : "",
+          community: hData ? hData.community : "",
           scheduledDate: document.getElementById("agDate").value,
           plannedLiters: Number(document.getElementById("agLiters").value),
+          driverUid: currentUser ? currentUser.uid : "",
+          driverName: currentUserProfile ? currentUserProfile.name : "Motorista",
           status: "scheduled",
           createdAt: serverTimestamp()
         });
@@ -876,29 +869,35 @@ async function carregarHistoricoBeneficiario() {
   const container = document.getElementById("recList");
   if (!container) return;
 
-  const dataExemplo = {
-    id: "rec1",
-    recipientName: "Minha Cisterna",
-    scheduledDate: "2026-11-10",
-    plannedLiters: 5000,
-    status: "scheduled"
-  };
+  try {
+    const snap = await getDocs(collection(db, "deliveries"));
+    if (snap.empty) {
+      container.innerHTML = `<div class="item"><p>Nenhum abastecimento encontrado.</p></div>`;
+      return;
+    }
 
-  container.innerHTML = `
-    <div class="item">
-      <div class="row">
-        <h3>Abastecimento Pipa</h3>
-        <span class="pill scheduled">Programado</span>
-      </div>
-      <p><strong>Data Prevista:</strong> ${dataExemplo.scheduledDate}</p>
-      <p><strong>Volume:</strong> ${dataExemplo.plannedLiters} Litros</p>
-      <div class="actions" style="margin-top: 10px;">
-        <button class="secondary" id="btnVerComp">Ver Detalhes</button>
-      </div>
-    </div>
-  `;
-
-  document.getElementById("btnVerComp").addEventListener("click", () => {
-    mostrarTelaDetalhes(dataExemplo.id, dataExemplo);
-  });
+    container.innerHTML = "";
+    snap.forEach((d) => {
+      const data = d.data();
+      const el = document.createElement("div");
+      el.className = "item";
+      el.innerHTML = `
+        <div class="row">
+          <h3>Abastecimento Pipa</h3>
+          <span class="pill ${data.status === "completed" ? "completed" : "scheduled"}">
+            ${data.status === "completed" ? "Entregue" : "Programado"}
+          </span>
+        </div>
+        <p><strong>Data:</strong> ${data.scheduledDate || "Em breve"}</p>
+        <p><strong>Volume:</strong> ${data.plannedLiters || 0} Litros</p>
+        <div class="actions" style="margin-top: 10px;">
+          <button class="secondary" data-id="${d.id}">Ver Comprovante</button>
+        </div>
+      `;
+      el.querySelector("button").addEventListener("click", () => mostrarTelaDetalhes(d.id, data));
+      container.appendChild(el);
+    });
+  } catch (e) {
+    console.error(e);
+  }
 }
