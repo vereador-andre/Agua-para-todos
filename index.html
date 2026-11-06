@@ -11,14 +11,13 @@
 
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./styles.css?v=5">
+  <link rel="stylesheet" href="./styles.css?v=99">
 
   <title>Água para Todos - Areia Branca/RN</title>
 </head>
 
 <body>
 
-  <!-- Barra do Topo -->
   <header class="topbar">
     <div class="topbar-content">
       <div class="brand">ÁGUA <span>PARA TODOS</span></div>
@@ -30,7 +29,6 @@
     </button>
   </header>
 
-  <!-- Tela de Login com fundo aéreo de Areia Branca -->
   <section id="loginView" class="login-screen">
     <div class="auth-card">
       <div class="auth-header">
@@ -73,7 +71,6 @@
     </div>
   </section>
 
-  <!-- Painel do Usuário Logado -->
   <main class="container">
     <section id="appView" class="hidden">
       <div class="welcome card">
@@ -90,7 +87,6 @@
     </section>
   </main>
 
-  <!-- Janela Dedicada Flutuante -->
   <div id="screenModal" class="fullscreen-modal hidden" role="dialog" aria-modal="true">
     <div class="fullscreen-box">
       <header class="fullscreen-header">
@@ -106,7 +102,6 @@
 
   <div id="toast" class="toast" role="status"></div>
 
-  <!-- Captura de erros globais direto na tela -->
   <script>
     window.addEventListener("error", function (e) {
       var msgBox = document.getElementById("loginMsg");
@@ -117,6 +112,6 @@
     });
   </script>
 
-  <script type="module" src="./app.js?v=5"></script>
+  <script type="module" src="./app.js?v=99"></script>
 </body>
 </html>
