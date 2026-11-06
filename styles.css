@@ -2,24 +2,23 @@
 
 :root {
   --navy: #0D2B5C;
-  --navy-dark: #071a38;
+  --navy-dark: #081d3d;
   --yellow: #FFC107;
-  --yellow-hover: #e5ad06;
+  --yellow-hover: #e5ac00;
   --bg: #f4f7fb;
   --text: #172033;
-  --muted: #64748b;
+  --muted: #687386;
   --white: #ffffff;
   --green: #138a4b;
   --green-bg: #e7f6ed;
   --red: #c62828;
   --red-bg: #feecec;
   --border: #dfe5ee;
-  
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
-  --shadow-sm: 0 2px 6px rgba(13, 43, 92, 0.06);
-  --shadow-lg: 0 14px 35px rgba(13, 43, 92, 0.16);
+  --shadow-sm: 0 2px 8px rgba(13, 43, 92, 0.06);
+  --shadow-md: 0 8px 24px rgba(13, 43, 92, 0.12);
 }
 
 *,
@@ -38,17 +37,18 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   min-height: 100dvh;
   width: 100%;
   overflow-x: hidden;
   font-family: 'Inter', Arial, sans-serif;
-  background-color: var(--bg);
+  background: var(--bg);
   color: var(--text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Evita zoom automático desagradável no Safari/iPhone */
+/* Evita zoom automático em formulários no iPhone */
 button,
 input,
 select,
@@ -60,8 +60,8 @@ textarea {
 button {
   border: 0;
   border-radius: var(--radius-md);
-  padding: 12px 18px;
-  min-height: 48px;
+  padding: 13px 20px;
+  min-height: 50px;
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
@@ -70,11 +70,11 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: transform 0.08s ease, filter 0.15s ease, background-color 0.15s ease;
+  transition: transform 0.08s ease, background 0.15s ease, filter 0.15s ease;
 }
 
 button:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 button:disabled {
@@ -83,15 +83,11 @@ button:disabled {
   transform: none;
 }
 
-.btn-block {
-  width: 100%;
-}
-
-/* Topbar com área de segurança para notch do iPhone */
+/* Barra superior */
 .topbar {
   background: var(--navy);
-  color: var(--white);
-  padding: max(14px, env(safe-area-inset-top)) max(18px, calc((100% - 1100px) / 2)) 14px;
+  color: #fff;
+  padding: max(12px, env(safe-area-inset-top)) max(18px, calc((100% - 1100px) / 2)) 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -99,13 +95,13 @@ button:disabled {
   position: sticky;
   top: 0;
   z-index: 20;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.18);
 }
 
 .brand {
   font-weight: 800;
   letter-spacing: 0.5px;
-  font-size: 21px;
+  font-size: 20px;
   line-height: 1.2;
 }
 
@@ -124,62 +120,70 @@ button:disabled {
   max-width: 1100px;
   margin: 20px auto;
   padding: 0 16px;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
 }
 
-/* ===================================================
-   TELA DE LOGIN COM IMAGEM DE AREIA BRANCA
-   =================================================== */
-.auth-wrapper {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
+.card {
+  min-width: 0;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+
+/* =========================================================
+   TELA DE LOGIN COM IMAGEM AÉREA DE AREIA BRANCA
+   ========================================================= */
+.login-screen {
+  min-height: calc(100vh - 72px);
+  min-height: calc(100dvh - 72px);
+  width: 100%;
   display: grid;
   place-items: center;
-  padding: 20px 16px;
-  padding-top: max(24px, env(safe-area-inset-top));
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-
-  /* Imagem Aérea de Areia Branca (Salinas / Costa Branca) com Overlay */
+  padding: 24px 16px;
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+  
+  /* Imagem aérea de Areia Branca (Salinas / Litoral Potiguar) com overlay navy */
   background: 
-    linear-gradient(135deg, rgba(8, 26, 56, 0.82) 0%, rgba(13, 43, 92, 0.72) 100%),
+    linear-gradient(180deg, rgba(13, 43, 92, 0.88) 0%, rgba(8, 29, 61, 0.94) 100%),
     url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80") center/cover no-repeat;
+  background-attachment: fixed;
 }
 
 .auth-card {
   width: 100%;
   max-width: 440px;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  margin: auto;
+  background: #ffffff;
   border-radius: var(--radius-lg);
-  padding: 32px 26px;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 30px 24px;
 }
 
 .auth-header {
-  text-align: center;
   margin-bottom: 22px;
 }
 
-.location-badge {
+.auth-badge {
   display: inline-block;
-  background: #eef4fc;
-  color: var(--navy);
-  font-size: 12px;
+  background: #fff4cc;
+  color: #8b6400;
+  font-size: 11px;
   font-weight: 700;
-  padding: 4px 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
   border-radius: 99px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .auth-card h1 {
   margin: 0 0 8px;
   color: var(--navy);
-  font-size: 26px;
+  font-size: 25px;
   font-weight: 800;
 }
 
@@ -187,9 +191,17 @@ button:disabled {
   color: var(--muted);
   font-size: 14px;
   margin: 0;
+  line-height: 1.45;
 }
 
-/* Formulários */
+.auth-submit {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* =========================================================
+   CAMPOS DE ENTRADA
+   ========================================================= */
 form {
   display: grid;
   gap: 16px;
@@ -200,7 +212,7 @@ label {
   min-width: 0;
   font-size: 13.5px;
   font-weight: 600;
-  color: #334155;
+  color: #3b465b;
   display: grid;
   gap: 6px;
 }
@@ -211,23 +223,19 @@ textarea {
   display: block;
   min-width: 0;
   width: 100%;
-  border: 1.5px solid #cbd5e1;
+  border: 1.5px solid #cfd7e3;
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
-  background: var(--white);
+  padding: 13px 14px;
+  background: #fff;
   color: var(--text);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-input,
-select {
   min-height: 48px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #94a3b8;
-  font-size: 14.5px;
+  color: #9aa5b6;
+  font-size: 14px;
 }
 
 input:focus,
@@ -235,15 +243,19 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--navy);
-  box-shadow: 0 0 0 3.5px rgba(13, 43, 92, 0.15);
+  box-shadow: 0 0 0 3px rgba(13, 43, 92, 0.16);
 }
 
-/* Botões do Sistema */
+textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+/* Botões com contraste alto */
 .primary {
   background: var(--navy);
-  color: var(--white);
+  color: #fff;
 }
-
 .primary:hover {
   background: var(--navy-dark);
 }
@@ -252,9 +264,8 @@ textarea:focus {
   background: #eaf0f8;
   color: var(--navy);
 }
-
 .secondary:hover {
-  background: #dfe8f4;
+  background: #d8e5f5;
 }
 
 .danger {
@@ -264,19 +275,19 @@ textarea:focus {
 
 .yellow {
   background: var(--yellow);
-  color: #111;
+  color: #1a1a1a;
+  font-weight: 800;
 }
-
 .yellow:hover {
   background: var(--yellow-hover);
 }
 
 .ghost {
-  background: rgba(255, 255, 255, 0.14);
-  color: var(--white);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.35);
   min-height: 40px;
-  padding: 8px 16px;
+  padding: 6px 14px;
 }
 
 .hidden {
@@ -284,31 +295,23 @@ textarea:focus {
 }
 
 .message {
-  margin-top: 14px;
+  margin-top: 12px;
   min-height: 20px;
   color: var(--red);
   font-size: 13.5px;
   font-weight: 600;
-  text-align: center;
   overflow-wrap: anywhere;
 }
 
-/* Área Interna e Cards */
-.card {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 16px;
-}
-
+/* =========================================================
+   ELEMENTOS DE DASHBOARD E LISTAGEM
+   ========================================================= */
 .welcome {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 18px 20px;
 }
 
 .welcome strong {
@@ -322,7 +325,7 @@ textarea:focus {
   align-items: center;
   font-size: 12px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 99px;
   background: #edf2f8;
   color: var(--navy);
@@ -335,8 +338,8 @@ textarea:focus {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
+  gap: 16px;
 }
 
 .stats {
@@ -347,16 +350,25 @@ textarea:focus {
 }
 
 .stat {
+  min-width: 0;
   padding: 16px;
   border-radius: var(--radius-md);
-  background: #f8fafc;
+  background: #f4f7fb;
   border: 1px solid var(--border);
+  overflow-wrap: anywhere;
 }
 
 .stat b {
   font-size: 28px;
   display: block;
+  line-height: 1.1;
   color: var(--navy);
+  margin-top: 4px;
+}
+
+.stat span {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .panel-title {
@@ -370,7 +382,7 @@ textarea:focus {
 
 .panel-title h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 21px;
   color: var(--navy);
 }
 
@@ -382,22 +394,25 @@ textarea:focus {
 }
 
 .item {
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 16px;
-  background: var(--white);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
-  margin-bottom: 12px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
 }
 
 .item h3 {
   margin: 0 0 6px;
   font-size: 17px;
+  color: var(--navy);
 }
 
 .item p {
   margin: 4px 0;
-  color: #475569;
+  color: #556277;
   font-size: 13.5px;
 }
 
@@ -414,111 +429,134 @@ textarea:focus {
   padding: 4px 10px;
   border-radius: 99px;
   font-weight: 700;
+  text-transform: capitalize;
 }
 
-.scheduled { background: #fff4cc; color: #8b6400; }
-.completed { background: var(--green-bg); color: var(--green); }
-.absent { background: #fff0e0; color: #9a5200; }
-.cancelled { background: var(--red-bg); color: var(--red); }
+.scheduled {
+  background: #fff4cc;
+  color: #8b6400;
+}
 
-/* ===================================================
-   MODAL / TELA CHEIA FIXA (ANTI-TRAVAMENTO NO IPHONE)
-   =================================================== */
+.completed {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.absent {
+  background: #fff0e0;
+  color: #9a5200;
+}
+
+.cancelled {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.notice {
+  padding: 14px;
+  border-left: 4px solid var(--yellow);
+  background: #fff9e6;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  margin-bottom: 14px;
+}
+
+/* =========================================================
+   TELA FLUTUANTE / MODAL COM SUPORTE TOTAL AO IPHONE
+   ========================================================= */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
 .modal {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   height: 100dvh;
-  background: rgba(8, 26, 56, 0.72);
+  background: rgba(10, 23, 51, 0.72);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  display: grid;
-  place-items: center;
-  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   padding: 16px;
   padding-top: max(16px, env(safe-area-inset-top));
   padding-bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 999;
   overflow: hidden;
 }
 
 .modal-box {
-  position: relative;
-  width: min(650px, 100%);
+  width: min(640px, 100%);
   max-height: calc(100dvh - 32px);
-  background: var(--white);
+  background: #ffffff;
   border-radius: var(--radius-lg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   overflow: hidden;
+  position: relative;
 }
 
-/* Cabeçalho sempre visível e fixo ao rolar */
+/* Cabeçalho sempre preso no topo com o botão Fechar X visível */
 .modal-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
-  padding: 16px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: 20px;
   color: var(--navy);
-  font-weight: 700;
+  font-weight: 800;
 }
 
-/* Botão Fechar bem grande para toque fácil */
 .close {
-  background: #f1f5f9;
+  background: #f0f3f8;
   color: var(--navy);
-  border: none;
-  font-size: 22px;
+  font-size: 28px;
   line-height: 1;
+  padding: 0;
   width: 44px;
   height: 44px;
   min-height: 44px;
   border-radius: 50%;
-  padding: 0;
   display: grid;
   place-items: center;
-  cursor: pointer;
+  flex-shrink: 0;
 }
 
-.close:hover {
+.close:active {
   background: #e2e8f0;
 }
 
-/* Corpo com rolagem independente suave */
+/* Corpo com rolagem independente e suave no Safari */
 .modal-body {
   padding: 20px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  max-height: 100%;
+  flex: 1 1 auto;
 }
 
-.modal-body .actions {
-  margin-top: 20px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-
-/* Assinatura e Foto */
+/* Assinatura e Câmera */
 .signature {
   display: block;
   width: 100%;
   height: 190px;
-  border: 2px dashed #94a3b8;
+  border: 2px dashed #aeb9c9;
   border-radius: var(--radius-md);
-  background: #f8fafc;
+  background: #fafbfc;
   touch-action: none;
 }
 
@@ -529,7 +567,7 @@ textarea:focus {
   object-fit: contain;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 /* Toast */
@@ -537,35 +575,92 @@ textarea:focus {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: max(24px, env(safe-area-inset-bottom));
+  bottom: max(20px, env(safe-area-inset-bottom));
   width: max-content;
   max-width: calc(100% - 32px);
-  background: #0f172a;
-  color: var(--white);
-  padding: 12px 22px;
+  background: #172033;
+  color: #fff;
+  padding: 13px 22px;
   border-radius: 99px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.28);
   display: none;
   font-size: 14px;
   font-weight: 600;
-  z-index: 200;
+  z-index: 1050;
+  text-align: center;
 }
 
 .toast.show {
   display: block;
+  animation: toastFade 0.2s ease;
 }
 
-/* Ajustes Específicos para Celulares / iPhones */
+@keyframes toastFade {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+th, td {
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  background: #f8fafc;
+  color: var(--navy);
+  font-weight: 700;
+}
+
+/* =========================================================
+   ADAPTAÇÕES PARA SMARTPHONES (MOBILE BOTTOM-SHEET / FULLSCREEN)
+   ========================================================= */
 @media (max-width: 600px) {
   .topbar {
-    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 12px;
+  }
+
+  .brand {
+    font-size: 18px;
   }
 
   .container {
-    padding: 0 12px;
+    margin: 12px auto;
+    padding: 0 10px;
   }
 
-  /* O Modal vira uma Tela Completa Nativa no Celular */
+  .card {
+    padding: 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .auth-card {
+    padding: 22px 18px;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .actions button {
+    flex: 1 1 100%;
+  }
+
+  /* No celular, o modal sobe como uma tela de aplicativo completa */
   .modal {
     padding: 0;
     align-items: flex-end;
@@ -573,23 +668,16 @@ textarea:focus {
 
   .modal-box {
     width: 100%;
-    height: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0;
   }
 
   .modal-header {
-    padding-top: max(16px, env(safe-area-inset-top));
-    padding-bottom: 14px;
+    padding: 14px 16px;
   }
 
   .modal-body {
-    padding-bottom: max(30px, env(safe-area-inset-bottom));
-  }
-
-  .actions button {
-    flex: 1 1 100%;
-    width: 100%;
+    padding: 16px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
   }
 }
