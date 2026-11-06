@@ -63,11 +63,7 @@ let secondaryApp = null;
 let secondaryAuth = null;
 
 try {
-  secondaryApp = initializeApp(
-    firebaseConfig,
-    "DriverRegistrationApp"
-  );
-
+  secondaryApp = initializeApp(firebaseConfig, "DriverRegistrationApp");
   secondaryAuth = getAuth(secondaryApp);
 } catch (error) {
   console.error("Erro ao inicializar Firebase secundário:", error);
@@ -283,9 +279,10 @@ function toast(message) {
   }, 3500);
 }
 
-function openModal(html) {
-  $("modalContent").innerHTML = html;
-  $("modal").classList.remove("hidden");
+function openModal(title, html) {
+  if ($("modalTitle")) $("modalTitle").textContent = title || "Informações";
+  if ($("modalContent")) $("modalContent").innerHTML = html;
+  if ($("modal")) $("modal").classList.remove("hidden");
 }
 
 function closeModal() {
@@ -721,9 +718,7 @@ function householdCard(household) {
 ========================================================= */
 
 function showHouseholdForm() {
-  openModal(`
-    <h2>Nova família / imóvel</h2>
-
+  openModal("Nova família / imóvel", `
     <form id="householdForm">
       <label>
         Nome do responsável
@@ -741,8 +736,7 @@ function showHouseholdForm() {
       </label>
 
       <div class="notice">
-        <b>Acesso do beneficiário</b><br>
-        O beneficiário entrará no aplicativo usando este telefone e a senha definida abaixo. Não é necessário e-mail.
+        <b>Acesso do beneficiário:</b> O beneficiário entrará usando este telefone e a senha definida abaixo.
       </div>
 
       <label>
@@ -785,7 +779,7 @@ function showHouseholdForm() {
         <input id="hLiters" type="number" min="1" placeholder="Ex: 5000" required>
       </label>
 
-      <div class="actions">
+      <div class="actions" style="margin-top:10px">
         <button type="button" class="secondary" id="cancelNewHousehold">Cancelar</button>
         <button class="primary" id="saveHousehold">Salvar família</button>
       </div>
@@ -925,9 +919,7 @@ function showEditHouseholdForm(id) {
   const household = state.households.find(item => item.id === id);
   if (!household) return toast("Família não encontrada.");
 
-  openModal(`
-    <h2>Editar família / imóvel</h2>
-
+  openModal("Editar família / imóvel", `
     <form id="editHouseholdForm">
       <label>
         Nome do responsável
@@ -982,7 +974,7 @@ function showEditHouseholdForm(id) {
         </select>
       </label>
 
-      <div class="actions">
+      <div class="actions" style="margin-top:10px">
         <button type="button" class="secondary" id="cancelEdit">Cancelar</button>
         <button type="submit" class="primary">Salvar alterações</button>
       </div>
@@ -1109,9 +1101,7 @@ async function renderAdminDrivers() {
 }
 
 function showDriverForm() {
-  openModal(`
-    <h2>Cadastrar motorista</h2>
-
+  openModal("Cadastrar motorista", `
     <form id="driverForm">
       <label>
         Nome completo
@@ -1133,7 +1123,7 @@ function showDriverForm() {
         <input id="driverPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Mínimo 6 dígitos" required>
       </label>
 
-      <div class="actions">
+      <div class="actions" style="margin-top:10px">
         <button type="button" class="secondary" id="cancelDriver">Cancelar</button>
         <button type="submit" class="primary" id="saveDriver">Cadastrar motorista</button>
       </div>
@@ -1195,9 +1185,7 @@ function showEditDriverForm(id) {
   const driver = state.drivers.find(item => item.id === id);
   if (!driver) return toast("Motorista não encontrado.");
 
-  openModal(`
-    <h2>Editar motorista</h2>
-
+  openModal("Editar motorista", `
     <form id="editDriverForm">
       <label>
         Nome completo
@@ -1222,7 +1210,7 @@ function showEditDriverForm(id) {
         </select>
       </label>
 
-      <div class="actions">
+      <div class="actions" style="margin-top:10px">
         <button type="button" class="secondary" id="cancelEditDriver">Cancelar</button>
         <button type="submit" class="primary">Salvar alterações</button>
       </div>
@@ -1334,9 +1322,7 @@ function showEditUserForm(id) {
   const user = state.users.find(item => item.id === id);
   if (!user) return toast("Usuário não encontrado.");
 
-  openModal(`
-    <h2>Editar usuário</h2>
-
+  openModal("Editar usuário", `
     <form id="editUserForm">
       <label>
         Nome
@@ -1370,7 +1356,7 @@ function showEditUserForm(id) {
         </select>
       </label>
 
-      <div class="actions">
+      <div class="actions" style="margin-top:10px">
         <button type="button" class="secondary" id="cancelEditUser">Cancelar</button>
         <button type="submit" class="primary">Salvar alterações</button>
       </div>
@@ -1503,7 +1489,6 @@ function deliveryCard(delivery) {
 async function showDeliveryDetails(id) {
   try {
     const snapshot = await getDoc(doc(db, "deliveries", id));
-
     if (!snapshot.exists()) return toast("Entrega não encontrada.");
 
     let delivery = {
@@ -1556,9 +1541,7 @@ async function showDeliveryDetails(id) {
       `
       : "";
 
-    openModal(`
-      <h2>Detalhes da entrega</h2>
-
+    openModal("Detalhes da entrega", `
       <div class="notice">
         <b>Situação:</b> ${esc(statusLabel(delivery.status))}
       </div>
@@ -1627,9 +1610,7 @@ async function showEditDeliveryForm(id) {
     return toast("Erro ao carregar motoristas.");
   }
 
-  openModal(`
-    <h2>Editar entrega</h2>
-
+  openModal("Editar entrega", `
     <form id="editDeliveryForm">
       <label>
         Família / beneficiário
@@ -1674,7 +1655,7 @@ async function showEditDeliveryForm(id) {
         <textarea id="edDeliveryNote">${esc(delivery.note || "")}</textarea>
       </label>
 
-      <div class="actions">
+      <div class="actions" style="margin-top:10px">
         <button type="button" class="secondary" id="cancelEditDelivery">Cancelar</button>
         <button type="submit" class="primary">Salvar alterações</button>
       </div>
@@ -1737,9 +1718,7 @@ async function showDeliveryForm() {
   if (!activeHouseholds.length) return toast("Nenhuma família ativa encontrada.");
   if (!activeDrivers.length) return toast("Nenhum motorista ativo encontrado.");
 
-  openModal(`
-    <h2>Programar entrega</h2>
-
+  openModal("Programar entrega", `
     <form id="deliveryForm">
       <label>
         Família
@@ -1779,7 +1758,7 @@ async function showDeliveryForm() {
         <textarea id="dNote" placeholder="Instruções de acesso ao reservatório"></textarea>
       </label>
 
-      <div class="actions">
+      <div class="actions" style="margin-top:10px">
         <button type="button" class="secondary" id="cancelNewDelivery">Cancelar</button>
         <button type="submit" class="primary" id="saveNewDelivery">Programar entrega</button>
       </div>
@@ -1840,9 +1819,7 @@ async function showDeliveryForm() {
 
       closeModal();
 
-      openModal(`
-        <h2>Entrega programada com sucesso!</h2>
-
+      openModal("Entrega programada!", `
         <div class="item" style="text-align:center">
           <p>PIN de confirmação gerado para este abastecimento:</p>
           <p style="font-size:2.2rem;font-weight:800;letter-spacing:6px;color:var(--navy);margin:10px 0">
@@ -1851,7 +1828,7 @@ async function showDeliveryForm() {
           <p class="small">Repasse este código ao beneficiário.</p>
         </div>
 
-        <div class="actions">
+        <div class="actions" style="margin-top:12px">
           <button type="button" class="secondary" id="copyDeliveryPin">Copiar PIN</button>
           <button type="button" class="primary" id="closeDeliveryPin">Concluir</button>
         </div>
@@ -1994,9 +1971,7 @@ function showCompleteForm(id) {
   const delivery = state.deliveries.find(item => item.id === id);
   if (!delivery || delivery.status !== "scheduled") return;
 
-  openModal(`
-    <h2>Registrar fornecimento</h2>
-
+  openModal("Registrar fornecimento", `
     <form id="completeForm">
       <label>
         Quantidade entregue (litros)
@@ -2037,7 +2012,7 @@ function showCompleteForm(id) {
         <textarea id="cNote" placeholder="Ex: abastecido reservatório superior"></textarea>
       </label>
 
-      <div class="actions">
+      <div class="actions" style="margin-top:10px">
         <button type="button" class="secondary" id="cancelComplete">Cancelar</button>
         <button class="primary">Concluir registro</button>
       </div>
@@ -2307,9 +2282,7 @@ async function confirmRecipientDelivery(id) {
       return toast("Entrega indisponível para confirmação.");
     }
 
-    openModal(`
-      <h2>Confirmar recebimento de água</h2>
-
+    openModal("Confirmar recebimento", `
       <div class="notice">
         <b>Data:</b> ${esc(dateOnly(delivery.scheduledDate))}<br>
         <b>Quantidade informada:</b> ${esc(delivery.receivedLiters ?? "—")} litros<br>
