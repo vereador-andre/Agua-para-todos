@@ -22,20 +22,23 @@ import {
   getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-// Importa com alias para evitar 'Identifier already declared'
-import { firebaseConfig as appFirebaseConfig } from "./firebase-config.js";
+// Importa todas as credenciais agrupadas em um único objeto seguro
+import * as MeuFirebaseModulo from "./firebase-config.js";
 
-// Inicialização segura
+// Captura as chaves independente de como foram exportadas
+const dadosConfiguracao = MeuFirebaseModulo.firebaseConfig || MeuFirebaseModulo.default || MeuFirebaseModulo;
+
+// Inicialização
 let app = null;
 let auth = null;
 let db = null;
 let storage = null;
 
 try {
-  if (!appFirebaseConfig || !appFirebaseConfig.apiKey) {
-    throw new Error("Credenciais do Firebase não encontradas.");
+  if (!dadosConfiguracao || !dadosConfiguracao.apiKey) {
+    throw new Error("As chaves de acesso do Firebase não foram encontradas no firebase-config.js");
   }
-  app = initializeApp(appFirebaseConfig);
+  app = initializeApp(dadosConfiguracao);
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
@@ -95,9 +98,7 @@ function limparErroLogin() {
   loginMsg.classList.remove("visible");
 }
 
-// ==========================================
-// CONTROLE DE TELAS DEDICADAS (MODAL FLUTUANTE)
-// ==========================================
+// Controle de Telas Dedicadas (Modal)
 function openDedicatedScreen(title, htmlBody) {
   modalTitle.textContent = title;
   modalContent.innerHTML = htmlBody;
@@ -128,9 +129,7 @@ function showToast(msg) {
   }, 3500);
 }
 
-// ==========================================
-// FLUXO DE LOGIN
-// ==========================================
+// Login
 async function executarLogin() {
   limparErroLogin();
 
@@ -143,7 +142,7 @@ async function executarLogin() {
   }
 
   if (!auth) {
-    exibirErroLogin("Firebase Auth não carregado. Verifique o console.");
+    exibirErroLogin("Firebase Auth não carregado. Verifique as credenciais.");
     return;
   }
 
@@ -152,7 +151,6 @@ async function executarLogin() {
 
   let finalEmail = rawInput;
 
-  // Se for telefone (apenas números ou caracteres especiais sem @)
   const digitsOnly = rawInput.replace(/\D/g, "");
   if (!rawInput.includes("@")) {
     if (digitsOnly.length >= 8) {
@@ -209,7 +207,7 @@ if (loginForm) {
   });
 }
 
-// Sair da Sessão
+// Sair
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     try {
@@ -229,7 +227,6 @@ if (auth) {
         if (userSnap.exists()) {
           currentUserProfile = userSnap.data();
         } else {
-          // Se for o seu e-mail principal ou se ainda não tiver documento salvo, define como admin
           currentUserProfile = {
             name: user.email.split("@")[0],
             role: "admin"
