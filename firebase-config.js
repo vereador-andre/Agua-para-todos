@@ -75,10 +75,11 @@ const storage = getStorage(app);
 // EXPORTA OS SERVIÇOS
 // ======================================================
 
-export {
-  app,
-  auth,
-  db,
-  storage,
-  firebaseConfig
+export const firebaseConfig = {
+  apiKey: "...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
 };
