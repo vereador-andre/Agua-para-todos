@@ -11,7 +11,7 @@
 
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./styles.css?v=3">
+  <link rel="stylesheet" href="./styles.css?v=4">
 
   <title>Água para Todos - Areia Branca/RN</title>
 </head>
@@ -67,15 +67,6 @@
         <button id="btnSubmitLogin" class="primary auth-submit" type="button">
           Entrar no Sistema
         </button>
-
-        <div style="margin-top: 10px; display: flex; gap: 8px;">
-          <button id="btnDemoAdmin" type="button" class="secondary" style="flex: 1; font-size: 12px; min-height: 38px; padding: 4px;">
-            Testar como Admin
-          </button>
-          <button id="btnDemoDriver" type="button" class="secondary" style="flex: 1; font-size: 12px; min-height: 38px; padding: 4px;">
-            Testar Motorista
-          </button>
-        </div>
       </form>
 
       <div id="loginMsg" class="message" role="alert"></div>
@@ -99,7 +90,7 @@
     </section>
   </main>
 
-  <!-- Janela Dedicada (Oculta por padrão até ser chamada) -->
+  <!-- Janela Dedicada Flutuante -->
   <div id="screenModal" class="fullscreen-modal hidden" role="dialog" aria-modal="true">
     <div class="fullscreen-box">
       <header class="fullscreen-header">
@@ -115,7 +106,7 @@
 
   <div id="toast" class="toast" role="status"></div>
 
-  <script type="module" src="./app.js?v=3"></script>
+  <script type="module" src="./app.js?v=4"></script>
 
   <script>
     if ("serviceWorker" in navigator) {
@@ -127,7 +118,7 @@
 
       window.addEventListener("load", () => {
         navigator.serviceWorker
-          .register("./sw.js?v=3")
+          .register("./sw.js?v=4")
           .catch((error) => {
             console.error("Falha no Service Worker:", error);
           });
