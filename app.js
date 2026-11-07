@@ -126,7 +126,7 @@ function dateOnly(v) {
   return new Date(v + "T12:00:00").toLocaleDateString("pt-BR");
 }
 
-/* LOGIN AJUSTADO */
+/* LOGIN */
 if ($("loginForm")) {
   $("loginForm").onsubmit = async e => {
     e.preventDefault();
@@ -142,7 +142,7 @@ if ($("loginForm")) {
   };
 }
 
-/* AUTENTICAÇÃO COM BUSCA RECURSIVA DE PERFIL */
+/* AUTENTICAÇÃO */
 onAuthStateChanged(auth, async user => {
   if (!user) {
     state.user = null; state.profile = null;
@@ -158,12 +158,10 @@ onAuthStateChanged(auth, async user => {
   if ($("appView")) $("appView").classList.remove("hidden");
 
   try {
-    // 1. Busca por UID direto
     let snap = await getDoc(doc(db, "users", user.uid));
     if (snap.exists()) {
       state.profile = { id: snap.id, ...snap.data() };
     } else {
-      // 2. Fallback de busca por E-mail técnico caso o UID divirja
       const qUser = query(collection(db, "users"), where("authEmail", "==", user.email));
       const snapQ = await getDocs(qUser);
       if (!snapQ.empty) {
@@ -419,7 +417,7 @@ function renderDynamicRecords() {
       .forEach(d => {
         count++;
         const statusClass = d.status === 'completed' ? 'completed' : d.status === 'pending' ? 'pending' : 'scheduled';
-        const statusText = d.status === 'completed' ? 'Realizada' : d.status === 'pending' ? 'Pendente / PIN' : 'Programada';
+        const statusText = d.status === 'completed' ? 'Realizada' : d.status === 'pending' ? 'Pendente / Ausência' : 'Programada';
 
         const el = document.createElement("div");
         el.className = "record-card";
@@ -516,6 +514,7 @@ function showAuditModal() {
           <p class="small" style="color:var(--primary); font-weight:700;"><b>PIN do Registro:</b> ${d.pin || 'Não gerado'}</p>
           ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700;">📍 GPS: Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)}</p>` : '<p class="small" style="color:var(--danger); font-weight:700;">📍 GPS: Não registrado</p>'}
           ${d.note ? `<p class="small" style="color:var(--danger); font-weight:700;">⚠️ Obs Ausência: ${esc(d.note)}</p>` : ''}
+          ${d.recipientObs ? `<p class="small" style="color:var(--primary); font-weight:700;">💬 Obs Morador: ${esc(d.recipientObs)}</p>` : ''}
         </div>
       `).join("") || "<p class='small'>Nenhuma entrega cadastrada.</p>"}
     </div>
@@ -829,7 +828,7 @@ async function renderDriver() {
       const el = document.createElement("div");
       el.className = "record-card";
       el.innerHTML = `
-        <div class="record-header"><div class="record-title">🌊 ${esc(item.recipientName)}</div><span class="pill ${item.status}">${item.status}</span></div>
+        <div class="record-header"><div class="record-title">🌊 ${esc(item.recipientName)}</div><span class="pill ${item.status}">${item.status === 'completed' ? 'Realizada' : item.status === 'pending' ? 'Ausência Registrada' : 'Programada'}</span></div>
         <p class="small"><b>Data:</b> ${dateOnly(item.scheduledDate)} · <b>Comunidade:</b> ${esc(item.community)}</p>
         <p class="small"><b>Endereço:</b> ${esc(item.address || '—')}</p>
 
@@ -845,12 +844,12 @@ async function renderDriver() {
 
         ${item.status === 'scheduled' || item.status === 'pending' ? `
           <div style="margin-top: 12px; background: #f1f5f9; padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
-            <label style="font-size: 11px; margin-bottom: 4px;">PIN do Morador</label>
+            <label style="font-size: 11px; margin-bottom: 4px;">PIN de Confirmação do Morador</label>
             <input type="text" maxlength="4" placeholder="4 dígitos" id="pinInput_${item.id}" style="margin-bottom: 8px; text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 4px;">
             <button class="primary small" style="width: 100%; margin-bottom: 6px;" id="confPin_${item.id}">✅ Confirmar Entrega (PIN + GPS)</button>
             <button class="danger small" style="width: 100%;" id="ausenteBtn_${item.id}">⚠️ Morador Ausente (Ausência + Câmera)</button>
           </div>
-        ` : `<p class="small" style="color:var(--success); font-weight:700; margin-top:10px;">✅ Entrega Realizada com Sucesso</p>`}
+        ` : `<p class="small" style="color:var(--success); font-weight:700; margin-top:10px;">✅ Entrega Concluída e Confirmada</p>`}
       `;
 
       const volInput = el.querySelector(`#volInput_${item.id}`);
@@ -972,7 +971,7 @@ function showAbsentModal(deliveryId) {
 }
 
 /* =========================================================
-   PAINEL DA FAMÍLIA / BENEFICIÁRIO
+   PAINEL DA FAMÍLIA / BENEFICIÁRIO (DUAS VIAS DE CONFIRMAÇÃO)
 ========================================================= */
 async function renderRecipient() {
   const userPhone = normalizePhone(state.profile.phone);
@@ -1001,7 +1000,7 @@ async function renderRecipient() {
     </div>
 
     <div class="card">
-      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">🌊 Meus Abastecimentos e Códigos PIN</h2>
+      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">🌊 Meus Abastecimentos e Confirmações</h2>
       <div id="rList" class="records-grid"></div>
     </div>
   `;
@@ -1028,6 +1027,46 @@ async function renderRecipient() {
       el.className = "record-card";
       el.style.borderColor = item.status === "completed" ? "#a7f3d0" : item.status === "pending" ? "#fca5a5" : "#bae6fd";
       
+      let actionBoxHtml = "";
+
+      // CASO 1: ENTREGA JÁ CONCLUÍDA
+      if (item.status === 'completed') {
+        actionBoxHtml = `
+          <div style="margin-top:10px; background:#d1fae5; border:1px solid #6ee7b7; padding:8px 12px; border-radius:10px; text-align:center;">
+            <p class="small" style="color:#065f46; font-weight:800;">✅ Abastecimento Concluído e Confirmado</p>
+          </div>
+        `;
+      } 
+      // CASO 2: REGISTRO DE AUSÊNCIA - MORADOR INSERE O PIN GERADO PARA CONFIRMAR POSTERIORMENTE
+      else if (item.status === 'pending') {
+        actionBoxHtml = `
+          <div style="margin-top:12px; background:#fff1f2; border:1.5px solid #fecdd3; padding:12px; border-radius:12px;">
+            <p class="small" style="color:#9f1239; font-weight:800; margin-bottom:6px;">⚠️ Ausência informada pelo motorista</p>
+            <p class="small" style="margin-bottom:8px;">Confira sua cisterna. Para comprovar o recebimento da água, digite o PIN de regularização abaixo e clique em confirmar:</p>
+            <input type="text" id="recPinInput_${deliveryId}" maxlength="4" placeholder="PIN de 4 dígitos" style="text-align:center; font-size:18px; font-weight:800; letter-spacing:4px; margin-bottom:8px;">
+            <button class="primary small" style="width:100%;" id="confirmAbsentPin_${deliveryId}">✅ Confirmar Recebimento da Água</button>
+          </div>
+        `;
+      } 
+      // CASO 3: MORADOR EM CASA - GERA O PIN PARA PASSAR AO MOTORISTA
+      else if (item.pin) {
+        actionBoxHtml = `
+          <div class="pin-display-box">
+            <p class="small" style="color:#047857; font-weight:800;">SEU CÓDIGO PIN DE CONFIRMAÇÃO:</p>
+            <div class="pin-code-badge">${item.pin}</div>
+            <p class="small" style="color:#065f46; margin-top:4px;">Passe este número de 4 dígitos ao motorista no momento do abastecimento.</p>
+          </div>
+        `;
+      } else {
+        actionBoxHtml = `
+          <div style="margin-top:12px; background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:10px;">
+            <label style="font-size:11px; margin-bottom:4px;">Observação ao Motorista (Opcional)</label>
+            <input type="text" id="recObsInput_${deliveryId}" placeholder="Ex: Portão azul, cisterna dos fundos..." style="margin-bottom:8px;">
+            <button class="primary small" style="width:100%;" id="genPinModal_${deliveryId}">🔑 Gerar PIN para Entregar ao Motorista</button>
+          </div>
+        `;
+      }
+
       el.innerHTML = `
         <div class="record-header">
           <div class="record-title">🌊 Entrega: ${dateOnly(item.scheduledDate)}</div>
@@ -1036,34 +1075,47 @@ async function renderRecipient() {
         <p class="small"><b>Volume Agendado:</b> ${item.plannedLiters} L</p>
         <p class="small"><b>Motorista Atribuído:</b> ${esc(item.driverName || '—')} (${esc(item.vehiclePlate || '—')})</p>
 
-        ${item.note ? `<p class="small" style="color:var(--danger); font-weight:700; margin-top:6px;">⚠️ Obs. do Motorista: ${esc(item.note)}</p>` : ''}
+        ${item.note ? `<p class="small" style="color:var(--danger); font-weight:700; margin-top:6px;">⚠️ Obs. Motorista (Ausência): ${esc(item.note)}</p>` : ''}
         ${item.alterReason ? `<p class="small" style="color:var(--warning); font-weight:700; margin-top:2px;">ℹ️ Motivo Alteração Volume: ${esc(item.alterReason)}</p>` : ''}
 
-        ${item.status === 'completed' ? `
-          <div style="margin-top:10px; background:#d1fae5; border:1px solid #6ee7b7; padding:8px 12px; border-radius:10px; text-align:center;">
-            <p class="small" style="color:#065f46; font-weight:800;">✅ Abastecimento Concluído e Confirmado</p>
-          </div>
-        ` : item.pin ? `
-          <div class="pin-display-box">
-            <p class="small" style="color:#047857; font-weight:800;">SEU CÓDIGO PIN DE CONFIRMAÇÃO:</p>
-            <div class="pin-code-badge">${item.pin}</div>
-            <p class="small" style="color:#065f46; margin-top:4px;">Informe este número de 4 dígitos ao motorista no momento da entrega de água.</p>
-          </div>
-        ` : `
-          <button class="primary small" style="width:100%; margin-top:12px;" id="genPin_${deliveryId}">🔑 Gerar Código PIN da Entrega</button>
-        `}
+        ${actionBoxHtml}
       `;
 
-      if (!item.pin && item.status !== 'completed') {
-        el.querySelector(`#genPin_${deliveryId}`).onclick = async () => {
+      container.appendChild(el);
+
+      // Evento: Gerar PIN (Morador em casa)
+      const btnGen = el.querySelector(`#genPinModal_${deliveryId}`);
+      if (btnGen) {
+        btnGen.onclick = async () => {
+          const obs = el.querySelector(`#recObsInput_${deliveryId}`).value.trim();
           const pin = Math.floor(1000 + Math.random() * 9000);
-          await updateDoc(doc(db, "deliveries", deliveryId), { pin });
+          await updateDoc(doc(db, "deliveries", deliveryId), { pin, recipientObs: obs });
           toast(`PIN gerado com sucesso: ${pin}`);
           renderRecipient();
         };
       }
 
-      container.appendChild(el);
+      // Evento: Confirmar PIN posterior (Morador esteve ausente e regularizou)
+      const btnConfirmAbsent = el.querySelector(`#confirmAbsentPin_${deliveryId}`);
+      if (btnConfirmAbsent) {
+        btnConfirmAbsent.onclick = async () => {
+          const entered = el.querySelector(`#recPinInput_${deliveryId}`).value.trim();
+          if (String(entered) !== String(item.pin)) {
+            return alert("Código PIN incorreto. Verifique o número digitado.");
+          }
+
+          try {
+            await updateDoc(doc(db, "deliveries", deliveryId), {
+              status: "completed",
+              confirmedByRecipientAt: serverTimestamp()
+            });
+            toast("Recebimento confirmado! O status foi alterado para Realizada.");
+            renderRecipient();
+          } catch(err) {
+            alert("Erro ao confirmar: " + err.message);
+          }
+        };
+      }
     });
 
     if (snap.docs.length === 0) {
