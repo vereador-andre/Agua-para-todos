@@ -794,7 +794,7 @@ function showDeliveryForm(editId = null, data = null) {
 }
 
 /* =========================================================
-   PAINEL DO MOTORISTA (COM CÂMERA OBRIGATÓRIA E GPS EXATO)
+   PAINEL DO MOTORISTA
 ========================================================= */
 async function renderDriver() {
   $("driverPanel").innerHTML = `
@@ -958,59 +958,107 @@ function showAbsentModal(deliveryId) {
 }
 
 /* =========================================================
-   PAINEL DO BENEFICIÁRIO
+   PAINEL DA FAMÍLIA / BENEFICIÁRIO (ATUALIZADO)
 ========================================================= */
 async function renderRecipient() {
-  const hId = state.profile.householdId;
-  const household = state.households.find(h => h.id === hId) || {};
+  const userPhone = state.profile.phone;
+  
+  // Localiza os dados da família cadastrada no Firestore
+  let household = state.households.find(h => h.id === state.profile.householdId || h.phone === userPhone);
+  
+  if (!household && userPhone) {
+    try {
+      const snapH = await getDocs(query(collection(db, "households"), where("phone", "==", userPhone)));
+      if (!snapH.empty) {
+        household = { id: snapH.docs[0].id, ...snapH.docs[0].data() };
+      }
+    } catch (e) {}
+  }
+
+  household = household || {};
 
   $("recipientPanel").innerHTML = `
+    <!-- CARTÃO DE DADOS DA FAMÍLIA -->
     <div class="card">
-      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🏡 Meus Dados e Abastecimentos</h2>
-      <p class="small"><b>Responsável:</b> ${esc(state.profile.name)}</p>
-      <p class="small"><b>Comunidade:</b> ${esc(household.community || '—')}</p>
-      <p class="small"><b>Endereço:</b> ${esc(household.address || '—')}</p>
-      <p class="small"><b>Capacidade Cisterna:</b> ${household.defaultLiters || 5000} Litros</p>
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🏡 Cadastro da Família Rural</h2>
+      <p class="small"><b>Responsável:</b> ${esc(state.profile.name || household.name || '—')}</p>
+      <p class="small"><b>Telefone/WhatsApp:</b> ${esc(state.profile.phone || household.phone || '—')}</p>
+      <p class="small"><b>Comunidade Rural:</b> ${esc(household.community || '—')}</p>
+      <p class="small"><b>Endereço / Ponto de Ref.:</b> ${esc(household.address || '—')}</p>
+      <p class="small"><b>Capacidade da Cisterna:</b> ${household.defaultLiters || 5000} Litros</p>
     </div>
 
+    <!-- LISTAGEM DE ENTREGAS DA FAMÍLIA -->
     <div class="card">
-      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">🌊 Entregas e Confirmação de PIN</h2>
+      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">🌊 Meus Abastecimentos e Códigos PIN</h2>
       <div id="rList" class="records-grid"></div>
     </div>
   `;
 
   try {
-    const snap = await getDocs(query(collection(db, "deliveries"), where("householdId", "==", hId)));
+    let qDeliveries;
+    if (household.id) {
+      qDeliveries = query(collection(db, "deliveries"), where("householdId", "==", household.id));
+    } else {
+      qDeliveries = query(collection(db, "deliveries"), where("recipientName", "==", state.profile.name));
+    }
+
+    const snap = await getDocs(qDeliveries);
     const container = $("rList");
     container.innerHTML = "";
 
     snap.docs.forEach(docSnap => {
       const item = docSnap.data();
       const deliveryId = docSnap.id;
+      const statusClass = item.status === 'completed' ? 'completed' : item.status === 'pending' ? 'pending' : 'scheduled';
+      const statusText = item.status === 'completed' ? 'Realizada' : item.status === 'pending' ? 'Ausência Registrada' : 'Programada';
 
       const el = document.createElement("div");
       el.className = "record-card";
+      el.style.borderColor = item.status === "completed" ? "#a7f3d0" : item.status === "pending" ? "#fca5a5" : "#bae6fd";
+      
       el.innerHTML = `
-        <div class="record-header"><div class="record-title">🌊 Entrega em ${dateOnly(item.scheduledDate)}</div><span class="pill ${item.status}">${item.status}</span></div>
-        <p class="small"><b>Volume:</b> ${item.plannedLiters} L · <b>Motorista:</b> ${esc(item.driverName || '—')}</p>
-        ${item.note ? `<p class="small" style="color:var(--danger); font-weight:700; margin-top:4px;">⚠️ Obs: ${esc(item.note)}</p>` : ''}
-        
-        ${item.pin ? `<div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:10px; margin-top:10px; text-align:center;"><p class="small" style="color:#166534; font-weight:700;">Seu PIN de Confirmação: <span style="font-size:18px; letter-spacing:3px;">${item.pin}</span></p></div>` : `
-          <button class="primary small" style="width:100%; margin-top:12px;" id="genPin_${deliveryId}">🔑 Gerar PIN de Confirmação</button>
+        <div class="record-header">
+          <div class="record-title">🌊 Entrega: ${dateOnly(item.scheduledDate)}</div>
+          <span class="pill ${statusClass}">${statusText}</span>
+        </div>
+        <p class="small"><b>Volume Agendado:</b> ${item.plannedLiters} L</p>
+        <p class="small"><b>Motorista Atribuído:</b> ${esc(item.driverName || '—')} (${esc(item.vehiclePlate || '—')})</p>
+
+        ${item.note ? `<p class="small" style="color:var(--danger); font-weight:700; margin-top:6px;">⚠️ Obs. do Motorista: ${esc(item.note)}</p>` : ''}
+        ${item.alterReason ? `<p class="small" style="color:var(--warning); font-weight:700; margin-top:2px;">ℹ️ Motivo Alteração Volume: ${esc(item.alterReason)}</p>` : ''}
+
+        ${item.status === 'completed' ? `
+          <div style="margin-top:10px; background:#d1fae5; border:1px solid #6ee7b7; padding:8px 12px; border-radius:10px; text-align:center;">
+            <p class="small" style="color:#065f46; font-weight:800;">✅ Abastecimento Concluído e Confirmado</p>
+          </div>
+        ` : item.pin ? `
+          <div class="pin-display-box">
+            <p class="small" style="color:#047857; font-weight:800;">SEU CÓDIGO PIN DE CONFIRMAÇÃO:</p>
+            <div class="pin-code-badge">${item.pin}</div>
+            <p class="small" style="color:#065f46; margin-top:4px;">Informe este número de 4 dígitos ao motorista no momento da entrega de água.</p>
+          </div>
+        ` : `
+          <button class="primary small" style="width:100%; margin-top:12px;" id="genPin_${deliveryId}">🔑 Gerar Código PIN da Entrega</button>
         `}
       `;
 
-      if (!item.pin) {
+      if (!item.pin && item.status !== 'completed') {
         el.querySelector(`#genPin_${deliveryId}`).onclick = async () => {
           const pin = Math.floor(1000 + Math.random() * 9000);
           await updateDoc(doc(db, "deliveries", deliveryId), { pin });
-          toast(`PIN gerado: ${pin}`);
+          toast(`PIN gerado com sucesso: ${pin}`);
           renderRecipient();
         };
       }
+
       container.appendChild(el);
     });
 
-    if (snap.docs.length === 0) container.innerHTML = `<p class="small">Nenhum abastecimento encontrado.</p>`;
-  } catch(e){}
+    if (snap.docs.length === 0) {
+      container.innerHTML = `<p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Nenhum agendamento de abastecimento encontrado para seu cadastro.</p>`;
+    }
+  } catch(e) {
+    console.error(e);
+  }
 }
