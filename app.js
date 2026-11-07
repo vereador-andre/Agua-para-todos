@@ -15,8 +15,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   createUserWithEmailAndPassword,
-  signOut as signOutSecondary,
-  deleteUser
+  signOut as signOutSecondary
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 import {
@@ -26,22 +25,14 @@ import {
   getDocs,
   addDoc,
   setDoc,
-  updateDoc,
-  deleteDoc,
   query,
   where,
   limit,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
-
 /* =========================================================
-   ESTADO
+   ESTADO DA APLICAÇÃO
 ========================================================= */
 
 const $ = id => document.getElementById(id);
@@ -51,8 +42,7 @@ const state = {
   profile: null,
   households: [],
   deliveries: [],
-  drivers: [],
-  users: []
+  drivers: []
 };
 
 /* =========================================================
@@ -101,7 +91,7 @@ if ($("loginEmail")) {
   $("loginEmail").type = "text";
   $("loginEmail").inputMode = "text";
   $("loginEmail").autocomplete = "username";
-  $("loginEmail").placeholder = "E-mail ou telefone do beneficiário";
+  $("loginEmail").placeholder = "E-mail ou telefone (com DDD)";
 }
 
 /* =========================================================
@@ -113,10 +103,10 @@ function updateConnectionStatus() {
   if (!el) return;
 
   if (navigator.onLine) {
-    el.textContent = "Online";
+    el.textContent = "Online • Sistema Conectado";
     el.classList.add("ok");
   } else {
-    el.textContent = "Sem internet";
+    el.textContent = "Sem internet • Modo Offline Ativo";
     el.classList.remove("ok");
   }
 }
@@ -192,7 +182,7 @@ if ($("loginForm")) {
     } catch (error) {
       console.error("Erro no login:", error);
       if ($("loginMsg")) {
-        $("loginMsg").textContent = `Erro [${error.code}]: ${error.message}`;
+        $("loginMsg").textContent = `Falha ao entrar: Verifique seu telefone/e-mail e senha.`;
       }
     }
   };
@@ -208,14 +198,12 @@ onAuthStateChanged(auth, async user => {
     state.profile = null;
     if ($("loginView")) $("loginView").classList.remove("hidden");
     if ($("appView")) $("appView").classList.add("hidden");
-    if ($("logoutBtn")) $("logoutBtn").classList.add("hidden");
     return;
   }
 
   state.user = user;
   if ($("loginView")) $("loginView").classList.add("hidden");
   if ($("appView")) $("appView").classList.remove("hidden");
-  if ($("logoutBtn")) $("logoutBtn").classList.remove("hidden");
 
   updateConnectionStatus();
 
@@ -228,12 +216,12 @@ onAuthStateChanged(auth, async user => {
     }
 
     if (!profile) {
-      toast("Usuário autenticado, mas sem perfil cadastrado na coleção users.");
+      toast("Usuário autenticado, mas sem perfil cadastrado.");
       return;
     }
 
     if (profile.active === false) {
-      toast("Este usuário está inativo. Procure a administração.");
+      toast("Este usuário está inativo.");
       await signOut(auth);
       return;
     }
@@ -281,7 +269,7 @@ async function renderByRole() {
 }
 
 /* =========================================================
-   PAINEL ADMINISTRATIVO
+   PAINEL ADMINISTRATIVO COM BOTÕES MODERNOS E FIGURINHAS
 ========================================================= */
 
 async function renderAdmin() {
@@ -316,39 +304,37 @@ function renderAdminMenu() {
     <div class="card">
       <div class="panel-title">
         <div>
-          <h2>Painel administrativo</h2>
-          <p class="small">Gestão do programa Água para Todos - Areia Branca/RN</p>
+          <h2>Gestão de Abastecimento</h2>
+          <p class="small">Programa Municipal • Areia Branca-RN</p>
         </div>
       </div>
       <div class="stats">
-        <div class="stat"><b>${state.households.length}</b> famílias</div>
-        <div class="stat"><b>${pending}</b> programadas</div>
-        <div class="stat"><b>${completed}</b> concluídas</div>
+        <div class="stat"><span>Famílias</span><b>${state.households.length}</b></div>
+        <div class="stat"><span>Programadas</span><b>${pending}</b></div>
+        <div class="stat"><span>Concluídas</span><b>${completed}</b></div>
       </div>
     </div>
 
+    <!-- BOTÕES FLUIDOS COM FIGURINHAS E PADRÃO MODERNO -->
     <div class="card">
-      <div class="panel-title"><h2>Cadastros e Operações</h2></div>
-      <div class="grid">
-        <div class="item" style="cursor:pointer" data-admin-menu="households">
-          <h3>👨‍👩‍👧‍👦 Famílias / Beneficiários</h3>
-          <p>Cadastrar e gerenciar famílias rurais atendidas.</p>
-        </div>
-        <div class="item" style="cursor:pointer" data-admin-menu="drivers">
-          <h3>🚚 Motoristas</h3>
-          <p>Cadastrar e gerenciar motoristas de pipas.</p>
-        </div>
-        <div class="item" style="cursor:pointer" data-admin-menu="new-delivery">
-          <h3>📅 Programar Entrega</h3>
-          <p>Vincular pipa, motorista e família.</p>
-        </div>
-        <div class="item" style="cursor:pointer" data-admin-menu="history">
-          <h3>📋 Histórico de Entregas</h3>
-          <p>Consultar todas as entregas realizadas.</p>
-        </div>
+      <div class="panel-title"><h2>Menu de Operações</h2></div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+        <button class="primary" data-admin-menu="households" style="justify-content: flex-start; padding: 16px;">
+          <span style="font-size: 20px;">🏡</span> Famílias / Imóveis
+        </button>
+        <button class="primary" data-admin-menu="drivers" style="justify-content: flex-start; padding: 16px;">
+          <span style="font-size: 20px;">🚚</span> Motoristas de Pipa
+        </button>
+        <button class="primary" data-admin-menu="new-delivery" style="justify-content: flex-start; padding: 16px; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+          <span style="font-size: 20px;">📅</span> Programar Entrega
+        </button>
+        <button class="secondary" data-admin-menu="history" style="justify-content: flex-start; padding: 16px;">
+          <span style="font-size: 20px;">📋</span> Histórico Geral
+        </button>
       </div>
     </div>
-    <div id="adminContent" style="margin-top:20px"></div>
+
+    <div id="adminContent" style="margin-top: 20px;"></div>
   `;
 
   document.querySelectorAll("[data-admin-menu]").forEach(button => {
@@ -360,7 +346,7 @@ async function handleAdminMenu(section) {
   if (section === "households") return renderAdminHouseholds();
   if (section === "drivers") return renderAdminDrivers();
   if (section === "new-delivery") return showDeliveryForm();
-  if (section === "history") return renderAdminDeliveries("all", "Todas as Entregas");
+  if (section === "history") return renderAdminDeliveries("all", "Histórico Geral de Entregas");
 }
 
 function renderAdminHouseholds() {
@@ -369,17 +355,17 @@ function renderAdminHouseholds() {
   content.innerHTML = `
     <div class="card">
       <div class="panel-title">
-        <h2>Famílias Cadastradas</h2>
-        <button class="primary small" id="adminNewHousehold">+ Nova Família</button>
+        <h2>Famílias Rurais Cadastradas</h2>
+        <button class="primary small" id="adminNewHousehold">➕ Nova Família</button>
       </div>
       <div class="grid">
         ${state.households.map(h => `
           <div class="item">
-            <h3>${esc(h.name)}</h3>
-            <p><b>Telefone:</b> ${esc(h.phone)} · <b>Comunidade:</b> ${esc(h.community)}</p>
-            <p><b>Litros:</b> ${h.defaultLiters || 5000} L</p>
+            <h3>🏡 ${esc(h.name)}</h3>
+            <p style="margin-top: 6px;"><b>Telefone:</b> ${esc(h.phone)} · <b>Comunidade:</b> ${esc(h.community)}</p>
+            <p><b>Volume Cisterna:</b> ${h.defaultLiters || 5000} L · <b>Ref:</b> ${esc(h.address || '—')}</p>
           </div>
-        `).join("") || "<p class='small'>Nenhuma família cadastrada.</p>"}
+        `).join("") || "<p class='small'>Nenhuma família cadastrada ainda.</p>"}
       </div>
     </div>
   `;
@@ -388,17 +374,17 @@ function renderAdminHouseholds() {
 
 function showHouseholdForm() {
   openModal(`
-    <h2>Cadastrar Família Rural</h2>
-    <form id="householdForm">
+    <h2>🏡 Cadastrar Família Rural</h2>
+    <form id="householdForm" style="margin-top: 15px;">
       <label>Nome do Responsável <input id="hName" required></label>
-      <label>Telefone (WhatsApp/Login) <input id="hPhone" type="tel" required></label>
-      <label>Senha Inicial <input id="hPassword" type="password" minlength="6" required></label>
-      <label>Comunidade / Assentamento <input id="hCommunity" required></label>
-      <label>Endereço / Referência <input id="hAddress" required></label>
+      <label>Telefone / WhatsApp (Login) <input id="hPhone" type="tel" placeholder="84999999999" required></label>
+      <label>Senha Inicial <input id="hPassword" type="password" minlength="6" placeholder="Mínimo 6 dígitos" required></label>
+      <label>Comunidade / Assentamento <input id="hCommunity" placeholder="Ex: Ponta do Mel" required></label>
+      <label>Endereço / Ponto de Referência <input id="hAddress" placeholder="Próximo à caixa d'água" required></label>
       <label>Litros por Entrega <input id="hLiters" type="number" value="5000" required></label>
-      <div class="actions">
-        <button type="button" class="secondary" id="cancelH">Cancelar</button>
-        <button type="submit" class="primary">Salvar Família</button>
+      <div class="actions" style="margin-top: 20px;">
+        <button type="button" class="secondary" id="cancelH" style="flex: 1;">Cancelar</button>
+        <button type="submit" class="primary" style="flex: 2;">Salvar Família</button>
       </div>
     </form>
   `);
@@ -441,16 +427,16 @@ function renderAdminDrivers() {
   content.innerHTML = `
     <div class="card">
       <div class="panel-title">
-        <h2>Motoristas</h2>
-        <button class="primary small" id="adminNewDriver">+ Novo Motorista</button>
+        <h2>Motoristas Cadastrados</h2>
+        <button class="primary small" id="adminNewDriver">➕ Novo Motorista</button>
       </div>
       <div class="grid">
         ${state.drivers.map(d => `
           <div class="item">
-            <h3>${esc(d.name)}</h3>
-            <p><b>E-mail:</b> ${esc(d.email)} · <b>Telefone:</b> ${esc(d.phone || '—')}</p>
+            <h3>🚚 ${esc(d.name)}</h3>
+            <p style="margin-top: 6px;"><b>E-mail:</b> ${esc(d.email)} · <b>Telefone:</b> ${esc(d.phone || '—')}</p>
           </div>
-        `).join("") || "<p class='small'>Nenhum motorista cadastrado.</p>"}
+        `).join("") || "<p class='small'>Nenhum motorista cadastrado ainda.</p>"}
       </div>
     </div>
   `;
@@ -459,15 +445,15 @@ function renderAdminDrivers() {
 
 function showDriverForm() {
   openModal(`
-    <h2>Cadastrar Motorista</h2>
-    <form id="driverForm">
+    <h2>🚚 Cadastrar Motorista</h2>
+    <form id="driverForm" style="margin-top: 15px;">
       <label>Nome Completo <input id="dName" required></label>
-      <label>E-mail de Acesso <input id="dEmail" type="email" required></label>
+      <label>E-mail de Acesso <input id="dEmail" type="email" placeholder="motorista@agua.com" required></label>
       <label>Telefone <input id="dPhone" type="tel" required></label>
       <label>Senha Inicial <input id="dPassword" type="password" minlength="6" required></label>
-      <div class="actions">
-        <button type="button" class="secondary" id="cancelD">Cancelar</button>
-        <button type="submit" class="primary">Salvar Motorista</button>
+      <div class="actions" style="margin-top: 20px;">
+        <button type="button" class="secondary" id="cancelD" style="flex: 1;">Cancelar</button>
+        <button type="submit" class="primary" style="flex: 2;">Salvar Motorista</button>
       </div>
     </form>
   `);
@@ -500,19 +486,24 @@ function showDeliveryForm() {
   if (!content) return;
   content.innerHTML = `
     <div class="card">
-      <h2>Programar Entrega de Pipa</h2>
-      <form id="delForm">
-        <label>Família <select id="selFam" required>
-          <option value="">Selecione...</option>
+      <h2>📅 Programar Entrega de Pipa</h2>
+      <form id="delForm" style="margin-top: 15px;">
+        <label>Selecione a Família <select id="selFam" required>
+          <option value="">Escolha a família...</option>
           ${state.households.map(h => `<option value="${h.id}">${esc(h.name)} - ${esc(h.community)}</option>`).join("")}
         </select></label>
-        <label>Motorista <select id="selMot" required>
-          <option value="">Selecione...</option>
+
+        <label>Selecione o Motorista <select id="selMot" required>
+          <option value="">Escolha o motorista...</option>
           ${state.drivers.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join("")}
         </select></label>
+
         <label>Data Prevista <input id="selDate" type="date" required></label>
         <label>Volume (Litros) <input id="selLit" type="number" value="5000" required></label>
-        <button type="submit" class="primary">Confirmar Agendamento</button>
+        
+        <div class="actions" style="margin-top: 20px;">
+          <button type="submit" class="primary full-width">Confirmar Agendamento</button>
+        </div>
       </form>
     </div>
   `;
@@ -524,10 +515,15 @@ function showDeliveryForm() {
 
   $("delForm").onsubmit = async e => {
     e.preventDefault();
-    const famId = $("selFam.value") || $("selFam").value;
+    const famId = $("selFam").value;
     const motId = $("selMot").value;
     const fam = state.households.find(h => h.id === famId);
     const mot = state.drivers.find(d => d.id === motId);
+
+    if (!fam || !mot) {
+      alert("Selecione a família e o motorista.");
+      return;
+    }
 
     try {
       await addDoc(collection(db, "deliveries"), {
@@ -555,12 +551,13 @@ function renderAdminDeliveries(statusFilter, title) {
   if (!content) return;
   content.innerHTML = `
     <div class="card">
-      <h2>${title}</h2>
-      <div class="grid">
+      <h2>📋 ${title}</h2>
+      <div class="grid" style="margin-top: 15px;">
         ${state.deliveries.map(d => `
           <div class="item">
-            <h3>${esc(d.recipientName)}</h3>
-            <p><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L · <b>Status:</b> ${d.status}</p>
+            <h3>💧 ${esc(d.recipientName)}</h3>
+            <p style="margin-top: 6px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
+            <p><b>Motorista:</b> ${esc(d.driverName || '—')} · <span class="pill ${d.status}">${d.status}</span></p>
           </div>
         `).join("") || "<p class='small'>Nenhuma entrega encontrada.</p>"}
       </div>
@@ -575,8 +572,8 @@ function renderAdminDeliveries(statusFilter, title) {
 async function renderDriver() {
   $("driverPanel").innerHTML = `
     <div class="card">
-      <h2>Minhas Entregas Atribuídas</h2>
-      <div id="driverList"><p class="small">Carregando...</p></div>
+      <h2>🚚 Minhas Entregas Atribuídas</h2>
+      <div id="driverList" style="margin-top: 15px;"><p class="small">Carregando entregas...</p></div>
     </div>
   `;
   try {
@@ -584,18 +581,19 @@ async function renderDriver() {
     const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     $("driverList").innerHTML = items.map(d => `
       <div class="item">
-        <h3>${esc(d.recipientName)}</h3>
-        <p><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
+        <h3>💧 ${esc(d.recipientName)}</h3>
+        <p style="margin-top: 6px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
+        <span class="pill ${d.status}">${d.status}</span>
       </div>
-    `).join("") || "<p class='small'>Nenhuma entrega programada para você.</p>";
+    `).join("") || "<p class='small'>Nenhuma entrega programada para você no momento.</p>";
   } catch(e) {}
 }
 
 async function renderRecipient() {
   $("recipientPanel").innerHTML = `
     <div class="card">
-      <h2>Minhas Entregas de Água</h2>
-      <div id="recList"><p class="small">Carregando...</p></div>
+      <h2>🏡 Minhas Entregas de Água</h2>
+      <div id="recList" style="margin-top: 15px;"><p class="small">Buscando histórico...</p></div>
     </div>
   `;
   try {
@@ -604,9 +602,10 @@ async function renderRecipient() {
     const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     $("recList").innerHTML = items.map(d => `
       <div class="item">
-        <h3>Entrega em ${dateOnly(d.scheduledDate)}</h3>
-        <p><b>Volume:</b> ${d.plannedLiters} L · <b>Status:</b> ${d.status}</p>
+        <h3>💧 Abastecimento em ${dateOnly(d.scheduledDate)}</h3>
+        <p style="margin-top: 6px;"><b>Volume:</b> ${d.plannedLiters} L · <b>Motorista:</b> ${esc(d.driverName || "—")}</p>
+        <span class="pill ${d.status}">${d.status}</span>
       </div>
-    `).join("") || "<p class='small'>Nenhum abastecimento registrado para sua família.</p>";
+    `).join("") || "<p class='small'>Nenhum abastecimento registrado para sua família ainda.</p>";
   } catch(e) {}
 }
