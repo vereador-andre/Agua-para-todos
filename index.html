@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Controle de Abastecimento • Areia Branca/RN</title>
+  <title>Água para Todos • Controle de Abastecimento</title>
   
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#0284c7">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +16,6 @@
 </head>
 <body>
 
-  <!-- STATUS DE REDE -->
   <div id="connectionStatus" class="connection-banner hidden">Verificando rede...</div>
 
   <!-- TELA DE LOGIN -->
@@ -30,10 +29,10 @@
 
       <form id="loginForm">
         <label for="loginEmail">Telefone / WhatsApp (Login)</label>
-        <input id="loginEmail" type="text" placeholder="(84) 99999-9999 ou E-mail" autocomplete="username" required>
+        <input id="loginEmail" type="text" placeholder="Ex: (84) 99999-9999" autocomplete="username" required>
 
-        <label for="loginPassword">Senha de Segurança</label>
-        <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password" required>
+        <label for="loginPassword">Senha de Segurança (6 dígitos)</label>
+        <input id="loginPassword" type="password" maxlength="6" placeholder="••••••" autocomplete="current-password" required>
 
         <button type="submit" id="btnSubmitLogin" class="primary" style="width: 100%; margin-top: 8px;">
           🚀 Acessar o Sistema
@@ -43,11 +42,11 @@
     </div>
   </div>
 
-  <!-- APLICAÇÃO PRINCIPAL -->
+  <!-- APLICAÇÃO PRINCIPAL (CABEÇALHO TECH) -->
   <div id="appView" class="view-container hidden" style="background: transparent; flex-direction: column; justify-content: flex-start; padding: 0;">
     <header class="app-header" style="width: 100%;">
       <div class="header-brand-title">
-        <span>💧</span> CONTROLE DE ABASTECIMENTO
+        <span>💧</span> Controle de Abastecimento
       </div>
 
       <div class="user-badge">
