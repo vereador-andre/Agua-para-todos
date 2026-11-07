@@ -16,7 +16,8 @@
 </head>
 <body>
 
-  <div id="connectionStatus" class="connection-banner">Verificando rede...</div>
+  <!-- STATUS DE REDE (APENAS APÓS O LOGIN) -->
+  <div id="connectionStatus" class="connection-banner hidden">Verificando rede...</div>
 
   <!-- TELA DE LOGIN -->
   <div id="loginView" class="view-container">
@@ -28,8 +29,8 @@
       </div>
 
       <form id="loginForm">
-        <label for="loginEmail">Acesso de Usuário</label>
-        <input id="loginEmail" type="text" placeholder="Telefone (com DDD) ou E-mail" autocomplete="username" required>
+        <label for="loginEmail">Telefone / WhatsApp (Login)</label>
+        <input id="loginEmail" type="text" placeholder="Ex: 84999999999 ou e-mail admin" autocomplete="username" required>
 
         <label for="loginPassword">Senha de Segurança</label>
         <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password" required>
@@ -42,7 +43,7 @@
     </div>
   </div>
 
-  <!-- APLICAÇÃO PRINCIPAL (CABEÇALHO COM TÍTULO SUPERIOR) -->
+  <!-- APLICAÇÃO PRINCIPAL -->
   <div id="appView" class="view-container hidden" style="background: transparent; flex-direction: column; justify-content: flex-start; padding: 0;">
     <header class="app-header" style="width: 100%;">
       <div class="header-brand-title">
@@ -50,12 +51,14 @@
       </div>
 
       <div class="user-badge">
-        <div class="user-avatar" id="userAvatar">🛡️</div>
-        <div class="user-info">
-          <h2 id="userName">Carregando...</h2>
-          <span id="userRole" class="pill scheduled">Cargo</span>
+        <div class="user-profile-wrapper">
+          <div class="user-avatar" id="userAvatar">🛡️</div>
+          <div class="user-info">
+            <h2 id="userName">Carregando...</h2>
+            <span id="userRole" class="pill scheduled" style="font-size: 9px; padding: 2px 6px;">Cargo</span>
+          </div>
         </div>
-        <button id="logoutBtn" class="secondary small" style="margin-left: 10px;">🚪 Sair</button>
+        <button id="logoutBtn" class="logout-btn">🚪 Sair</button>
       </div>
     </header>
 
