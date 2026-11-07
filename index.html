@@ -1,111 +1,77 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-
-  <meta name="theme-color" content="#0D2B5C">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Controle seguro do abastecimento rural - Água para Todos">
-
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./styles.css?v=2026_1">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Água para Todos - Areia Branca/RN</title>
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0D2B5C">
+  
+  <!-- Estilos principais -->
+  <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
 
-  <!-- Barra do Topo -->
-  <header class="topbar">
-    <div class="topbar-content">
-      <div class="brand">ÁGUA <span>PARA TODOS</span></div>
-      <small>Controle de abastecimento • Areia Branca-RN</small>
-    </div>
+  <!-- STATUS DE CONEXÃO (TOPO) -->
+  <div id="connectionStatus" class="connection-banner">Verificando conexão...</div>
 
-    <button id="logoutBtn" class="btn-logout hidden" type="button">
-      Sair
-    </button>
-  </header>
-
-  <!-- Tela de Login -->
-  <section id="loginView" class="login-screen">
-    <div class="auth-card">
-      <div class="auth-header">
-        <span class="auth-badge">Areia Branca - RN</span>
+  <!-- TELA DE LOGIN -->
+  <div id="loginView" class="view-container">
+    <div class="login-card">
+      <div class="login-header">
         <h1>Água para Todos</h1>
-        <p>Acesse com seu e-mail ou telefone cadastrado.</p>
+        <p>Gestão de Abastecimento - Areia Branca/RN</p>
       </div>
 
-      <form id="loginForm" onsubmit="return false;" novalidate>
-        <label for="loginEmail">
-          E-mail ou Telefone (com DDD)
-          <input
-            id="loginEmail"
-            name="username"
-            type="text"
-            autocomplete="username"
-            placeholder="Insira seu telefone ou e-mail"
-            required
-          >
-        </label>
+      <form id="loginForm">
+        <label for="loginEmail">E-mail ou Telefone</label>
+        <input id="loginEmail" type="text" placeholder="E-mail ou telefone do beneficiário" autocomplete="username" required>
 
-        <label for="loginPassword">
-          Senha de Acesso
-          <input
-            id="loginPassword"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            placeholder="Digite sua senha"
-            required
-          >
-        </label>
+        <label for="loginPassword">Senha</label>
+        <input id="loginPassword" type="password" placeholder="Sua senha de acesso" autocomplete="current-password" required>
 
-        <button id="btnSubmitLogin" class="primary auth-submit" type="button">
-          Entrar no Sistema
-        </button>
+        <button type="submit" id="btnSubmitLogin" class="primary full-width">Entrar no Sistema</button>
+        <p id="loginMsg" class="error-msg"></p>
       </form>
-
-      <div id="loginMsg" class="message" role="alert"></div>
-    </div>
-  </section>
-
-  <!-- Painel do Usuário Logado -->
-  <main class="container">
-    <section id="appView" class="hidden">
-      <div class="welcome card">
-        <div class="welcome-user">
-          <span id="userRole" class="badge">Administrador</span>
-          <strong id="userName" style="display: block; font-size: 19px; margin-top: 4px; color: var(--navy);">Usuário</strong>
-        </div>
-        <span id="connectionStatus" class="status ok">Online</span>
-      </div>
-
-      <div id="adminPanel" class="hidden"></div>
-      <div id="driverPanel" class="hidden"></div>
-      <div id="recipientPanel" class="hidden"></div>
-    </section>
-  </main>
-
-  <!-- Janela Dedicada / Modal de Tela Inteira -->
-  <div id="screenModal" class="fullscreen-modal hidden" role="dialog" aria-modal="true">
-    <div class="fullscreen-box">
-      <header class="fullscreen-header">
-        <h2 id="modalTitle">Detalhes</h2>
-        <button id="closeModal" class="fullscreen-close" type="button" aria-label="Fechar tela">
-          ✕
-        </button>
-      </header>
-
-      <div id="modalContent" class="fullscreen-content"></div>
     </div>
   </div>
 
-  <div id="toast" class="toast" role="status"></div>
+  <!-- APLICAÇÃO PRINCIPAL (PÃINEIS APÓS O LOGIN) -->
+  <div id="appView" class="view-container hidden">
+    <header class="app-header">
+      <div class="user-info">
+        <h2 id="userName">Carregando...</h2>
+        <span id="userRole" class="pill">Cargo</span>
+      </div>
+      <button id="logoutBtn" class="danger small">Sair</button>
+    </header>
 
-  <script type="module" src="./app.js?v=2026_1"></script>
+    <main class="main-content">
+      <!-- Painel do Administrador -->
+      <section id="adminPanel" class="panel hidden"></section>
+
+      <!-- Painel do Motorista -->
+      <section id="driverPanel" class="panel hidden"></section>
+
+      <!-- Painel do Beneficiário -->
+      <section id="recipientPanel" class="panel hidden"></section>
+    </main>
+  </div>
+
+  <!-- MODAL / TELA DEDICADA PARA FORMULÁRIOS E COMPROVANTES -->
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button id="closeModal" class="modal-close-btn">&times;</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <!-- NOTIFICAÇÕES TOAST -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Script Principal da Aplicação (Módulo) -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
