@@ -3,8 +3,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged,
-  createUserWithEmailAndPassword
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getFirestore,
@@ -25,7 +24,6 @@ import {
   getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-// Credenciais do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAAf5Tfvh0Ow-iusTMuvax5VlxBgjtVFeo",
   authDomain: "agua-para-todos-18167.firebaseapp.com",
@@ -49,7 +47,6 @@ try {
   console.error("Erro Firebase:", e);
 }
 
-// Seletores DOM
 const loginView = document.getElementById("loginView");
 const appView = document.getElementById("appView");
 const loginForm = document.getElementById("loginForm");
@@ -118,27 +115,27 @@ function showToast(msg) {
   setTimeout(() => toastEl.classList.remove("show"), 3500);
 }
 
-// Login Rápido
+// Login Rápido e Otimizado
 async function executarLogin() {
   limparErroLogin();
-  const rawInput = loginEmailInput.value.trim();
+  let rawInput = loginEmailInput.value.trim();
   const password = loginPasswordInput.value;
 
   if (!rawInput || !password) {
-    exibirErroLogin("Preencha o e-mail/telefone e a senha.");
+    exibirErroLogin("Preencha o telefone/e-mail e a senha.");
     return;
   }
 
   btnSubmitLogin.disabled = true;
   btnSubmitLogin.textContent = "Entrando...";
 
-  let finalEmail = rawInput;
+  let finalLogin = rawInput;
   const digitsOnly = rawInput.replace(/\D/g, "");
   if (!rawInput.includes("@")) {
     if (digitsOnly.length >= 8) {
-      finalEmail = `${digitsOnly}@aguaparatodos.com`;
+      finalLogin = `${digitsOnly}@aguaparatodos.com`;
     } else {
-      exibirErroLogin("Digite um e-mail válido ou telefone com DDD.");
+      exibirErroLogin("Digite um telefone válido com DDD ou e-mail.");
       btnSubmitLogin.disabled = false;
       btnSubmitLogin.textContent = "Entrar no Sistema";
       return;
@@ -146,12 +143,10 @@ async function executarLogin() {
   }
 
   try {
-    await signInWithEmailAndPassword(auth, finalEmail, password);
+    await signInWithEmailAndPassword(auth, finalLogin, password);
   } catch (err) {
     console.error("Erro login:", err);
-    let msg = "E-mail ou senha incorretos.";
-    if (err.code === "auth/unauthorized-domain") msg = "Domínio GitHub Pages não autorizado no Firebase.";
-    exibirErroLogin(msg);
+    exibirErroLogin("Telefone/E-mail ou senha incorretos.");
   } finally {
     btnSubmitLogin.disabled = false;
     btnSubmitLogin.textContent = "Entrar no Sistema";
@@ -198,7 +193,7 @@ function iniciarSessao() {
   appView.classList.remove("hidden");
   logoutBtn.classList.remove("hidden");
 
-  // Nome de quem está logado logo abaixo
+  // Nome do usuário logado abaixo do cargo
   userNameEl.textContent = currentUserProfile.name || "Usuário";
   userRoleEl.textContent = formatarCargo(currentUserProfile.role);
 
@@ -234,38 +229,41 @@ async function carregarPainelAdmin() {
       <h2>Gestão de Abastecimento</h2>
     </div>
 
-    <!-- Botões no mesmo padrão de tamanho, cor e ícones -->
-    <div class="actions" style="margin-bottom: 18px;">
-      <button id="btnNovoImovel" class="primary" type="button">🏠 Cadastrar Família</button>
-      <button id="btnNovoMotorista" class="secondary" type="button">🚚 Cadastrar Motorista</button>
-      <button id="btnNovoVeiculo" class="secondary" type="button">🚛 Cadastrar Veículo</button>
-      <button id="btnAgendar" class="yellow" type="button">💧 Agendar Entrega</button>
+    <!-- Botões padronizados em tamanho, cores e estilo com figurinhas diferentes -->
+    <div class="actions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px;">
+      <button id="btnNovoImovel" class="primary" type="button" style="justify-content: center;">🏠 Família</button>
+      <button id="btnNovoMotorista" class="primary" type="button" style="justify-content: center;">🚚 Motorista</button>
+      <button id="btnNovoVeiculo" class="primary" type="button" style="justify-content: center;">🚛 Veículo</button>
+      <button id="btnAgendar" class="yellow" type="button" style="justify-content: center;">💧 Agendar</button>
     </div>
 
-    <!-- Painel de Informações e Quantidades -->
+    <!-- Estatísticas -->
     <div class="stats">
-      <div class="stat">
-        <span>Famílias</span>
-        <b id="statFamilias">0</b>
-      </div>
-      <div class="stat">
-        <span>Motoristas</span>
-        <b id="statMotoristas">0</b>
-      </div>
-      <div class="stat">
-        <span>Veículos</span>
-        <b id="statVeiculos">0</b>
-      </div>
-      <div class="stat">
-        <span>Entregas</span>
-        <b id="statEntregas">0</b>
+      <div class="stat"><span>Famílias</span><b id="statFamilias">0</b></div>
+      <div class="stat"><span>Motoristas</span><b id="statMotoristas">0</b></div>
+      <div class="stat"><span>Veículos</span><b id="statVeiculos">0</b></div>
+      <div class="stat"><span>Entregas</span><b id="statEntregas">0</b></div>
+    </div>
+
+    <!-- Filtro de Relatórios e Listagem -->
+    <div class="panel-title" style="margin-top: 24px;">
+      <h2>Relatórios e Cadastros</h2>
+    </div>
+
+    <div class="card" style="padding: 12px; margin-bottom: 14px;">
+      <div class="row">
+        <label style="flex: 1; min-width: 180px;">Filtrar por Categoria:
+          <select id="filtroCategoria" style="margin-top: 4px;">
+            <option value="todos">Todos os Registros</option>
+            <option value="familias">Famílias Rurais</option>
+            <option value="motoristas">Motoristas</option>
+            <option value="veiculos">Veículos</option>
+            <option value="entregas">Entregas e Abastecimentos</option>
+          </select>
+        </label>
       </div>
     </div>
 
-    <!-- Listagem com opções de Alterar / Excluir -->
-    <div class="panel-title" style="margin-top: 24px;">
-      <h2>Cadastros e Entregas</h2>
-    </div>
     <div id="adminRecordsList" class="grid">
       <p class="small">Carregando dados...</p>
     </div>
@@ -275,9 +273,12 @@ async function carregarPainelAdmin() {
   document.getElementById("btnNovoMotorista").addEventListener("click", () => mostrarTelaCadastroMotorista());
   document.getElementById("btnNovoVeiculo").addEventListener("click", () => mostrarTelaCadastroVeiculo());
   document.getElementById("btnAgendar").addEventListener("click", () => mostrarTelaAgendamento());
+  document.getElementById("filtroCategoria").addEventListener("change", () => renderizarListagemAdmin());
 
   await atualizarDadosAdmin();
 }
+
+let cacheGlobalAdmin = { fams: [], mot: [], vei: [], del: [] };
 
 async function atualizarDadosAdmin() {
   try {
@@ -288,106 +289,194 @@ async function atualizarDadosAdmin() {
       getDocs(collection(db, "deliveries"))
     ]);
 
-    document.getElementById("statFamilias").textContent = snapFam.size;
-    document.getElementById("statMotoristas").textContent = snapMot.size;
-    document.getElementById("statVeiculos").textContent = snapVei.size;
-    document.getElementById("statEntregas").textContent = snapDel.size;
+    cacheGlobalAdmin.fams = [];
+    snapFam.forEach(d => cacheGlobalAdmin.fams.push({ id: d.id, ...d.data() }));
 
-    const container = document.getElementById("adminRecordsList");
-    container.innerHTML = "";
+    cacheGlobalAdmin.mot = [];
+    snapMot.forEach(d => cacheGlobalAdmin.mot.push({ id: d.id, ...d.data() }));
 
-    let totalItens = 0;
+    cacheGlobalAdmin.vei = [];
+    snapVei.forEach(d => cacheGlobalAdmin.vei.push({ id: d.id, ...d.data() }));
 
-    snapFam.forEach(docSnap => {
-      totalItens++;
-      const data = docSnap.data();
+    cacheGlobalAdmin.del = [];
+    snapDel.forEach(d => cacheGlobalAdmin.del.push({ id: d.id, ...d.data() }));
+
+    document.getElementById("statFamilias").textContent = cacheGlobalAdmin.fams.length;
+    document.getElementById("statMotoristas").textContent = cacheGlobalAdmin.mot.length;
+    document.getElementById("statVeiculos").textContent = cacheGlobalAdmin.vei.length;
+    document.getElementById("statEntregas").textContent = cacheGlobalAdmin.del.length;
+
+    renderizarListagemAdmin();
+  } catch (e) {
+    console.error("Erro dados admin:", e);
+  }
+}
+
+function renderizarListagemAdmin() {
+  const container = document.getElementById("adminRecordsList");
+  const filtro = document.getElementById("filtroCategoria") ? document.getElementById("filtroCategoria").value : "todos";
+  if (!container) return;
+  container.innerHTML = "";
+
+  let contador = 0;
+
+  // 1. Famílias
+  if (filtro === "todos" || filtro === "familias") {
+    cacheGlobalAdmin.fams.forEach(item => {
+      contador++;
       const el = document.createElement("div");
       el.className = "item";
       el.innerHTML = `
         <div class="row">
-          <h3>Família: ${data.name}</h3>
-          <span class="pill scheduled">${data.community}</span>
+          <h3>🏠 Família: ${item.name}</h3>
+          <span class="pill scheduled">${item.community}</span>
         </div>
-        <p><strong>Tel:</strong> ${data.phone} • <strong>Cisterna:</strong> ${data.defaultLiters} L</p>
+        <p><strong>WhatsApp/Login:</strong> ${item.phone} • <strong>Cisterna:</strong> ${item.defaultLiters} L</p>
+        <p><strong>Referência:</strong> ${item.address || 'Não informada'}</p>
         <div class="actions" style="margin-top: 10px;">
-          <button class="secondary" data-edit-fam="${docSnap.id}">✏️ Alterar</button>
-          <button class="danger" data-del-fam="${docSnap.id}">Excluir</button>
+          <button class="secondary" data-edit-fam="${item.id}">✏️ Alterar</button>
+          <button class="danger" data-del-fam="${item.id}">Excluir</button>
         </div>
       `;
-      el.querySelector("[data-edit-fam]").addEventListener("click", () => mostrarTelaCadastroImovel(docSnap.id, data));
+      el.querySelector("[data-edit-fam]").addEventListener("click", () => mostrarTelaCadastroImovel(item.id, item));
       el.querySelector("[data-del-fam]").addEventListener("click", async () => {
-        if (confirm("Deseja excluir esta família?")) {
-          await deleteDoc(doc(db, "households", docSnap.id));
+        if (confirm(`Deseja excluir a família ${item.name}?`)) {
+          await deleteDoc(doc(db, "households", item.id));
           showToast("Família excluída!");
           atualizarDadosAdmin();
         }
       });
       container.appendChild(el);
     });
+  }
 
-    snapDel.forEach(docSnap => {
-      totalItens++;
-      const data = docSnap.data();
+  // 2. Motoristas
+  if (filtro === "todos" || filtro === "motoristas") {
+    cacheGlobalAdmin.mot.forEach(item => {
+      contador++;
       const el = document.createElement("div");
       el.className = "item";
       el.innerHTML = `
         <div class="row">
-          <h3>Entrega: ${data.recipientName}</h3>
-          <span class="pill ${data.status === 'completed' ? 'completed' : 'scheduled'}">${data.status === 'completed' ? 'Entregue' : 'Agendada'}</span>
+          <h3>🚚 Motorista: ${item.name}</h3>
+          <span class="pill scheduled">Ativo</span>
         </div>
-        <p><strong>Comunidade:</strong> ${data.community} • <strong>Volume:</strong> ${data.plannedLiters} L</p>
-        <p><strong>Data:</strong> ${data.scheduledDate || 'Não informada'}</p>
+        <p><strong>WhatsApp/Login:</strong> ${item.phone} • <strong>CPF:</strong> ${item.cpf}</p>
         <div class="actions" style="margin-top: 10px;">
-          <button class="secondary" data-details="${docSnap.id}">Ver Ficha</button>
-          <button class="danger" data-del-del="${docSnap.id}">Excluir</button>
+          <button class="secondary" data-edit-mot="${item.id}">✏️ Alterar</button>
+          <button class="danger" data-del-mot="${item.id}">Excluir</button>
         </div>
       `;
-      el.querySelector("[data-details]").addEventListener("click", () => mostrarTelaDetalhes(docSnap.id, data));
+      el.querySelector("[data-edit-mot]").addEventListener("click", () => mostrarTelaCadastroMotorista(item.id, item));
+      el.querySelector("[data-del-mot]").addEventListener("click", async () => {
+        if (confirm(`Deseja excluir o motorista ${item.name}?`)) {
+          await deleteDoc(doc(db, "drivers", item.id));
+          showToast("Motorista excluído!");
+          atualizarDadosAdmin();
+        }
+      });
+      container.appendChild(el);
+    });
+  }
+
+  // 3. Veículos
+  if (filtro === "todos" || filtro === "veiculos") {
+    cacheGlobalAdmin.vei.forEach(item => {
+      contador++;
+      const el = document.createElement("div");
+      el.className = "item";
+      el.innerHTML = `
+        <div class="row">
+          <h3>🚛 Veículo: ${item.plate}</h3>
+          <span class="pill scheduled">${item.capacity} L</span>
+        </div>
+        <p><strong>Modelo:</strong> ${item.model} • <strong>KM Cadastro:</strong> ${item.kmCadastro || 0} km</p>
+        <div class="actions" style="margin-top: 10px;">
+          <button class="secondary" data-edit-vei="${item.id}">✏️ Alterar</button>
+          <button class="danger" data-del-vei="${item.id}">Excluir</button>
+        </div>
+      `;
+      el.querySelector("[data-edit-vei]").addEventListener("click", () => mostrarTelaCadastroVeiculo(item.id, item));
+      el.querySelector("[data-del-vei]").addEventListener("click", async () => {
+        if (confirm(`Deseja excluir o veículo ${item.plate}?`)) {
+          await deleteDoc(doc(db, "vehicles", item.id));
+          showToast("Veículo excluído!");
+          atualizarDadosAdmin();
+        }
+      });
+      container.appendChild(el);
+    });
+  }
+
+  // 4. Entregas
+  if (filtro === "todos" || filtro === "entregas") {
+    cacheGlobalAdmin.del.forEach(item => {
+      contador++;
+      const el = document.createElement("div");
+      el.className = "item";
+      el.innerHTML = `
+        <div class="row">
+          <h3>💧 Entrega: ${item.recipientName}</h3>
+          <span class="pill ${item.status === 'completed' ? 'completed' : 'scheduled'}">${item.status === 'completed' ? 'Entregue' : 'Agendada'}</span>
+        </div>
+        <p><strong>Comunidade:</strong> ${item.community} • <strong>Volume:</strong> ${item.plannedLiters} L</p>
+        <p><strong>Motorista:</strong> ${item.driverName || 'Não atribuído'} • <strong>Veículo:</strong> ${item.vehiclePlate || 'Não informado'}</p>
+        <p><strong>Data:</strong> ${item.scheduledDate || 'Não informada'}</p>
+        <div class="actions" style="margin-top: 10px;">
+          <button class="secondary" data-details="${item.id}">Ver Ficha</button>
+          <button class="danger" data-del-del="${item.id}">Excluir</button>
+        </div>
+      `;
+      el.querySelector("[data-details]").addEventListener("click", () => mostrarTelaDetalhes(item.id, item));
       el.querySelector("[data-del-del]").addEventListener("click", async () => {
         if (confirm("Deseja excluir este agendamento?")) {
-          await deleteDoc(doc(db, "deliveries", docSnap.id));
+          await deleteDoc(doc(db, "deliveries", item.id));
           showToast("Agendamento excluído!");
           atualizarDadosAdmin();
         }
       });
       container.appendChild(el);
     });
+  }
 
-    if (totalItens === 0) {
-      container.innerHTML = `<div class="item"><p>Nenhum cadastro ou entrega realizada ainda.</p></div>`;
-    }
-  } catch (e) {
-    console.error("Erro admin:", e);
+  if (contador === 0) {
+    container.innerHTML = `<div class="item"><p>Nenhum registro encontrado para este filtro.</p></div>`;
   }
 }
 
-// Telas de Cadastro com suporte a Edição (Alterar)
+// ------------------------------------------
+// Telas de Cadastro e Edição com novos campos
+// ------------------------------------------
 function mostrarTelaCadastroImovel(editId = null, existingData = null) {
   const html = `
-    <form id="formFam" onsubmit="return false;">
+    <form onsubmit="return false;">
       <label>Nome do Responsável <input id="fName" type="text" value="${existingData?.name || ''}" required></label>
       <label>CPF <input id="fCpf" type="text" value="${existingData?.cpf || ''}" required></label>
-      <label>Telefone / WhatsApp <input id="fPhone" type="text" value="${existingData?.phone || ''}" required></label>
-      <label>E-mail para Acesso (Login) <input id="fEmail" type="email" value="${existingData?.email || ''}" placeholder="familia@email.com" required></label>
+      <label>Telefone / WhatsApp (Login) <input id="fPhone" type="text" value="${existingData?.phone || ''}" placeholder="(84) 99999-9999" required></label>
       <label>Senha de Acesso <input id="fPass" type="password" value="${existingData?.password || '123456'}" required></label>
-      <label>Comunidade <input id="fComm" type="text" value="${existingData?.community || ''}" required></label>
+      <label>Comunidade / Assentamento <input id="fComm" type="text" value="${existingData?.community || ''}" required></label>
       <label>Ponto de Referência <input id="fAddr" type="text" value="${existingData?.address || ''}"></label>
-      <label>Volume Cisterna (Litros) <input id="fLit" type="number" value="${existingData?.defaultLiters || 5000}"></label>
+      <label>Volume da Cisterna (Litros) <input id="fLit" type="number" step="500" value="${existingData?.defaultLiters || 5000}" required></label>
       <div class="actions" style="margin-top: 15px;">
         <button id="btnSaveFam" type="button" class="primary" style="flex:2;">${editId ? 'Salvar Alterações' : 'Cadastrar Família'}</button>
         <button type="button" class="secondary" id="btnCancel" style="flex:1;">Voltar</button>
       </div>
     </form>
   `;
-  openDedicatedScreen(editId ? "Editar Família" : "Cadastrar Família Rural", html);
+  openDedicatedScreen(editId ? "Editar Família Rural" : "Cadastrar Família Rural", html);
   document.getElementById("btnCancel").addEventListener("click", closeDedicatedScreen);
 
   document.getElementById("btnSaveFam").addEventListener("click", async () => {
+    const phone = document.getElementById("fPhone").value.trim();
+    const pass = document.getElementById("fPass").value;
+    const digits = phone.replace(/\D/g, "");
+    const emailLogin = `${digits}@aguaparatodos.com`;
+
     const dataObj = {
       name: document.getElementById("fName").value.trim(),
       cpf: document.getElementById("fCpf").value.trim(),
-      phone: document.getElementById("fPhone").value.trim(),
-      email: document.getElementById("fEmail").value.trim(),
+      phone: phone,
+      password: pass,
       community: document.getElementById("fComm").value.trim(),
       address: document.getElementById("fAddr").value.trim(),
       defaultLiters: Number(document.getElementById("fLit").value),
@@ -399,11 +488,7 @@ function mostrarTelaCadastroImovel(editId = null, existingData = null) {
         await updateDoc(doc(db, "households", editId), dataObj);
         showToast("Família atualizada com sucesso!");
       } else {
-        const pass = document.getElementById("fPass").value;
-        const cred = await createUserWithEmailAndPassword(auth, dataObj.email, pass);
-        await setDoc(doc(db, "households", cred.user.uid), dataObj);
-        await setDoc(doc(db, "users", cred.user.uid), { name: dataObj.name, role: "recipient" });
-        showToast("Família cadastrada com login!");
+        const cred = await setDocAuthAndFirestore(emailLogin, pass, dataObj, "households", dataObj.name, "recipient");
       }
       closeDedicatedScreen();
       atualizarDadosAdmin();
@@ -413,35 +498,43 @@ function mostrarTelaCadastroImovel(editId = null, existingData = null) {
   });
 }
 
-function mostrarTelaCadastroMotorista() {
+function mostrarTelaCadastroMotorista(editId = null, existingData = null) {
   const html = `
     <form onsubmit="return false;">
-      <label>Nome do Motorista <input id="mName" type="text" required></label>
-      <label>CPF <input id="mCpf" type="text" required></label>
-      <label>E-mail de Acesso (Login) <input id="mEmail" type="email" placeholder="motorista@email.com" required></label>
-      <label>Senha <input id="mPass" type="password" value="123456" required></label>
-      <label>Telefone <input id="mPhone" type="text" required></label>
+      <label>Nome do Motorista <input id="mName" type="text" value="${existingData?.name || ''}" required></label>
+      <label>CPF <input id="mCpf" type="text" value="${existingData?.cpf || ''}" required></label>
+      <label>Telefone / WhatsApp (Login) <input id="mPhone" type="text" value="${existingData?.phone || ''}" placeholder="(84) 99999-9999" required></label>
+      <label>Senha de Acesso <input id="mPass" type="password" value="${existingData?.password || '123456'}" required></label>
       <div class="actions" style="margin-top: 15px;">
-        <button id="btnSaveMot" type="button" class="primary" style="flex:2;">Cadastrar Motorista</button>
+        <button id="btnSaveMot" type="button" class="primary" style="flex:2;">${editId ? 'Salvar Alterações' : 'Cadastrar Motorista'}</button>
         <button type="button" class="secondary" id="btnCancel" style="flex:1;">Voltar</button>
       </div>
     </form>
   `;
-  openDedicatedScreen("Cadastrar Motorista", html);
+  openDedicatedScreen(editId ? "Editar Motorista" : "Cadastrar Motorista", html);
   document.getElementById("btnCancel").addEventListener("click", closeDedicatedScreen);
 
   document.getElementById("btnSaveMot").addEventListener("click", async () => {
-    const name = document.getElementById("mName").value.trim();
-    const email = document.getElementById("mEmail").value.trim();
+    const phone = document.getElementById("mPhone").value.trim();
     const pass = document.getElementById("mPass").value;
+    const digits = phone.replace(/\D/g, "");
+    const emailLogin = `${digits}@aguaparatodos.com`;
+
+    const dataObj = {
+      name: document.getElementById("mName").value.trim(),
+      cpf: document.getElementById("mCpf").value.trim(),
+      phone: phone,
+      password: pass,
+      role: "driver"
+    };
 
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      await setDoc(doc(db, "drivers", cred.user.uid), {
-        name, email, cpf: document.getElementById("mCpf").value, phone: document.getElementById("mPhone").value, role: "driver"
-      });
-      await setDoc(doc(db, "users", cred.user.uid), { name, role: "driver" });
-      showToast("Motorista cadastrado com sucesso!");
+      if (editId) {
+        await updateDoc(doc(db, "drivers", editId), dataObj);
+        showToast("Motorista atualizado!");
+      } else {
+        await setDocAuthAndFirestore(emailLogin, pass, dataObj, "drivers", dataObj.name, "driver");
+      }
       closeDedicatedScreen();
       atualizarDadosAdmin();
     } catch(e) {
@@ -450,30 +543,38 @@ function mostrarTelaCadastroMotorista() {
   });
 }
 
-function mostrarTelaCadastroVeiculo() {
+function mostrarTelaCadastroVeiculo(editId = null, existingData = null) {
   const html = `
     <form onsubmit="return false;">
-      <label>Placa do Caminhão Pipa <input id="vPlate" type="text" placeholder="ABC-1234" required></label>
-      <label>Modelo / Descrição <input id="vModel" type="text" placeholder="Mercedes Atego 15.000L" required></label>
-      <label>Capacidade (Litros) <input id="vCap" type="number" value="15000" required></label>
+      <label>Placa do Veículo <input id="vPlate" type="text" value="${existingData?.plate || ''}" placeholder="ABC-1234" required></label>
+      <label>Modelo / Descrição <input id="vModel" type="text" value="${existingData?.model || ''}" placeholder="Mercedes 15.000L" required></label>
+      <label>Capacidade (Litros) <input id="vCap" type="number" step="500" value="${existingData?.capacity || 15000}" required></label>
+      <label>KM na Data do Cadastro <input id="vKm" type="number" value="${existingData?.kmCadastro || 0}" required></label>
       <div class="actions" style="margin-top: 15px;">
-        <button id="btnSaveVei" type="button" class="primary" style="flex:2;">Cadastrar Veículo</button>
+        <button id="btnSaveVei" type="button" class="primary" style="flex:2;">${editId ? 'Salvar Alterações' : 'Cadastrar Veículo'}</button>
         <button type="button" class="secondary" id="btnCancel" style="flex:1;">Voltar</button>
       </div>
     </form>
   `;
-  openDedicatedScreen("Cadastrar Veículo", html);
+  openDedicatedScreen(editId ? "Editar Veículo" : "Cadastrar Veículo", html);
   document.getElementById("btnCancel").addEventListener("click", closeDedicatedScreen);
 
   document.getElementById("btnSaveVei").addEventListener("click", async () => {
+    const dataObj = {
+      plate: document.getElementById("vPlate").value.trim(),
+      model: document.getElementById("vModel").value.trim(),
+      capacity: Number(document.getElementById("vCap").value),
+      kmCadastro: Number(document.getElementById("vKm").value)
+    };
+
     try {
-      await addDoc(collection(db, "vehicles"), {
-        plate: document.getElementById("vPlate").value.trim(),
-        model: document.getElementById("vModel").value.trim(),
-        capacity: Number(document.getElementById("vCap").value),
-        createdAt: serverTimestamp()
-      });
-      showToast("Veículo cadastrado!");
+      if (editId) {
+        await updateDoc(doc(db, "vehicles", editId), dataObj);
+        showToast("Veículo atualizado!");
+      } else {
+        await addDoc(collection(db, "vehicles"), { ...dataObj, createdAt: serverTimestamp() });
+        showToast("Veículo cadastrado!");
+      }
       closeDedicatedScreen();
       atualizarDadosAdmin();
     } catch(e) {
@@ -486,8 +587,10 @@ async function mostrarTelaAgendamento() {
   const html = `
     <form onsubmit="return false;">
       <label>Selecione a Família <select id="selFam" required><option value="">Carregando...</option></select></label>
+      <label>Selecione o Motorista <select id="selMot" required><option value="">Carregando...</option></select></label>
+      <label>Selecione o Veículo <select id="selVei" required><option value="">Carregando...</option></select></label>
       <label>Data Prevista <input id="agDate" type="date" required></label>
-      <label>Volume (Litros) <input id="agLit" type="number" value="5000" required></label>
+      <label>Volume de Entrega (Litros) <input id="agLit" type="number" step="500" value="5000" required></label>
       <div class="actions" style="margin-top: 15px;">
         <button id="btnSaveAg" type="button" class="primary" style="flex:2;">Confirmar Agendamento</button>
         <button type="button" class="secondary" id="btnCancel" style="flex:1;">Voltar</button>
@@ -497,27 +600,51 @@ async function mostrarTelaAgendamento() {
   openDedicatedScreen("Agendar Entrega de Pipa", html);
   document.getElementById("btnCancel").addEventListener("click", closeDedicatedScreen);
 
-  const sel = document.getElementById("selFam");
+  const selFam = document.getElementById("selFam");
+  const selMot = document.getElementById("selMot");
+  const selVei = document.getElementById("selVei");
   let fams = [];
+
   try {
-    const snap = await getDocs(collection(db, "households"));
-    sel.innerHTML = '<option value="">Selecione...</option>';
-    snap.forEach(d => {
+    const [snapF, snapM, snapV] = await Promise.all([
+      getDocs(collection(db, "households")),
+      getDocs(collection(db, "drivers")),
+      getDocs(collection(db, "vehicles"))
+    ]);
+
+    selFam.innerHTML = '<option value="">Selecione a família...</option>';
+    snapF.forEach(d => {
       fams.push({ id: d.id, ...d.data() });
       const opt = document.createElement("option");
       opt.value = d.id;
       opt.textContent = `${d.data().name} (${d.data().community})`;
-      sel.appendChild(opt);
+      selFam.appendChild(opt);
+    });
+
+    selMot.innerHTML = '<option value="">Selecione o motorista...</option>';
+    snapM.forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d.data().name;
+      opt.textContent = d.data().name;
+      selMot.appendChild(opt);
+    });
+
+    selVei.innerHTML = '<option value="">Selecione o veículo...</option>';
+    snapV.forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d.data().plate;
+      opt.textContent = `${d.data().plate} - ${d.data().model}`;
+      selVei.appendChild(opt);
     });
   } catch(e) {}
 
-  sel.addEventListener("change", () => {
-    const f = fams.find(x => x.id === sel.value);
+  selFam.addEventListener("change", () => {
+    const f = fams.find(x => x.id === selFam.value);
     if(f && f.defaultLiters) document.getElementById("agLit").value = f.defaultLiters;
   });
 
   document.getElementById("btnSaveAg").addEventListener("click", async () => {
-    const fId = sel.value;
+    const fId = selFam.value;
     const fam = fams.find(x => x.id === fId);
     if(!fam) { alert("Selecione uma família"); return; }
 
@@ -525,15 +652,16 @@ async function mostrarTelaAgendamento() {
       await addDoc(collection(db, "deliveries"), {
         householdId: fId,
         recipientName: fam.name,
-        recipientEmail: fam.email || "",
         community: fam.community,
         address: fam.address,
+        driverName: selMot.value,
+        vehiclePlate: selVei.value,
         scheduledDate: document.getElementById("agDate").value,
         plannedLiters: Number(document.getElementById("agLit").value),
         status: "scheduled",
         createdAt: serverTimestamp()
       });
-      showToast("Entrega agendada!");
+      showToast("Entrega agendada com sucesso!");
       closeDedicatedScreen();
       atualizarDadosAdmin();
     } catch(e) {
@@ -542,13 +670,33 @@ async function mostrarTelaAgendamento() {
   });
 }
 
+// Auxiliar para criar login automático no Firebase Auth
+async function setDocAuthAndFirestore(email, password, dataObj, collectionName, userName, role) {
+  // Import dinâmico interno para auth creation
+  const { createUserWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await setDoc(doc(db, collectionName, cred.user.uid), dataObj);
+    await setDoc(doc(db, "users", cred.user.uid), { name: userName, role: role });
+    showToast("Cadastro realizado com sucesso!");
+  } catch(err) {
+    if (err.code === "auth/email-already-in-use") {
+      // Se o email já existe, grava direto no firestore
+      await addDoc(collection(db, collectionName), dataObj);
+      showToast("Salvo com sucesso!");
+    } else {
+      throw err;
+    }
+  }
+}
+
 // ==========================================
 // 2. PAINEL DO MOTORISTA
 // ==========================================
 async function carregarPainelMotorista() {
   driverPanel.innerHTML = `
     <div class="panel-title">
-      <h2>Entregas Atribuídas ao Motorista</h2>
+      <h2>Entregas Atribuídas</h2>
       <button id="btnRelMot" class="secondary" type="button">Atualizar</button>
     </div>
     <div id="driverList" class="grid"><p class="small">Buscando entregas...</p></div>
@@ -566,15 +714,16 @@ async function carregarEntregasMotorista() {
     container.innerHTML = "";
     snap.forEach(d => {
       const data = d.data();
+      // Exibe se o motorista for o logado ou se não tiver filtro restrito
       const el = document.createElement("div");
       el.className = "item";
       el.innerHTML = `
         <div class="row">
-          <h3>${data.recipientName}</h3>
+          <h3>💧 ${data.recipientName}</h3>
           <span class="pill ${data.status === 'completed' ? 'completed' : 'scheduled'}">${data.status === 'completed' ? 'Entregue' : 'Pendente'}</span>
         </div>
-        <p><strong>Comunidade:</strong> ${data.community}</p>
-        <p><strong>Volume:</strong> ${data.plannedLiters} L</p>
+        <p><strong>Comunidade:</strong> ${data.community} • <strong>Volume:</strong> ${data.plannedLiters} L</p>
+        <p><strong>Veículo:</strong> ${data.vehiclePlate || 'Não informado'} • <strong>Data:</strong> ${data.scheduledDate || 'Hoje'}</p>
         <div class="actions" style="margin-top: 10px;">
           ${data.status !== 'completed' ? `<button class="primary" data-sup="${d.id}">Realizar Abastecimento</button>` : ''}
           <button class="secondary" data-det="${d.id}">Ver Ficha</button>
@@ -697,14 +846,13 @@ async function carregarHistoricoBeneficiario() {
 
     snap.forEach(d => {
       const data = d.data();
-      // Filtra por email ou nome do usuário logado atual
       if (data.recipientName && currentUserProfile && data.recipientName.toLowerCase() === currentUserProfile.name.toLowerCase()) {
         count++;
         const el = document.createElement("div");
         el.className = "item";
         el.innerHTML = `
           <div class="row">
-            <h3>Abastecimento Pipa</h3>
+            <h3>💧 Abastecimento Pipa</h3>
             <span class="pill ${data.status === 'completed' ? 'completed' : 'scheduled'}">${data.status === 'completed' ? 'Recebido' : 'Programado'}</span>
           </div>
           <p><strong>Data:</strong> ${data.scheduledDate || 'Em breve'}</p>
@@ -729,6 +877,8 @@ function mostrarTelaDetalhes(id, data) {
     <div style="display:grid; gap:12px;">
       <p><strong>Família:</strong> ${data.recipientName}</p>
       <p><strong>Comunidade:</strong> ${data.community}</p>
+      <p><strong>Motorista:</strong> ${data.driverName || 'Não informado'}</p>
+      <p><strong>Veículo:</strong> ${data.vehiclePlate || 'Não informado'}</p>
       <p><strong>Volume Previsto:</strong> ${data.plannedLiters} L</p>
       <p><strong>Volume Entregue:</strong> ${data.receivedLiters ? data.receivedLiters + ' L' : 'Pendente'}</p>
       <p><strong>Status:</strong> ${data.status === 'completed' ? 'Concluído' : 'Agendado'}</p>
