@@ -18,7 +18,7 @@
 
   <div id="connectionStatus" class="connection-banner hidden">Verificando rede...</div>
 
-  <!-- TELA DE LOGIN -->
+  <!-- TELA DE LOGIN (ADMIN COM E-MAIL E SENHA) -->
   <div id="loginView" class="view-container">
     <div class="login-card">
       <div class="login-header">
@@ -28,10 +28,10 @@
       </div>
 
       <form id="loginForm">
-        <label for="loginEmail">Acesso ao Sistema</label>
-        <input id="loginEmail" type="text" placeholder="E-mail (Admin) ou Telefone (Morador/Motorista)" autocomplete="username" required>
+        <label for="loginEmail">Acesso de Usuário</label>
+        <input id="loginEmail" type="text" placeholder="E-mail Admin ou Telefone Morador/Motorista" autocomplete="username" required>
 
-        <label for="loginPassword">Senha de Acesso</label>
+        <label for="loginPassword">Senha de Segurança</label>
         <input id="loginPassword" type="password" placeholder="Sua senha" autocomplete="current-password" required>
 
         <button type="submit" id="btnSubmitLogin" class="primary" style="width: 100%; margin-top: 8px;">
@@ -42,11 +42,11 @@
     </div>
   </div>
 
-  <!-- APLICAÇÃO PRINCIPAL (CABEÇALHO REORGANIZADO) -->
+  <!-- APLICAÇÃO PRINCIPAL -->
   <div id="appView" class="view-container hidden" style="background: transparent; flex-direction: column; justify-content: flex-start; padding: 0;">
     <header class="app-header">
       <div class="header-brand-title">
-        <span>💧</span> Controle de Abastecimento
+        <span>💧</span> CONTROLE DE ABASTECIMENTO
       </div>
 
       <div class="user-badge">
