@@ -3,12 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Água para Todos - Areia Branca/RN</title>
+  <title>Água para Todos • Gestão Municipal</title>
   
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0284c7">
   
-  <!-- Fonte Inter do Google Fonts para maior elegância -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -17,36 +16,41 @@
 </head>
 <body>
 
-  <!-- STATUS DE CONEXÃO -->
-  <div id="connectionStatus" class="connection-banner">Verificando conexão...</div>
+  <div id="connectionStatus" class="connection-banner">Verificando rede...</div>
 
   <!-- TELA DE LOGIN -->
   <div id="loginView" class="view-container">
     <div class="login-card">
       <div class="login-header">
-        <h1>💧 Água para Todos</h1>
-        <p>Areia Branca • Rio Grande do Norte</p>
+        <div class="logo-badge">💧</div>
+        <h1>Água para Todos</h1>
+        <p>Prefeitura Municipal de Areia Branca/RN</p>
       </div>
 
       <form id="loginForm">
-        <label for="loginEmail">E-mail ou Telefone</label>
-        <input id="loginEmail" type="text" placeholder="Ex: 84999999999 ou e-mail" autocomplete="username" required>
+        <label for="loginEmail">Acesso de Usuário</label>
+        <input id="loginEmail" type="text" placeholder="Telefone (com DDD) ou E-mail" autocomplete="username" required>
 
-        <label for="loginPassword">Senha de Acesso</label>
+        <label for="loginPassword">Senha de Segurança</label>
         <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password" required>
 
-        <button type="submit" id="btnSubmitLogin" class="primary full-width" style="width: 100%; margin-top: 6px;">Entrar no Sistema</button>
-        <p id="loginMsg" class="error-msg"></p>
+        <button type="submit" id="btnSubmitLogin" class="primary" style="width: 100%; margin-top: 8px;">
+          🚀 Acessar o Sistema
+        </button>
+        <p id="loginMsg" class="error-msg" style="color: var(--danger); font-size: 13px; text-align: center; margin-top: 14px; font-weight: 600;"></p>
       </form>
     </div>
   </div>
 
   <!-- APLICAÇÃO PRINCIPAL -->
   <div id="appView" class="view-container hidden" style="background: transparent; flex-direction: column; justify-content: flex-start; padding: 0;">
-    <header class="app-header">
-      <div class="user-info">
-        <h2 id="userName">Carregando...</h2>
-        <span id="userRole" class="pill scheduled" style="display: inline-block; margin-top: 4px;">Cargo</span>
+    <header class="app-header" style="width: 100%;">
+      <div class="user-badge">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div class="user-info">
+          <h2 id="userName">Carregando...</h2>
+          <span id="userRole" class="pill scheduled">Cargo</span>
+        </div>
       </div>
       <button id="logoutBtn" class="secondary small">🚪 Sair</button>
     </header>
@@ -66,7 +70,6 @@
     </div>
   </div>
 
-  <!-- TOAST -->
   <div id="toast" class="toast"></div>
 
   <script type="module" src="app.js"></script>
