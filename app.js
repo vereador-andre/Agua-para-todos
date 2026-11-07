@@ -20,7 +20,7 @@ try {
   secondaryAuth = getAuth(secondaryApp);
 } catch (e) {}
 
-/* HIGIENIZAÇÃO DE TEXTO (MAIÚSCULAS SEM ACENTOS) */
+/* HIGIENIZAÇÃO E MÁSCARAS */
 function sanitizeText(str = "") {
   return String(str)
     .normalize("NFD")
@@ -135,12 +135,12 @@ if ($("loginForm")) {
       const email = loginIdentifierToEmail($("loginEmail").value.trim());
       await signInWithEmailAndPassword(auth, email, $("loginPassword").value);
     } catch (err) {
-      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique suas credenciais.";
+      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique seu telefone/e-mail e senha de 6 dígitos.";
     }
   };
 }
 
-/* AUTENTICAÇÃO */
+/* AUTENTICAÇÃO E CARREGAMENTO POR CARGO */
 onAuthStateChanged(auth, async user => {
   if (!user) {
     state.user = null; state.profile = null;
@@ -160,7 +160,7 @@ onAuthStateChanged(auth, async user => {
     if (snap.exists()) state.profile = { id: snap.id, ...snap.data() };
     if (!state.profile) { toast("Usuário sem perfil cadastrado."); return; }
 
-    if ($("userName")) $("userName").textContent = state.profile.name || "ADMINISTRADOR";
+    if ($("userName")) $("userName").textContent = state.profile.name || "USUÁRIO";
     if ($("userRole")) $("userRole").textContent = state.profile.role === "admin" ? "Administrador" : state.profile.role === "driver" ? "Motorista" : "Beneficiário";
     if ($("userAvatar")) $("userAvatar").textContent = state.profile.role === "admin" ? "🛡️" : state.profile.role === "driver" ? "👤" : "🏡";
 
@@ -184,7 +184,9 @@ async function renderByRole() {
   }
 }
 
-/* PAINEL DO ADMINISTRADOR */
+/* =========================================================
+   PAINEL DO ADMINISTRADOR
+========================================================= */
 async function renderAdmin() {
   try {
     const [snapF, snapD, snapM, snapV] = await Promise.all([
@@ -211,7 +213,6 @@ function renderAdminDashboard() {
   const pendingCount = state.deliveries.filter(d => d.status === "pending" || d.status === "awaiting_approval").length;
 
   $("adminPanel").innerHTML = `
-    <!-- VISÃO GERAL DAS ESTATÍSTICAS -->
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <div>
@@ -239,7 +240,6 @@ function renderAdminDashboard() {
       </div>
     </div>
 
-    <!-- BOTÕES DE OPERAÇÕES -->
     <div class="card">
       <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">Cadastros e Agendamentos</h2>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
@@ -250,7 +250,6 @@ function renderAdminDashboard() {
       </div>
     </div>
 
-    <!-- FILTRAR E PESQUISAR REGISTROS EM TEMPO REAL -->
     <div class="card">
       <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">Filtrar e Pesquisar Registros</h2>
 
@@ -309,7 +308,6 @@ function renderAdminDashboard() {
   };
 }
 
-/* RENDERIZAÇÃO DOS REGISTROS COM FILTRO INSTANTÂNEO EM TEMPO REAL */
 function renderDynamicRecords() {
   const container = $("dynamicRecords");
   if (!container) return;
@@ -317,7 +315,6 @@ function renderDynamicRecords() {
 
   const { category, searchTerm } = state.filters;
   if (!category) return;
-
   let count = 0;
 
   if (category === "familias") {
@@ -435,246 +432,129 @@ function renderDynamicRecords() {
   }
 
   if (count === 0) {
-    container.innerHTML = `<p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Nenhum registro encontrado para esta busca.</p>`;
+    container.innerHTML = `<p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Nenhum registro encontrado.</p>`;
   }
 }
 
-/* MODAL DE DADOS RÁPIDOS DA VISÃO GERAL */
 function showCategoryModal(type) {
   let title = "", html = "";
-
   if (type === "familias") {
     title = "🏡 Famílias Cadastradas";
-    html = state.households.map(h => `
-      <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;">
-        <b style="color:var(--text-title);">${esc(h.name)}</b>
-        <p class="small"><b>Telefone:</b> ${esc(h.phone)} · <b>Comunidade:</b> ${esc(h.community)}</p>
-        <p class="small"><b>Endereço:</b> ${esc(h.address || '—')}</p>
-        <p class="small"><b>Cisterna:</b> ${h.defaultLiters || 5000} L</p>
-      </div>
-    `).join("") || "<p class='small'>Nenhuma família cadastrada.</p>";
+    html = state.households.map(h => `<div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;"><b style="color:var(--text-title);">${esc(h.name)}</b><p class="small"><b>Telefone:</b> ${esc(h.phone)} · <b>Comunidade:</b> ${esc(h.community)}</p><p class="small"><b>Endereço:</b> ${esc(h.address || '—')}</p></div>`).join("") || "<p class='small'>Nenhuma.</p>";
   } else if (type === "motoristas") {
     title = "👤 Motoristas Cadastrados";
-    html = state.drivers.map(m => `
-      <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;">
-        <b style="color:var(--text-title);">${esc(m.name)}</b>
-        <p class="small"><b>Telefone/WhatsApp:</b> ${esc(m.phone)}</p>
-        <p class="small"><b>Veículo Vinculado:</b> ${esc(m.vehiclePlate || 'Nenhum')}</p>
-      </div>
-    `).join("") || "<p class='small'>Nenhum motorista cadastrado.</p>";
+    html = state.drivers.map(m => `<div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;"><b style="color:var(--text-title);">${esc(m.name)}</b><p class="small"><b>Telefone:</b> ${esc(m.phone)} · <b>Veículo:</b> ${esc(m.vehiclePlate || 'Nenhum')}</p></div>`).join("") || "<p class='small'>Nenhum.</p>";
   } else if (type === "veiculos") {
     title = "🚛 Veículos Cadastrados";
-    html = state.vehicles.map(v => `
-      <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;">
-        <b style="color:var(--text-title);">${esc(v.plate)}</b>
-        <p class="small"><b>Modelo:</b> ${esc(v.model)} · <b>Capacidade:</b> ${v.capacity} L</p>
-        <p class="small"><b>Motorista:</b> ${esc(v.driverName || 'Nenhum')}</p>
-      </div>
-    `).join("") || "<p class='small'>Nenhum veículo cadastrado.</p>";
+    html = state.vehicles.map(v => `<div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;"><b style="color:var(--text-title);">${esc(v.plate)}</b><p class="small"><b>Modelo:</b> ${esc(v.model)} · <b>Capacidade:</b> ${v.capacity} L</p></div>`).join("") || "<p class='small'>Nenhum.</p>";
   } else if (type === "entregas") {
     title = "🌊 Lista Geral de Entregas";
-    html = state.deliveries.map(d => `
-      <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;">
-        <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
-        <span class="pill ${d.status === 'completed' ? 'completed' : 'scheduled'}">${d.status}</span>
-        <p class="small" style="margin-top:4px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
-        <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
-      </div>
-    `).join("") || "<p class='small'>Nenhuma entrega cadastrada.</p>";
+    html = state.deliveries.map(d => `<div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;"><b style="color:var(--text-title);">${esc(d.recipientName)}</b><span class="pill ${d.status}">${d.status}</span><p class="small" style="margin-top:4px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p></div>`).join("") || "<p class='small'>Nenhuma.</p>";
   }
-
-  openModal(`
-    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">${title}</h2>
-    <div style="max-height: 65vh; overflow-y: auto;">${html}</div>
-  `);
+  openModal(`<h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">${title}</h2><div style="max-height: 65vh; overflow-y: auto;">${html}</div>`);
 }
 
-/* MODAL DE AUDITORIA COMPLETA DE ENTREGAS */
 function showAuditModal() {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">📊 Auditoria Completa de Entregas</h2>
     <div style="max-height: 70vh; overflow-y: auto;">
       ${state.deliveries.map(d => `
         <div style="background:#f8fafc; border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px;">
-          <div style="display:flex; justify-content:space-between;">
-            <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
-            <span class="pill ${d.status === 'completed' ? 'completed' : 'scheduled'}">${d.status}</span>
-          </div>
+          <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-title);">${esc(d.recipientName)}</b><span class="pill ${d.status}">${d.status}</span></div>
           <p class="small" style="margin-top:4px;"><b>Comunidade:</b> ${esc(d.community)} · <b>Endereço:</b> ${esc(d.address || '—')}</p>
           <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
-          <p class="small"><b>Data Agendada:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
-          <p class="small" style="color:var(--primary); font-weight:700;"><b>PIN do Registro:</b> ${d.pin || 'Não gerado'}</p>
+          <p class="small"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L ${d.originalLiters ? `(Original: ${d.originalLiters}L - Motivo: ${esc(d.litersReason)})` : ''}</p>
+          <p class="small" style="color:var(--primary); font-weight:700;"><b>PIN:</b> ${d.pin || 'Não gerado'}</p>
           ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700;">📍 GPS: Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)}</p>` : '<p class="small">📍 GPS: Sem registro</p>'}
-          ${d.note ? `<p class="small" style="color:var(--danger); font-weight:700;">⚠️ Obs: ${esc(d.note)}</p>` : ''}
+          ${d.note ? `<p class="small" style="color:var(--danger); font-weight:700;">⚠️ Obs Ausência: ${esc(d.note)}</p>` : ''}
         </div>
       `).join("") || "<p class='small'>Nenhuma entrega cadastrada.</p>"}
     </div>
   `);
 }
 
-/* CADASTRO DE FAMÍLIA */
 function showHouseholdForm(editId = null, data = null) {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">🏡 ${editId ? 'Editar' : 'Cadastrar'} Família Rural</h2>
     <form id="hForm">
       <label>Nome do Responsável <input id="hName" value="${data?.name || ''}" required></label>
       <div id="hNameSuggestions" class="live-suggestions-box hidden"></div>
-
       <label>Telefone / WhatsApp (Login) <input id="hPhone" type="tel" value="${data?.phone || ''}" placeholder="(84) 99999-9999" required></label>
-      <label>Senha ${editId ? '(6 dígitos para alterar)' : 'Inicial (6 dígitos)'} <input id="hPassword" type="password" maxlength="6" placeholder="123456" ${editId ? '' : 'required'}></label>
+      <label>Senha ${editId ? '(6 dígitos)' : 'Inicial (6 dígitos)'} <input id="hPassword" type="password" maxlength="6" placeholder="123456" ${editId ? '' : 'required'}></label>
       <label>Comunidade <input id="hComm" value="${data?.community || ''}" required></label>
       <label>Endereço / Ponto de Referência <input id="hAddr" value="${data?.address || ''}" required></label>
       <label>Volume Cisterna (Litros) <input id="hLit" type="number" value="${data?.defaultLiters || 5000}" required></label>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
-        <button type="button" class="secondary" id="canH" style="flex: 1;">Voltar</button>
-        <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar' : 'Cadastrar'}</button>
-      </div>
+      <div style="display: flex; gap: 10px; margin-top: 10px;"><button type="button" class="secondary" id="canH" style="flex: 1;">Voltar</button><button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar' : 'Cadastrar'}</button></div>
     </form>
   `);
-
-  attachUppercaseNoAccent($("hName"));
-  attachUppercaseNoAccent($("hComm"));
-  attachUppercaseNoAccent($("hAddr"));
-  applyPhoneMask($("hPhone"));
-
-  $("hName").oninput = (e) => {
+  attachUppercaseNoAccent($("hName")); attachUppercaseNoAccent($("hComm")); attachUppercaseNoAccent($("hAddr")); applyPhoneMask($("hPhone"));
+  $("hName").oninput = e => {
     attachUppercaseNoAccent(e.target);
-    const val = e.target.value.trim();
-    const box = $("hNameSuggestions");
+    const val = e.target.value.trim(), box = $("hNameSuggestions");
     if (val.length > 0) {
       const matches = state.households.filter(h => h.name.startsWith(val));
-      if (matches.length > 0) {
-        box.classList.remove("hidden");
-        box.innerHTML = matches.map(m => `<div class="live-suggestion-item">🏡 ${esc(m.name)} (${esc(m.community)})</div>`).join("");
-      } else box.classList.add("hidden");
+      if (matches.length > 0) { box.classList.remove("hidden"); box.innerHTML = matches.map(m => `<div class="live-suggestion-item">🏡 ${esc(m.name)}</div>`).join(""); } else box.classList.add("hidden");
     } else box.classList.add("hidden");
   };
-
   $("canH").onclick = closeModal;
-
   $("hForm").onsubmit = async e => {
     e.preventDefault();
-    const phone = $("hPhone").value.trim();
-    const pass = $("hPassword").value.trim();
-
-    if (pass && (pass.length !== 6 || !/^\d+$/.test(pass))) {
-      return alert("A senha deve conter exatamente 6 números.");
-    }
-
-    const exists = state.households.some(h => h.phone === phone && h.id !== editId);
-    if (exists) return alert("Já existe uma família cadastrada com este telefone!");
-
-    const payload = {
-      name: $("hName").value.trim(),
-      phone,
-      community: $("hComm").value.trim(),
-      address: $("hAddr").value.trim(),
-      defaultLiters: Number($("hLit").value)
-    };
-
+    const phone = $("hPhone").value.trim(), pass = $("hPassword").value.trim();
+    if (pass && (pass.length !== 6 || !/^\d+$/.test(pass))) return alert("A senha deve conter exatamente 6 números.");
+    const payload = { name: $("hName").value.trim(), phone, community: $("hComm").value.trim(), address: $("hAddr").value.trim(), defaultLiters: Number($("hLit").value) };
     try {
-      if (editId) {
-        await updateDoc(doc(db, "households", editId), payload);
-        toast("Família atualizada!");
-      } else {
+      if (editId) { await updateDoc(doc(db, "households", editId), payload); toast("Atualizado!"); }
+      else {
         const authEmail = phoneAuthEmail(phone);
-        let uid = null;
-        try {
-          const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, pass);
-          uid = cred.user.uid;
-          await signOutSecondary(secondaryAuth);
-        } catch(authErr) {
-          uid = "rec_" + Date.now();
-        }
+        let uid = "rec_" + Date.now();
+        try { const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, pass); uid = cred.user.uid; await signOutSecondary(secondaryAuth); } catch(e){}
         const ref = await addDoc(collection(db, "households"), { ...payload, recipientUid: uid, active: true, createdAt: serverTimestamp() });
         await setDoc(doc(db, "users", uid), { name: payload.name, phone, authEmail, role: "recipient", active: true, householdId: ref.id, createdAt: serverTimestamp() });
-        toast("Família cadastrada com sucesso!");
+        toast("Cadastrado!");
       }
-      closeModal();
-      renderAdmin();
-    } catch(err) { alert("Erro ao salvar: " + err.message); }
+      closeModal(); renderAdmin();
+    } catch(err) { alert("Erro: " + err.message); }
   };
 }
 
-/* CADASTRO DE MOTORISTA */
 function showDriverForm(editId = null, data = null) {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">👤 ${editId ? 'Editar' : 'Cadastrar'} Motorista</h2>
     <form id="mForm">
       <label>Nome Completo <input id="mName" value="${data?.name || ''}" required></label>
       <div id="mNameSuggestions" class="live-suggestions-box hidden"></div>
-
       <label>Telefone / WhatsApp (Login) <input id="mPhone" type="tel" value="${data?.phone || ''}" placeholder="(84) 99999-9999" required></label>
       <label>Senha ${editId ? '(6 dígitos)' : 'Inicial (6 dígitos)'} <input id="mPass" type="password" maxlength="6" placeholder="123456" ${editId ? '' : 'required'}></label>
-      <label>Vincular Veículo (Placa) 
-        <select id="mVei">
-          <option value="">Nenhum veículo vinculado</option>
-          ${state.vehicles.map(v => `<option value="${esc(v.plate)}" ${data?.vehiclePlate === v.plate ? 'selected' : ''}>${esc(v.plate)} - ${esc(v.model)}</option>`).join("")}
-        </select>
-      </label>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
-        <button type="button" class="secondary" id="canM" style="flex: 1;">Voltar</button>
-        <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar' : 'Salvar Motorista'}</button>
-      </div>
+      <label>Vincular Veículo (Placa) <select id="mVei"><option value="">Nenhum</option>${state.vehicles.map(v => `<option value="${esc(v.plate)}" ${data?.vehiclePlate === v.plate ? 'selected' : ''}>${esc(v.plate)}</option>`).join("")}</select></label>
+      <div style="display: flex; gap: 10px; margin-top: 10px;"><button type="button" class="secondary" id="canM" style="flex: 1;">Voltar</button><button type="submit" class="primary" style="flex: 2;">Salvar</button></div>
     </form>
   `);
-
-  attachUppercaseNoAccent($("mName"));
-  applyPhoneMask($("mPhone"));
-
-  $("mName").oninput = (e) => {
+  attachUppercaseNoAccent($("mName")); applyPhoneMask($("mPhone"));
+  $("mName").oninput = e => {
     attachUppercaseNoAccent(e.target);
-    const val = e.target.value.trim();
-    const box = $("mNameSuggestions");
+    const val = e.target.value.trim(), box = $("mNameSuggestions");
     if (val.length > 0) {
       const matches = state.drivers.filter(d => d.name.startsWith(val));
-      if (matches.length > 0) {
-        box.classList.remove("hidden");
-        box.innerHTML = matches.map(m => `<div class="live-suggestion-item">👤 ${esc(m.name)}</div>`).join("");
-      } else box.classList.add("hidden");
+      if (matches.length > 0) { box.classList.remove("hidden"); box.innerHTML = matches.map(m => `<div class="live-suggestion-item">👤 ${esc(m.name)}</div>`).join(""); } else box.classList.add("hidden");
     } else box.classList.add("hidden");
   };
-
   $("canM").onclick = closeModal;
-
   $("mForm").onsubmit = async e => {
     e.preventDefault();
-    const phone = $("mPhone").value.trim();
-    const pass = $("mPass").value.trim();
-
-    if (pass && (pass.length !== 6 || !/^\d+$/.test(pass))) {
-      return alert("A senha deve conter exatamente 6 números.");
-    }
-
-    const exists = state.drivers.some(d => d.phone === phone && d.id !== editId);
-    if (exists) return alert("Já existe um motorista cadastrado com este telefone!");
-
-    const payload = {
-      name: $("mName").value.trim(),
-      phone,
-      vehiclePlate: $("mVei").value || ""
-    };
-
+    const phone = $("mPhone").value.trim(), pass = $("mPass").value.trim();
+    if (pass && (pass.length !== 6 || !/^\d+$/.test(pass))) return alert("A senha deve conter exatamente 6 números.");
+    const payload = { name: $("mName").value.trim(), phone, vehiclePlate: $("mVei").value || "" };
     try {
-      if (editId) {
-        await updateDoc(doc(db, "users", editId), payload);
-        toast("Motorista atualizado!");
-      } else {
+      if (editId) { await updateDoc(doc(db, "users", editId), payload); toast("Atualizado!"); }
+      else {
         const authEmail = phoneAuthEmail(phone);
-        let uid = null;
-        try {
-          const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, pass);
-          uid = cred.user.uid;
-          await signOutSecondary(secondaryAuth);
-        } catch(authErr) {
-          uid = "drv_" + Date.now();
-        }
+        let uid = "drv_" + Date.now();
+        try { const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, pass); uid = cred.user.uid; await signOutSecondary(secondaryAuth); } catch(e){}
         await setDoc(doc(db, "users", uid), { ...payload, authEmail, role: "driver", active: true, createdAt: serverTimestamp() });
-        toast("Motorista cadastrado!");
+        toast("Cadastrado!");
       }
-      closeModal();
-      renderAdmin();
-    } catch(err) { alert("Erro ao salvar: " + err.message); }
+      closeModal(); renderAdmin();
+    } catch(err) { alert("Erro: " + err.message); }
   };
 }
 
@@ -682,67 +562,23 @@ function showVehicleForm(editId = null, data = null) {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">🚛 ${editId ? 'Editar' : 'Cadastrar'} Veículo</h2>
     <form id="vForm">
-      <label>Placa do Veículo <input id="vPlate" value="${data?.plate || ''}" placeholder="ABC-1234" required></label>
-      <div id="vPlateSuggestions" class="live-suggestions-box hidden"></div>
-
-      <label>Modelo / Descrição <input id="vModel" value="${data?.model || ''}" placeholder="MERCEDES 15.000L" required></label>
+      <label>Placa <input id="vPlate" value="${data?.plate || ''}" placeholder="ABC-1234" required></label>
+      <label>Modelo <input id="vModel" value="${data?.model || ''}" required></label>
       <label>Capacidade (Litros) <input id="vCap" type="number" value="${data?.capacity || 15000}" required></label>
-      <label>Vincular Motorista 
-        <select id="vMot">
-          <option value="">Nenhum motorista vinculado</option>
-          ${state.drivers.map(m => `<option value="${esc(m.name)}" ${data?.driverName === m.name ? 'selected' : ''}>${esc(m.name)}</option>`).join("")}
-        </select>
-      </label>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
-        <button type="button" class="secondary" id="canV" style="flex: 1;">Voltar</button>
-        <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar' : 'Cadastrar Veículo'}</button>
-      </div>
+      <label>Motorista <select id="vMot"><option value="">Nenhum</option>${state.drivers.map(m => `<option value="${esc(m.name)}" ${data?.driverName === m.name ? 'selected' : ''}>${esc(m.name)}</option>`).join("")}</select></label>
+      <div style="display: flex; gap: 10px; margin-top: 10px;"><button type="button" class="secondary" id="canV" style="flex: 1;">Voltar</button><button type="submit" class="primary" style="flex: 2;">Salvar</button></div>
     </form>
   `);
-
-  applyPlateMask($("vPlate"));
-  attachUppercaseNoAccent($("vModel"));
-
-  $("vPlate").oninput = (e) => {
-    applyPlateMask(e.target);
-    const val = e.target.value.trim();
-    const box = $("vPlateSuggestions");
-    if (val.length > 0) {
-      const matches = state.vehicles.filter(v => v.plate.startsWith(val));
-      if (matches.length > 0) {
-        box.classList.remove("hidden");
-        box.innerHTML = matches.map(m => `<div class="live-suggestion-item">🚛 ${esc(m.plate)} - ${esc(m.model)}</div>`).join("");
-      } else box.classList.add("hidden");
-    } else box.classList.add("hidden");
-  };
-
+  applyPlateMask($("vPlate")); attachUppercaseNoAccent($("vModel"));
   $("canV").onclick = closeModal;
-
   $("vForm").onsubmit = async e => {
     e.preventDefault();
-    const plate = $("vPlate").value.trim().toUpperCase();
-
-    const exists = state.vehicles.some(v => v.plate === plate && v.id !== editId);
-    if (exists) return alert("Já existe um veículo cadastrado com esta placa!");
-
-    const payload = {
-      plate,
-      model: $("vModel").value.trim(),
-      capacity: Number($("vCap").value),
-      driverName: $("vMot").value || ""
-    };
-
+    const payload = { plate: $("vPlate").value.trim().toUpperCase(), model: $("vModel").value.trim(), capacity: Number($("vCap").value), driverName: $("vMot").value || "" };
     try {
-      if (editId) {
-        await updateDoc(doc(db, "vehicles", editId), payload);
-        toast("Veículo atualizado!");
-      } else {
-        await addDoc(collection(db, "vehicles"), { ...payload, createdAt: serverTimestamp() });
-        toast("Veículo cadastrado!");
-      }
-      closeModal();
-      renderAdmin();
-    } catch(err) { alert("Erro ao salvar: " + err.message); }
+      if (editId) await updateDoc(doc(db, "vehicles", editId), payload);
+      else await addDoc(collection(db, "vehicles"), { ...payload, createdAt: serverTimestamp() });
+      toast("Salvo!"); closeModal(); renderAdmin();
+    } catch(err) { alert("Erro: " + err.message); }
   };
 }
 
@@ -755,50 +591,229 @@ function showDeliveryForm(editId = null, data = null) {
       <label>Veículo <select id="sVei" required><option value="">Selecione...</option>${state.vehicles.map(v => `<option value="${esc(v.plate)}" ${data?.vehiclePlate === v.plate ? 'selected' : ''}>${esc(v.plate)}</option>`).join("")}</select></label>
       <label>Data Prevista <input id="sDate" type="date" value="${data?.scheduledDate || ''}" required></label>
       <label>Volume (Litros) <input id="sLit" type="number" value="${data?.plannedLiters || 5000}" required></label>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
-        <button type="button" class="secondary" id="canD" style="flex: 1;">Voltar</button>
-        <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar Alterações' : 'Confirmar Agendamento'}</button>
-      </div>
+      <div style="display: flex; gap: 10px; margin-top: 10px;"><button type="button" class="secondary" id="canD" style="flex: 1;">Voltar</button><button type="submit" class="primary" style="flex: 2;">Salvar</button></div>
     </form>
   `);
   $("canD").onclick = closeModal;
-
-  $("sFam").onchange = e => {
-    if (!editId) {
-      const f = state.households.find(h => h.id === e.target.value);
-      if (f && f.defaultLiters) $("sLit").value = f.defaultLiters;
-    }
-  };
-
+  $("sFam").onchange = e => { if (!editId) { const f = state.households.find(h => h.id === e.target.value); if (f) $("sLit").value = f.defaultLiters || 5000; } };
   $("dForm").onsubmit = async e => {
     e.preventDefault();
     const f = state.households.find(h => h.id === $("sFam").value);
-    const payload = {
-      householdId: f.id, 
-      recipientName: f.name, 
-      community: f.community, 
-      address: f.address,
-      driverName: $("sMot").value,
-      vehiclePlate: $("sVei").value,
-      scheduledDate: $("sDate").value, 
-      plannedLiters: Number($("sLit").value),
-      status: "scheduled"
-    };
-
+    const payload = { householdId: f.id, recipientName: f.name, community: f.community, address: f.address, driverName: $("sMot").value, vehiclePlate: $("sVei").value, scheduledDate: $("sDate").value, plannedLiters: Number($("sLit").value), status: "scheduled" };
     try {
-      if (editId) {
-        await updateDoc(doc(db, "deliveries", editId), payload);
-        toast("Entrega atualizada!");
-      } else {
-        await addDoc(collection(db, "deliveries"), { ...payload, createdAt: serverTimestamp() });
-        toast("Entrega agendada!");
-      }
-      closeModal();
-      renderAdmin();
+      if (editId) await updateDoc(doc(db, "deliveries", editId), payload);
+      else await addDoc(collection(db, "deliveries"), { ...payload, createdAt: serverTimestamp() });
+      toast("Salvo!"); closeModal(); renderAdmin();
     } catch(err) { alert("Erro: " + err.message); }
   };
 }
 
-/* PAINÉIS SECUNDÁRIOS */
-async function renderDriver() {}
-async function renderRecipient() {}
+/* =========================================================
+   PAINEL DO MOTORISTA (ATUALIZADO CONFORME REQUISITOS)
+========================================================= */
+async function renderDriver() {
+  $("driverPanel").innerHTML = `
+    <div class="card">
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">👤 Minhas Entregas • Abastecimento (🌊)</h2>
+      <div id="dList" class="records-grid"></div>
+    </div>
+  `;
+  try {
+    const snap = await getDocs(query(collection(db, "deliveries"), where("driverName", "==", state.profile.name)));
+    const deliveries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const container = $("dList");
+    container.innerHTML = "";
+
+    deliveries.forEach(item => {
+      const el = document.createElement("div");
+      el.className = "record-card";
+      el.style.borderColor = item.status === 'completed' ? '#a7f3d0' : item.status === 'pending' ? '#fca5a5' : '#fef08a';
+      el.innerHTML = `
+        <div class="record-header"><div class="record-title">🌊 ${esc(item.recipientName)}</div><span class="pill ${item.status}">${item.status}</span></div>
+        <p class="small"><b>Data:</b> ${dateOnly(item.scheduledDate)} · <b>Comunidade:</b> ${esc(item.community)}</p>
+        <p class="small"><b>Endereço:</b> ${esc(item.address || '—')}</p>
+        
+        <!-- ALTERAÇÃO DE LITRAGEM COM JUSTIFICATIVA OBRIGATÓRIA -->
+        <div style="margin: 10px 0; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border);">
+          <label style="font-size: 11px;">Volume de Água (Litros)</label>
+          <input type="number" id="litersInput_${item.id}" value="${item.plannedLiters}" style="margin-bottom:6px;">
+          <div id="reasonBox_${item.id}" class="hidden">
+            <label style="font-size: 11px; color: var(--danger);">Justificativa da Alteração (Obrigatório) *</label>
+            <input type="text" id="reasonInput_${item.id}" placeholder="Ex: Cisterna comportou menos água..." style="margin-bottom:0;">
+          </div>
+        </div>
+
+        ${item.status === 'scheduled' || item.status === 'pending' ? `
+          <div style="background: #ffffff; padding: 10px; border-radius: 10px; border: 1px solid var(--border);">
+            <label style="font-size: 11px; margin-bottom: 4px;">PIN do Morador</label>
+            <input type="text" maxlength="4" placeholder="4 dígitos" id="pinInput_${item.id}" style="margin-bottom: 8px; text-align: center; font-size: 16px; font-weight: 800; letter-spacing: 3px;">
+            <button class="primary small" style="width: 100%; margin-bottom: 6px;" id="confPin_${item.id}">✅ Confirmar com PIN + GPS</button>
+            <button class="danger small" style="width: 100%;" id="ausenteBtn_${item.id}">⚠️ Morador Ausente / Ocorrência</button>
+          </div>
+        ` : `<p class="small" style="color:var(--success); font-weight:700; margin-top:8px;">✅ Concluído com Sucesso</p>`}
+      `;
+
+      const litersField = el.querySelector(`#litersInput_${item.id}`);
+      const reasonBox = el.querySelector(`#reasonBox_${item.id}`);
+      litersField.oninput = e => {
+        const val = Number(e.target.value);
+        if (val !== item.plannedLiters) {
+          reasonBox.classList.remove("hidden");
+        } else {
+          reasonBox.classList.add("hidden");
+        }
+      };
+
+      if (item.status === 'scheduled' || item.status === 'pending') {
+        el.querySelector(`#confPin_${item.id}`).onclick = () => confirmDeliveryWithPin(item, litersField.value);
+        el.querySelector(`#ausenteBtn_${item.id}`).onclick = () => showAbsentModal(item.id);
+      }
+      container.appendChild(el);
+    });
+
+    if (deliveries.length === 0) container.innerHTML = `<p class="small">Nenhuma entrega atribuída.</p>`;
+  } catch(e){}
+}
+
+async function confirmDeliveryWithPin(item, newLitersVal) {
+  const enteredPin = $(`pinInput_${item.id}`).value.trim();
+  const liters = Number(newLitersVal);
+  const reasonInput = $(`reasonInput_${item.id}`);
+  const reason = reasonInput ? reasonInput.value.trim() : "";
+
+  if (liters !== item.plannedLiters && !reason) {
+    return alert("Você alterou o volume de água. É obrigatório informar a justificativa!");
+  }
+
+  if (!enteredPin || enteredPin.length !== 4) {
+    return alert("Informe o PIN de 4 dígitos fornecido pelo morador.");
+  }
+
+  // Verifica se o PIN confere (seja o PIN original ou o PIN gerado por ausência)
+  if (item.pin && enteredPin !== String(item.pin)) {
+    return alert("PIN incorreto! Confirme o código de 4 dígitos com o morador.");
+  }
+
+  if (!navigator.geolocation) {
+    return alert("Geolocalização não suportada pelo aparelho.");
+  }
+
+  toast("Capturando geolocalização GPS...");
+
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    const updatePayload = {
+      status: "completed",
+      plannedLiters: liters,
+      lat,
+      lng,
+      completedAt: serverTimestamp()
+    };
+
+    if (liters !== item.plannedLiters) {
+      updatePayload.originalLiters = item.plannedLiters;
+      updatePayload.litersReason = reason;
+    }
+
+    try {
+      await updateDoc(doc(db, "deliveries", item.id), updatePayload);
+      toast("Entrega confirmada com PIN e GPS!");
+      renderDriver();
+    } catch (err) {
+      alert("Erro ao salvar: " + err.message);
+    }
+  }, () => {
+    alert("Não foi possível obter o GPS. Ative a localização do aparelho.");
+  }, { enableHighAccuracy: true });
+}
+
+function showAbsentModal(deliveryId) {
+  openModal(`
+    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">⚠️ Registrar Morador Ausente</h2>
+    <form id="absentForm">
+      <label>Observação da Ocorrência <textarea id="obsText" rows="3" placeholder="Ex: Morador não estava em casa no momento..." required></textarea></label>
+      <label>Foto do Local / Comprovante <input id="obsPhoto" type="file" accept="image/*" required></label>
+      <button type="submit" class="primary full-width">Registrar e Gerar PIN para o Morador</button>
+    </form>
+  `);
+
+  $("absentForm").onsubmit = async e => {
+    e.preventDefault();
+    const note = $("obsText").value.trim();
+    // Gera PIN automático para quando o morador chegar
+    const newPin = Math.floor(1000 + Math.random() * 9000);
+
+    try {
+      await updateDoc(doc(db, "deliveries", deliveryId), {
+        status: "pending",
+        pin: newPin,
+        note,
+        updatedAt: serverTimestamp()
+      });
+      closeModal();
+      toast(`Ocorrência registrada! PIN gerado para o morador: ${newPin}`);
+      renderDriver();
+    } catch (err) {
+      alert("Erro: " + err.message);
+    }
+  };
+}
+
+/* =========================================================
+   PAINEL DO BENEFICIÁRIO
+========================================================= */
+async function renderRecipient() {
+  const hId = state.profile.householdId;
+  const household = state.households.find(h => h.id === hId) || {};
+
+  $("recipientPanel").innerHTML = `
+    <div class="card">
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🏡 Meus Dados e Abastecimentos</h2>
+      <p class="small"><b>Responsável:</b> ${esc(state.profile.name)}</p>
+      <p class="small"><b>Comunidade:</b> ${esc(household.community || '—')}</p>
+      <p class="small"><b>Endereço:</b> ${esc(household.address || '—')}</p>
+      <p class="small"><b>Capacidade Cisterna:</b> ${household.defaultLiters || 5000} Litros</p>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">🌊 Entregas Programadas</h2>
+      <div id="rList" class="records-grid"></div>
+    </div>
+  `;
+
+  try {
+    const snap = await getDocs(query(collection(db, "deliveries"), where("householdId", "==", hId)));
+    const container = $("rList");
+    container.innerHTML = "";
+
+    snap.docs.forEach(docSnap => {
+      const item = docSnap.data();
+      const deliveryId = docSnap.id;
+
+      const el = document.createElement("div");
+      el.className = "record-card";
+      el.innerHTML = `
+        <div class="record-header"><div class="record-title">🌊 Entrega em ${dateOnly(item.scheduledDate)}</div><span class="pill ${item.status}">${item.status}</span></div>
+        <p class="small"><b>Volume:</b> ${item.plannedLiters} L · <b>Motorista:</b> ${esc(item.driverName || '—')}</p>
+        ${item.note ? `<p class="small" style="color:var(--danger); font-weight:700; margin-top:4px;">⚠️ ${esc(item.note)}</p>` : ''}
+        ${item.pin ? `<div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:10px; margin-top:10px; text-align:center;"><p class="small" style="color:#166534; font-weight:700;">Seu PIN de Confirmação: <span style="font-size:18px; letter-spacing:3px;">${item.pin}</span></p></div>` : `
+          <button class="primary small" style="width:100%; margin-top:12px;" id="genPin_${deliveryId}">🔑 Gerar PIN de Confirmação</button>
+        `}
+      `;
+
+      if (!item.pin) {
+        el.querySelector(`#genPin_${deliveryId}`).onclick = async () => {
+          const pin = Math.floor(1000 + Math.random() * 9000);
+          await updateDoc(doc(db, "deliveries", deliveryId), { pin });
+          toast(`PIN gerado: ${pin}`);
+          renderRecipient();
+        };
+      }
+      container.appendChild(el);
+    });
+
+    if (snap.docs.length === 0) container.innerHTML = `<p class="small">Nenhum abastecimento encontrado.</p>`;
+  } catch(e){}
+}
