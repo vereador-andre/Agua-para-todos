@@ -126,6 +126,16 @@ function dateOnly(v) {
   return new Date(v + "T12:00:00").toLocaleDateString("pt-BR");
 }
 
+/* TRADUÇÃO DE STATUS PARA PORTUGUÊS */
+function translateStatus(status) {
+  switch (status) {
+    case 'completed': return { text: 'Realizada', class: 'completed' };
+    case 'pending': return { text: 'Ausência (Pendente)', class: 'pending' };
+    case 'disputed': return { text: 'Contestado', class: 'danger' };
+    case 'scheduled': default: return { text: 'Programada', class: 'scheduled' };
+  }
+}
+
 /* LOGIN */
 if ($("loginForm")) {
   $("loginForm").onsubmit = async e => {
@@ -416,14 +426,13 @@ function renderDynamicRecords() {
       .filter(d => !searchTerm || sanitizeText(d.recipientName).includes(searchTerm) || sanitizeText(d.driverName).includes(searchTerm))
       .forEach(d => {
         count++;
-        const statusClass = d.status === 'completed' ? 'completed' : d.status === 'disputed' ? 'danger' : 'scheduled';
-        const statusText = d.status === 'completed' ? 'Realizada' : d.status === 'disputed' ? 'Contestado pelo Morador' : d.status === 'pending' ? 'Ausência (Pendente)' : 'Programada';
+        const st = translateStatus(d.status);
 
         const el = document.createElement("div");
         el.className = "record-card";
         el.style.borderColor = d.status === "completed" ? "#a7f3d0" : d.status === "disputed" ? "#fca5a5" : "#fef08a";
         el.innerHTML = `
-          <div class="record-header"><div class="record-title">🌊 ${esc(d.recipientName)}</div><span class="pill ${statusClass}">${statusText}</span></div>
+          <div class="record-header"><div class="record-title">🌊 ${esc(d.recipientName)}</div><span class="pill ${st.class}">${st.text}</span></div>
           <p class="small"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
           <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
           ${d.pin ? `<p class="small" style="color:var(--primary); font-weight:700; margin-top:2px;">PIN: ${d.pin}</p>` : ''}
@@ -483,14 +492,17 @@ function showCategoryModal(type) {
     `).join("") || "<p class='small'>Nenhum veículo cadastrado.</p>";
   } else if (type === "entregas") {
     title = "🌊 Lista Geral de Entregas";
-    html = state.deliveries.map(d => `
-      <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;">
-        <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
-        <span class="pill ${d.status === 'completed' ? 'completed' : 'scheduled'}">${d.status}</span>
-        <p class="small" style="margin-top:4px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
-        <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
-      </div>
-    `).join("") || "<p class='small'>Nenhuma entrega cadastrada.</p>";
+    html = state.deliveries.map(d => {
+      const st = translateStatus(d.status);
+      return `
+        <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;">
+          <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
+          <span class="pill ${st.class}">${st.text}</span>
+          <p class="small" style="margin-top:4px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
+          <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
+        </div>
+      `;
+    }).join("") || "<p class='small'>Nenhuma entrega cadastrada.</p>";
   }
 
   openModal(`
@@ -503,21 +515,24 @@ function showAuditModal() {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">📊 Auditoria Completa de Entregas</h2>
     <div style="max-height: 70vh; overflow-y: auto;">
-      ${state.deliveries.map(d => `
-        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px;">
-          <div style="display:flex; justify-content:space-between;">
-            <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
-            <span class="pill ${d.status === 'completed' ? 'completed' : 'scheduled'}">${d.status}</span>
+      ${state.deliveries.map(d => {
+        const st = translateStatus(d.status);
+        return `
+          <div style="background:#f8fafc; border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between;">
+              <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
+              <span class="pill ${st.class}">${st.text}</span>
+            </div>
+            <p class="small" style="margin-top:4px;"><b>Comunidade:</b> ${esc(d.community)} · <b>Endereço:</b> ${esc(d.address || '—')}</p>
+            <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
+            <p class="small"><b>Data Agendada:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L ${d.alterReason ? `(Alterado: ${d.alterReason})` : ''}</p>
+            <p class="small" style="color:var(--primary); font-weight:700;"><b>PIN do Registro:</b> ${d.pin || 'Não gerado'}</p>
+            ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700;">📍 GPS: Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)}</p>` : '<p class="small" style="color:var(--danger); font-weight:700;">📍 GPS: Não registrado</p>'}
+            ${d.note ? `<p class="small" style="color:var(--danger); font-weight:700;">⚠️ Obs Ausência: ${esc(d.note)}</p>` : ''}
+            ${d.disputeReason ? `<p class="small" style="color:var(--danger); font-weight:700;">❌ Contestação Morador: ${esc(d.disputeReason)}</p>` : ''}
           </div>
-          <p class="small" style="margin-top:4px;"><b>Comunidade:</b> ${esc(d.community)} · <b>Endereço:</b> ${esc(d.address || '—')}</p>
-          <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
-          <p class="small"><b>Data Agendada:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L ${d.alterReason ? `(Alterado: ${d.alterReason})` : ''}</p>
-          <p class="small" style="color:var(--primary); font-weight:700;"><b>PIN do Registro:</b> ${d.pin || 'Não gerado'}</p>
-          ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700;">📍 GPS: Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)}</p>` : '<p class="small" style="color:var(--danger); font-weight:700;">📍 GPS: Não registrado</p>'}
-          ${d.note ? `<p class="small" style="color:var(--danger); font-weight:700;">⚠️ Obs Ausência: ${esc(d.note)}</p>` : ''}
-          ${d.disputeReason ? `<p class="small" style="color:var(--danger); font-weight:700;">❌ Contestação Morador: ${esc(d.disputeReason)}</p>` : ''}
-        </div>
-      `).join("") || "<p class='small'>Nenhuma entrega cadastrada.</p>"}
+        `;
+      }).join("") || "<p class='small'>Nenhuma entrega cadastrada.</p>"}
     </div>
   `);
 }
@@ -808,7 +823,7 @@ function showDeliveryForm(editId = null, data = null) {
 }
 
 /* =========================================================
-   PAINEL DO MOTORISTA
+   PAINEL DO MOTORISTA (COM BLOQUEIO APÓS CONCLUSÃO/AUSÊNCIA)
 ========================================================= */
 async function renderDriver() {
   $("driverPanel").innerHTML = `
@@ -826,60 +841,72 @@ async function renderDriver() {
     container.innerHTML = "";
 
     deliveries.forEach(item => {
+      const st = translateStatus(item.status);
+      const isConcluded = item.status === 'completed' || item.status === 'pending' || item.status === 'disputed';
+
       const el = document.createElement("div");
       el.className = "record-card";
+      el.style.borderColor = item.status === "completed" ? "#a7f3d0" : item.status === "pending" ? "#fbcfe8" : "#bae6fd";
+
       el.innerHTML = `
-        <div class="record-header"><div class="record-title">🌊 ${esc(item.recipientName)}</div><span class="pill ${item.status}">${item.status}</span></div>
+        <div class="record-header"><div class="record-title">🌊 ${esc(item.recipientName)}</div><span class="pill ${st.class}">${st.text}</span></div>
         <p class="small"><b>Data:</b> ${dateOnly(item.scheduledDate)} · <b>Comunidade:</b> ${esc(item.community)}</p>
         <p class="small"><b>Endereço:</b> ${esc(item.address || '—')}</p>
 
-        <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid var(--border);">
-          <label style="font-size: 11px; margin-bottom: 4px;">Volume de Água (Litros)</label>
-          <input type="number" id="volInput_${item.id}" value="${item.plannedLiters}" style="margin-bottom: 8px;">
-          <div id="justDiv_${item.id}" class="hidden">
-            <label style="font-size: 11px; margin-bottom: 4px; color: var(--danger);">Justificativa da Alteração</label>
-            <input type="text" id="justInput_${item.id}" placeholder="Motivo da alteração de volume..." style="margin-bottom: 8px;">
+        ${!isConcluded ? `
+          <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid var(--border);">
+            <label style="font-size: 11px; margin-bottom: 4px;">Volume de Água (Litros)</label>
+            <input type="number" id="volInput_${item.id}" value="${item.plannedLiters}" style="margin-bottom: 8px;">
+            <div id="justDiv_${item.id}" class="hidden">
+              <label style="font-size: 11px; margin-bottom: 4px; color: var(--danger);">Justificativa da Alteração</label>
+              <input type="text" id="justInput_${item.id}" placeholder="Motivo da alteração de volume..." style="margin-bottom: 8px;">
+            </div>
+            <button class="secondary small" style="width:100%; margin-bottom:6px;" id="saveVol_${item.id}">💾 Atualizar Volume / Justificativa</button>
           </div>
-          <button class="secondary small" style="width:100%; margin-bottom:6px;" id="saveVol_${item.id}">💾 Atualizar Volume / Justificativa</button>
-        </div>
 
-        ${item.status === 'scheduled' || item.status === 'pending' ? `
           <div style="margin-top: 12px; background: #f1f5f9; padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
             <label style="font-size: 11px; margin-bottom: 4px;">PIN do Morador</label>
             <input type="text" maxlength="4" placeholder="4 dígitos" id="pinInput_${item.id}" style="margin-bottom: 8px; text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 4px;">
             <button class="primary small" style="width: 100%; margin-bottom: 6px;" id="confPin_${item.id}">✅ Confirmar Entrega (PIN + GPS)</button>
             <button class="danger small" style="width: 100%;" id="ausenteBtn_${item.id}">⚠️ Morador Ausente (Ausência + Câmera)</button>
           </div>
-        ` : `<p class="small" style="color:var(--success); font-weight:700; margin-top:10px;">✅ Entrega Finalizada</p>`}
+        ` : `
+          <div style="margin-top:12px; background:#f1f5f9; border:1px solid var(--border); padding:10px; border-radius:10px; text-align:center;">
+            <p class="small" style="color:var(--text-title); font-weight:800;">🔒 Processo Concluído (${st.text})</p>
+            <p class="small" style="margin-top:2px;">Volume registrado: <b>${item.plannedLiters} L</b></p>
+            ${item.note ? `<p class="small" style="color:var(--danger); margin-top:2px;"><b>Obs:</b> ${esc(item.note)}</p>` : ''}
+          </div>
+        `}
       `;
 
-      const volInput = el.querySelector(`#volInput_${item.id}`);
-      const justDiv = el.querySelector(`#justDiv_${item.id}`);
-      volInput.oninput = () => {
-        if (Number(volInput.value) !== Number(item.plannedLiters)) {
-          justDiv.classList.remove("hidden");
-        } else {
-          justDiv.classList.add("hidden");
-        }
-      };
+      if (!isConcluded) {
+        const volInput = el.querySelector(`#volInput_${item.id}`);
+        const justDiv = el.querySelector(`#justDiv_${item.id}`);
+        volInput.oninput = () => {
+          if (Number(volInput.value) !== Number(item.plannedLiters)) {
+            justDiv.classList.remove("hidden");
+          } else {
+            justDiv.classList.add("hidden");
+          }
+        };
 
-      el.querySelector(`#saveVol_${item.id}`).onclick = async () => {
-        const newVol = Number(volInput.value);
-        let alterReason = item.alterReason || "";
-        if (newVol !== Number(item.plannedLiters)) {
-          const just = el.querySelector(`#justInput_${item.id}`).value.trim();
-          if (!just) return alert("Você alterou o volume. É obrigatório informar o motivo da alteração.");
-          alterReason = just;
-        }
-        await updateDoc(doc(db, "deliveries", item.id), { plannedLiters: newVol, alterReason });
-        toast("Volume atualizado!");
-        renderDriver();
-      };
+        el.querySelector(`#saveVol_${item.id}`).onclick = async () => {
+          const newVol = Number(volInput.value);
+          let alterReason = item.alterReason || "";
+          if (newVol !== Number(item.plannedLiters)) {
+            const just = el.querySelector(`#justInput_${item.id}`).value.trim();
+            if (!just) return alert("Você alterou o volume. É obrigatório informar o motivo da alteração.");
+            alterReason = just;
+          }
+          await updateDoc(doc(db, "deliveries", item.id), { plannedLiters: newVol, alterReason });
+          toast("Volume atualizado!");
+          renderDriver();
+        };
 
-      if (item.status === 'scheduled' || item.status === 'pending') {
         el.querySelector(`#confPin_${item.id}`).onclick = () => confirmDeliveryWithPin(item.id, item.pin);
         el.querySelector(`#ausenteBtn_${item.id}`).onclick = () => showAbsentModal(item.id);
       }
+
       container.appendChild(el);
     });
 
@@ -972,7 +999,7 @@ function showAbsentModal(deliveryId) {
 }
 
 /* =========================================================
-   PAINEL DA FAMÍLIA / BENEFICIÁRIO (DUPLO FLUXO: PRESENTE OU AUSENTE)
+   PAINEL DA FAMÍLIA / BENEFICIÁRIO
 ========================================================= */
 async function renderRecipient() {
   const userPhone = normalizePhone(state.profile.phone);
@@ -1021,8 +1048,7 @@ async function renderRecipient() {
     snap.docs.forEach(docSnap => {
       const item = docSnap.data();
       const deliveryId = docSnap.id;
-      const statusClass = item.status === 'completed' ? 'completed' : item.status === 'disputed' ? 'danger' : item.status === 'pending' ? 'pending' : 'scheduled';
-      const statusText = item.status === 'completed' ? 'Realizada' : item.status === 'disputed' ? 'Contestado (Não Recebido)' : item.status === 'pending' ? 'Ausência Registrada' : 'Programada';
+      const st = translateStatus(item.status);
 
       const el = document.createElement("div");
       el.className = "record-card";
@@ -1044,7 +1070,6 @@ async function renderRecipient() {
           </div>
         `;
       } else if (item.status === 'pending') {
-        // CASO 1: Motorista marcou ausência e gerou PIN retrospectivo
         actionHtml = `
           <div style="background:#fef3c7; border:1px solid #fde68a; padding:12px; border-radius:12px; margin-top:12px;">
             <p class="small" style="color:#92400e; font-weight:800; text-align:center;">⚠️ MOTORISTA REGISTROU AUSÊNCIA</p>
@@ -1063,7 +1088,6 @@ async function renderRecipient() {
           </div>
         `;
       } else {
-        // CASO 2: Morador em casa (Gera PIN para passar ao motorista)
         actionHtml = item.pin ? `
           <div class="pin-display-box">
             <p class="small" style="color:#047857; font-weight:800;">SEU CÓDIGO PIN PARA O MOTORISTA:</p>
@@ -1082,7 +1106,7 @@ async function renderRecipient() {
       el.innerHTML = `
         <div class="record-header">
           <div class="record-title">🌊 Entrega: ${dateOnly(item.scheduledDate)}</div>
-          <span class="pill ${statusClass}">${statusText}</span>
+          <span class="pill ${st.class}">${st.text}</span>
         </div>
         <p class="small"><b>Volume Agendado:</b> ${item.plannedLiters} L</p>
         <p class="small"><b>Motorista:</b> ${esc(item.driverName || '—')} (${esc(item.vehiclePlate || '—')})</p>
@@ -1090,7 +1114,6 @@ async function renderRecipient() {
         ${actionHtml}
       `;
 
-      // Eventos para PIN gerado pelo morador em casa
       if (!item.pin && item.status === 'scheduled') {
         el.querySelector(`#genPin_${deliveryId}`).onclick = async () => {
           const obsMorador = el.querySelector(`#moradorObs_${deliveryId}`).value.trim();
@@ -1101,7 +1124,6 @@ async function renderRecipient() {
         };
       }
 
-      // Eventos para o caso de Ausência Registrada pelo Motorista
       if (item.status === 'pending') {
         el.querySelector(`#confirmAbsent_${deliveryId}`).onclick = async () => {
           if (confirm("Deseja confirmar que a água foi efetivamente entregue?")) {
