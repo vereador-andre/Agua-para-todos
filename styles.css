@@ -195,7 +195,7 @@ form input:focus, form select:focus, form textarea:focus {
   margin: 0 auto;
 }
 
-/* Cards e Clicáveis */
+/* Cards */
 .card {
   background: var(--card-bg);
   border-radius: var(--radius);
