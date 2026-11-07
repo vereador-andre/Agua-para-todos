@@ -1,141 +1,58 @@
-import {
-  auth,
-  db,
-  storage,
-  firebaseConfig
-} from "./firebase-config.js";
-
-import {
-  initializeApp
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-
-import {
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  createUserWithEmailAndPassword,
-  signOut as signOutSecondary
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  addDoc,
-  setDoc,
-  query,
-  where,
-  limit,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-
-/* =========================================================
-   ESTADO DA APLICAÇÃO
-========================================================= */
+import { auth, db, firebaseConfig } from "./firebase-config.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, signOut as signOutSecondary } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { collection, doc, getDoc, getDocs, addDoc, setDoc, query, where, limit, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
+const state = { user: null, profile: null, households: [], deliveries: [], drivers: [], activeTab: "all" };
 
-const state = {
-  user: null,
-  profile: null,
-  households: [],
-  deliveries: [],
-  drivers: []
-};
-
-/* =========================================================
-   FIREBASE SECUNDÁRIO PARA CADASTROS
-========================================================= */
-
-let secondaryApp = null;
-let secondaryAuth = null;
-
+let secondaryApp = null, secondaryAuth = null;
 try {
   secondaryApp = initializeApp(firebaseConfig, "DriverRegistrationApp");
   secondaryAuth = getAuth(secondaryApp);
-} catch (error) {
-  console.error("Erro ao inicializar Firebase secundário:", error);
-}
+} catch (e) {}
 
-/* =========================================================
-   ACESSO POR TELEFONE DO BENEFICIÁRIO
-========================================================= */
-
-function normalizePhone(value) {
-  let digits = String(value || "").replace(/\D/g, "");
-  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
-    digits = digits.slice(2);
-  }
-  return digits;
+function normalizePhone(val) {
+  let d = String(val || "").replace(/\D/g, "");
+  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2);
+  return d;
 }
 
 function recipientAuthEmail(phone) {
-  const digits = normalizePhone(phone);
-  if (digits.length < 10 || digits.length > 11) {
-    throw new Error("Informe um telefone brasileiro válido, com DDD.");
-  }
-  return `beneficiario.${digits}@agua-para-todos.app`;
+  const d = normalizePhone(phone);
+  if (d.length < 10 || d.length > 11) throw new Error("Informe um telefone com DDD válido.");
+  return `beneficiario.${d}@agua-para-todos.app`;
 }
 
-function loginIdentifierToEmail(identifier) {
-  const value = String(identifier || "").trim();
-  if (value.includes("@")) {
-    return value.toLowerCase();
-  }
-  return recipientAuthEmail(value);
+function loginIdentifierToEmail(id) {
+  const v = String(id || "").trim();
+  return v.includes("@") ? v.toLowerCase() : recipientAuthEmail(v);
 }
-
-if ($("loginEmail")) {
-  $("loginEmail").type = "text";
-  $("loginEmail").inputMode = "text";
-  $("loginEmail").autocomplete = "username";
-  $("loginEmail").placeholder = "E-mail ou telefone (com DDD)";
-}
-
-/* =========================================================
-   CONEXÃO E EVENTOS GERAIS
-========================================================= */
 
 function updateConnectionStatus() {
   const el = $("connectionStatus");
   if (!el) return;
-
   if (navigator.onLine) {
     el.textContent = "Online • Sistema Conectado";
     el.classList.add("ok");
   } else {
-    el.textContent = "Sem internet • Modo Offline Ativo";
+    el.textContent = "Sem Internet • Modo Offline Ativo";
     el.classList.remove("ok");
   }
 }
-
 window.addEventListener("online", updateConnectionStatus);
 window.addEventListener("offline", updateConnectionStatus);
 updateConnectionStatus();
 
-if ($("logoutBtn")) {
-  $("logoutBtn").onclick = () => signOut(auth);
-}
+if ($("logoutBtn")) $("logoutBtn").onclick = () => signOut(auth);
+if ($("closeModal")) $("closeModal").onclick = closeModal;
+if ($("modal")) $("modal").onclick = e => { if (e.target.id === "modal") closeModal(); };
 
-if ($("closeModal")) {
-  $("closeModal").onclick = closeModal;
-}
-
-if ($("modal")) {
-  $("modal").onclick = event => {
-    if (event.target.id === "modal") closeModal();
-  };
-}
-
-function toast(message) {
+function toast(msg) {
   if (!$("toast")) return;
-  $("toast").textContent = message;
+  $("toast").textContent = msg;
   $("toast").classList.add("show");
-  setTimeout(() => {
-    $("toast").classList.remove("show");
-  }, 3500);
+  setTimeout(() => $("toast").classList.remove("show"), 3500);
 }
 
 function openModal(html) {
@@ -150,52 +67,33 @@ function closeModal() {
   document.body.classList.remove("no-scroll");
 }
 
-function esc(value = "") {
-  return String(value).replace(/[&<>"']/g, character => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;"
-  })[character]);
+function esc(v = "") {
+  return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
 }
 
-function dateOnly(value) {
-  if (!value) return "—";
-  return new Date(value + "T12:00:00").toLocaleDateString("pt-BR");
+function dateOnly(v) {
+  if (!v) return "—";
+  return new Date(v + "T12:00:00").toLocaleDateString("pt-BR");
 }
 
-/* =========================================================
-   LOGIN
-========================================================= */
-
+/* LOGIN */
 if ($("loginForm")) {
-  $("loginForm").onsubmit = async event => {
-    event.preventDefault();
+  $("loginForm").onsubmit = async e => {
+    e.preventDefault();
     if ($("loginMsg")) $("loginMsg").textContent = "";
-
     try {
-      const identifier = $("loginEmail").value.trim();
-      const email = loginIdentifierToEmail(identifier);
-
+      const email = loginIdentifierToEmail($("loginEmail").value.trim());
       await signInWithEmailAndPassword(auth, email, $("loginPassword").value);
-    } catch (error) {
-      console.error("Erro no login:", error);
-      if ($("loginMsg")) {
-        $("loginMsg").textContent = `Falha ao entrar: Verifique seu telefone/e-mail e senha.`;
-      }
+    } catch (err) {
+      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique os dados.";
     }
   };
 }
 
-/* =========================================================
-   AUTENTICAÇÃO E CARREGAMENTO DO PERFIL
-========================================================= */
-
+/* AUTHENTICATION */
 onAuthStateChanged(auth, async user => {
   if (!user) {
-    state.user = null;
-    state.profile = null;
+    state.user = null; state.profile = null;
     if ($("loginView")) $("loginView").classList.remove("hidden");
     if ($("appView")) $("appView").classList.add("hidden");
     return;
@@ -205,57 +103,23 @@ onAuthStateChanged(auth, async user => {
   if ($("loginView")) $("loginView").classList.add("hidden");
   if ($("appView")) $("appView").classList.remove("hidden");
 
-  updateConnectionStatus();
-
   try {
-    let profile = null;
-    const snapshot = await getDoc(doc(db, "users", user.uid));
+    const snap = await getDoc(doc(db, "users", user.uid));
+    if (snap.exists()) state.profile = { id: snap.id, ...snap.data() };
+    if (!state.profile) { toast("Usuário sem perfil cadastrado."); return; }
 
-    if (snapshot.exists()) {
-      profile = { id: snapshot.id, ...snapshot.data() };
-    }
-
-    if (!profile) {
-      toast("Usuário autenticado, mas sem perfil cadastrado.");
-      return;
-    }
-
-    if (profile.active === false) {
-      toast("Este usuário está inativo.");
-      await signOut(auth);
-      return;
-    }
-
-    state.profile = profile;
-
-    if ($("userName")) {
-      $("userName").textContent = profile.name || user.email || "Usuário";
-    }
-
-    if ($("userRole")) {
-      $("userRole").textContent = roleLabel(profile.role);
-    }
+    if ($("userName")) $("userName").textContent = state.profile.name || "Usuário";
+    if ($("userRole")) $("userRole").textContent = state.profile.role === "admin" ? "Administrador" : state.profile.role === "driver" ? "Motorista" : "Beneficiário";
+    if ($("userAvatar")) $("userAvatar").textContent = (state.profile.name || "U").charAt(0).toUpperCase();
 
     await renderByRole();
-  } catch (error) {
-    console.error("Erro ao carregar perfil:", error);
-    toast("Erro ao carregar seu perfil.");
+  } catch (err) {
+    toast("Erro ao carregar sessão.");
   }
 });
 
-function roleLabel(role) {
-  return ({
-    admin: "Administrador",
-    driver: "Motorista",
-    recipient: "Beneficiário"
-  })[role] || role || "Usuário";
-}
-
 async function renderByRole() {
-  ["adminPanel", "driverPanel", "recipientPanel"].forEach(id => {
-    if ($(id)) $(id).classList.add("hidden");
-  });
-
+  ["adminPanel", "driverPanel", "recipientPanel"].forEach(id => { if ($(id)) $(id).classList.add("hidden"); });
   if (state.profile.role === "admin") {
     if ($("adminPanel")) $("adminPanel").classList.remove("hidden");
     await renderAdmin();
@@ -268,344 +132,289 @@ async function renderByRole() {
   }
 }
 
-/* =========================================================
-   PAINEL ADMINISTRATIVO COM BOTÕES MODERNOS E FIGURINHAS
-========================================================= */
-
+/* ADMIN DASHBOARD */
 async function renderAdmin() {
   try {
-    const householdSnapshot = await getDocs(collection(db, "households"));
-    state.households = householdSnapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+    const [snapF, snapD, snapM] = await Promise.all([
+      getDocs(collection(db, "households")),
+      getDocs(query(collection(db, "deliveries"), limit(100))),
+      getDocs(query(collection(db, "users"), where("role", "==", "driver")))
+    ]);
 
-    const deliverySnapshot = await getDocs(query(collection(db, "deliveries"), limit(100)));
-    state.deliveries = deliverySnapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+    state.households = snapF.docs.map(d => ({ id: d.id, ...d.data() }));
+    state.deliveries = snapD.docs.map(d => ({ id: d.id, ...d.data() }));
+    state.drivers = snapM.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    await loadDriversList();
-    renderAdminMenu();
-  } catch (error) {
-    console.error("Erro no painel administrativo:", error);
+    renderAdminDashboard();
+  } catch (err) {
+    console.error(err);
   }
 }
 
-async function loadDriversList() {
-  try {
-    const driverSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "driver")));
-    state.drivers = driverSnapshot.docs.map(item => ({ id: item.id, ...item.data() }));
-  } catch (e) {
-    state.drivers = [];
-  }
-}
-
-function renderAdminMenu() {
-  const pending = state.deliveries.filter(item => item.status === "scheduled").length;
-  const completed = state.deliveries.filter(item => item.status === "completed").length;
+function renderAdminDashboard() {
+  const pending = state.deliveries.filter(d => d.status === "scheduled").length;
+  const completed = state.deliveries.filter(d => d.status === "completed").length;
 
   $("adminPanel").innerHTML = `
+    <!-- CARDS DE ESTATÍSTICA -->
     <div class="card">
-      <div class="panel-title">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
         <div>
-          <h2>Gestão de Abastecimento</h2>
-          <p class="small">Programa Municipal • Areia Branca-RN</p>
+          <h2 style="font-size: 20px; font-weight: 800; color: var(--text-title);">Painel Geral de Abastecimento</h2>
+          <p class="small">Sistema de Monitoramento • Areia Branca/RN</p>
         </div>
       </div>
-      <div class="stats">
-        <div class="stat"><span>Famílias</span><b>${state.households.length}</b></div>
-        <div class="stat"><span>Programadas</span><b>${pending}</b></div>
-        <div class="stat"><span>Concluídas</span><b>${completed}</b></div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="icon">🏡</span>
+          <div class="title">Famílias</div>
+          <div class="value">${state.households.length}</div>
+        </div>
+        <div class="stat-card">
+          <span class="icon">🚚</span>
+          <div class="title">Motoristas</div>
+          <div class="value">${state.drivers.length}</div>
+        </div>
+        <div class="stat-card">
+          <span class="icon">⏳</span>
+          <div class="title">Agendados</div>
+          <div class="value">${pending}</div>
+        </div>
+        <div class="stat-card">
+          <span class="icon">✅</span>
+          <div class="title">Entregues</div>
+          <div class="value">${completed}</div>
+        </div>
       </div>
     </div>
 
-    <!-- BOTÕES FLUIDOS COM FIGURINHAS E PADRÃO MODERNO -->
+    <!-- NAVEGAÇÃO DE OPERAÇÃO (CHIPS/TABS) -->
     <div class="card">
-      <div class="panel-title"><h2>Menu de Operações</h2></div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
-        <button class="primary" data-admin-menu="households" style="justify-content: flex-start; padding: 16px;">
-          <span style="font-size: 20px;">🏡</span> Famílias / Imóveis
-        </button>
-        <button class="primary" data-admin-menu="drivers" style="justify-content: flex-start; padding: 16px;">
-          <span style="font-size: 20px;">🚚</span> Motoristas de Pipa
-        </button>
-        <button class="primary" data-admin-menu="new-delivery" style="justify-content: flex-start; padding: 16px; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
-          <span style="font-size: 20px;">📅</span> Programar Entrega
-        </button>
-        <button class="secondary" data-admin-menu="history" style="justify-content: flex-start; padding: 16px;">
-          <span style="font-size: 20px;">📋</span> Histórico Geral
-        </button>
+      <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 20px;">
+        <button class="primary" id="btnNewFam">🏡 + Família</button>
+        <button class="primary" id="btnNewMot">🚚 + Motorista</button>
+        <button class="accent" id="btnNewAg">💧 Agendar Pipa</button>
       </div>
-    </div>
 
-    <div id="adminContent" style="margin-top: 20px;"></div>
+      <div style="display: flex; gap: 8px; border-bottom: 1.5px solid var(--border); padding-bottom: 12px; margin-bottom: 20px; overflow-x: auto;">
+        <button class="secondary small" data-tab="all" style="font-weight: 800;">Todos os Registros</button>
+        <button class="secondary small" data-tab="familias">Famílias Rurais</button>
+        <button class="secondary small" data-tab="motoristas">Motoristas</button>
+        <button class="secondary small" data-tab="entregas">Entregas</button>
+      </div>
+
+      <div id="dynamicRecords" class="records-grid"></div>
+    </div>
   `;
 
-  document.querySelectorAll("[data-admin-menu]").forEach(button => {
-    button.onclick = () => handleAdminMenu(button.dataset.adminMenu);
+  $("btnNewFam").onclick = showHouseholdForm;
+  $("btnNewMot").onclick = showDriverForm;
+  $("btnNewAg").onclick = showDeliveryForm;
+
+  document.querySelectorAll("[data-tab]").forEach(b => {
+    b.onclick = () => {
+      state.activeTab = b.dataset.tab;
+      renderDynamicRecords();
+    };
   });
+
+  renderDynamicRecords();
 }
 
-async function handleAdminMenu(section) {
-  if (section === "households") return renderAdminHouseholds();
-  if (section === "drivers") return renderAdminDrivers();
-  if (section === "new-delivery") return showDeliveryForm();
-  if (section === "history") return renderAdminDeliveries("all", "Histórico Geral de Entregas");
+function renderDynamicRecords() {
+  const container = $("dynamicRecords");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const tab = state.activeTab;
+
+  // 1. Famílias
+  if (tab === "all" || tab === "familias") {
+    state.households.forEach(h => {
+      const el = document.createElement("div");
+      el.className = "record-card";
+      el.innerHTML = `
+        <div class="record-header">
+          <div class="record-title">🏡 ${esc(h.name)}</div>
+          <span class="pill completed">Ativa</span>
+        </div>
+        <p class="small"><b>Telefone:</b> ${esc(h.phone)}</p>
+        <p class="small"><b>Comunidade:</b> ${esc(h.community)}</p>
+        <p class="small"><b>Cisterna:</b> ${h.defaultLiters || 5000} Litros</p>
+      `;
+      container.appendChild(el);
+    });
+  }
+
+  // 2. Motoristas
+  if (tab === "all" || tab === "motoristas") {
+    state.drivers.forEach(m => {
+      const el = document.createElement("div");
+      el.className = "record-card";
+      el.style.borderColor = "#bae6fd";
+      el.innerHTML = `
+        <div class="record-header">
+          <div class="record-title">🚚 ${esc(m.name)}</div>
+          <span class="pill scheduled">Motorista</span>
+        </div>
+        <p class="small"><b>E-mail:</b> ${esc(m.email)}</p>
+        <p class="small"><b>Telefone:</b> ${esc(m.phone || '—')}</p>
+      `;
+      container.appendChild(el);
+    });
+  }
+
+  // 3. Entregas
+  if (tab === "all" || tab === "entregas") {
+    state.deliveries.forEach(d => {
+      const el = document.createElement("div");
+      el.className = "record-card";
+      el.style.borderColor = d.status === "completed" ? "#a7f3d0" : "#fef08a";
+      el.innerHTML = `
+        <div class="record-header">
+          <div class="record-title">💧 ${esc(d.recipientName)}</div>
+          <span class="pill ${d.status === 'completed' ? 'completed' : 'scheduled'}">${d.status === 'completed' ? 'Entregue' : 'Agendada'}</span>
+        </div>
+        <p class="small"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters}L</p>
+        <p class="small"><b>Motorista:</b> ${esc(d.driverName || 'Não atribuído')}</p>
+      `;
+      container.appendChild(el);
+    });
+  }
 }
 
-function renderAdminHouseholds() {
-  const content = $("adminContent");
-  if (!content) return;
-  content.innerHTML = `
-    <div class="card">
-      <div class="panel-title">
-        <h2>Famílias Rurais Cadastradas</h2>
-        <button class="primary small" id="adminNewHousehold">➕ Nova Família</button>
-      </div>
-      <div class="grid">
-        ${state.households.map(h => `
-          <div class="item">
-            <h3>🏡 ${esc(h.name)}</h3>
-            <p style="margin-top: 6px;"><b>Telefone:</b> ${esc(h.phone)} · <b>Comunidade:</b> ${esc(h.community)}</p>
-            <p><b>Volume Cisterna:</b> ${h.defaultLiters || 5000} L · <b>Ref:</b> ${esc(h.address || '—')}</p>
-          </div>
-        `).join("") || "<p class='small'>Nenhuma família cadastrada ainda.</p>"}
-      </div>
-    </div>
-  `;
-  $("adminNewHousehold").onclick = showHouseholdForm;
-}
-
+/* MODAIS */
 function showHouseholdForm() {
   openModal(`
-    <h2>🏡 Cadastrar Família Rural</h2>
-    <form id="householdForm" style="margin-top: 15px;">
+    <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 18px;">🏡 Cadastrar Família Rural</h2>
+    <form id="hForm">
       <label>Nome do Responsável <input id="hName" required></label>
       <label>Telefone / WhatsApp (Login) <input id="hPhone" type="tel" placeholder="84999999999" required></label>
-      <label>Senha Inicial <input id="hPassword" type="password" minlength="6" placeholder="Mínimo 6 dígitos" required></label>
-      <label>Comunidade / Assentamento <input id="hCommunity" placeholder="Ex: Ponta do Mel" required></label>
-      <label>Endereço / Ponto de Referência <input id="hAddress" placeholder="Próximo à caixa d'água" required></label>
-      <label>Litros por Entrega <input id="hLiters" type="number" value="5000" required></label>
-      <div class="actions" style="margin-top: 20px;">
-        <button type="button" class="secondary" id="cancelH" style="flex: 1;">Cancelar</button>
-        <button type="submit" class="primary" style="flex: 2;">Salvar Família</button>
+      <label>Senha Inicial <input id="hPassword" type="password" minlength="6" placeholder="Mínimo 6 caracteres" required></label>
+      <label>Comunidade <input id="hComm" placeholder="Ex: Ponta do Mel" required></label>
+      <label>Endereço / Referência <input id="hAddr" required></label>
+      <label>Volume Cisterna (Litros) <input id="hLit" type="number" value="5000" required></label>
+      <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <button type="button" class="secondary" id="canH" style="flex: 1;">Voltar</button>
+        <button type="submit" class="primary" style="flex: 2;">Confirmar Cadastro</button>
       </div>
     </form>
   `);
-  $("cancelH").onclick = closeModal;
+  $("canH").onclick = closeModal;
 
-  $("householdForm").onsubmit = async e => {
+  $("hForm").onsubmit = async e => {
     e.preventDefault();
-    const name = $("hName").value.trim();
-    const phone = $("hPhone").value.trim();
-    const password = $("hPassword").value;
-    const community = $("hCommunity").value.trim();
-    const address = $("hAddress").value.trim();
-    const defaultLiters = Number($("hLiters").value);
-
     try {
-      const authEmail = recipientAuthEmail(phone);
-      const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, password);
+      const authEmail = recipientAuthEmail($("hPhone").value.trim());
+      const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, $("hPassword").value);
       
       const ref = await addDoc(collection(db, "households"), {
-        name, phone, recipientUid: cred.user.uid, community, address, defaultLiters, active: true, createdAt: serverTimestamp()
+        name: $("hName").value.trim(), phone: $("hPhone").value.trim(), recipientUid: cred.user.uid,
+        community: $("hComm").value.trim(), address: $("hAddr").value.trim(), defaultLiters: Number($("hLit").value),
+        active: true, createdAt: serverTimestamp()
       });
 
       await setDoc(doc(db, "users", cred.user.uid), {
-        name, phone, authEmail, role: "recipient", active: true, householdId: ref.id, createdAt: serverTimestamp()
+        name: $("hName").value.trim(), phone: $("hPhone").value.trim(), authEmail, role: "recipient", active: true, householdId: ref.id, createdAt: serverTimestamp()
       });
 
-      try { await signOutSecondary(secondaryAuth); } catch(_){}
+      try { await signOutSecondary(secondaryAuth); } catch(e){}
       closeModal();
       toast("Família cadastrada com sucesso!");
       renderAdmin();
-    } catch(err) {
-      alert("Erro ao cadastrar: " + err.message);
-    }
+    } catch(err) { alert("Erro: " + err.message); }
   };
-}
-
-function renderAdminDrivers() {
-  const content = $("adminContent");
-  if (!content) return;
-  content.innerHTML = `
-    <div class="card">
-      <div class="panel-title">
-        <h2>Motoristas Cadastrados</h2>
-        <button class="primary small" id="adminNewDriver">➕ Novo Motorista</button>
-      </div>
-      <div class="grid">
-        ${state.drivers.map(d => `
-          <div class="item">
-            <h3>🚚 ${esc(d.name)}</h3>
-            <p style="margin-top: 6px;"><b>E-mail:</b> ${esc(d.email)} · <b>Telefone:</b> ${esc(d.phone || '—')}</p>
-          </div>
-        `).join("") || "<p class='small'>Nenhum motorista cadastrado ainda.</p>"}
-      </div>
-    </div>
-  `;
-  $("adminNewDriver").onclick = showDriverForm;
 }
 
 function showDriverForm() {
   openModal(`
-    <h2>🚚 Cadastrar Motorista</h2>
-    <form id="driverForm" style="margin-top: 15px;">
-      <label>Nome Completo <input id="dName" required></label>
-      <label>E-mail de Acesso <input id="dEmail" type="email" placeholder="motorista@agua.com" required></label>
-      <label>Telefone <input id="dPhone" type="tel" required></label>
-      <label>Senha Inicial <input id="dPassword" type="password" minlength="6" required></label>
-      <div class="actions" style="margin-top: 20px;">
-        <button type="button" class="secondary" id="cancelD" style="flex: 1;">Cancelar</button>
+    <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 18px;">🚚 Cadastrar Motorista</h2>
+    <form id="mForm">
+      <label>Nome Completo <input id="mName" required></label>
+      <label>E-mail de Login <input id="mEmail" type="email" required></label>
+      <label>Telefone <input id="mPhone" type="tel" required></label>
+      <label>Senha Inicial <input id="mPass" type="password" minlength="6" required></label>
+      <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <button type="button" class="secondary" id="canM" style="flex: 1;">Voltar</button>
         <button type="submit" class="primary" style="flex: 2;">Salvar Motorista</button>
       </div>
     </form>
   `);
-  $("cancelD").onclick = closeModal;
+  $("canM").onclick = closeModal;
 
-  $("driverForm").onsubmit = async e => {
+  $("mForm").onsubmit = async e => {
     e.preventDefault();
-    const name = $("dName").value.trim();
-    const email = $("dEmail").value.trim().toLowerCase();
-    const phone = $("dPhone").value.trim();
-    const password = $("dPassword").value;
-
     try {
-      const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+      const cred = await createUserWithEmailAndPassword(secondaryAuth, $("mEmail").value.trim().toLowerCase(), $("mPass").value);
       await setDoc(doc(db, "users", cred.user.uid), {
-        name, email, phone, role: "driver", active: true, createdAt: serverTimestamp()
+        name: $("mName").value.trim(), email: $("mEmail").value.trim().toLowerCase(), phone: $("mPhone").value.trim(), role: "driver", active: true, createdAt: serverTimestamp()
       });
-      try { await signOutSecondary(secondaryAuth); } catch(_){}
+      try { await signOutSecondary(secondaryAuth); } catch(e){}
       closeModal();
-      toast("Motorista cadastrado com sucesso!");
+      toast("Motorista cadastrado!");
       renderAdmin();
-    } catch(err) {
-      alert("Erro ao cadastrar motorista: " + err.message);
-    }
+    } catch(err) { alert("Erro: " + err.message); }
   };
 }
 
 function showDeliveryForm() {
-  const content = $("adminContent");
-  if (!content) return;
-  content.innerHTML = `
-    <div class="card">
-      <h2>📅 Programar Entrega de Pipa</h2>
-      <form id="delForm" style="margin-top: 15px;">
-        <label>Selecione a Família <select id="selFam" required>
-          <option value="">Escolha a família...</option>
-          ${state.households.map(h => `<option value="${h.id}">${esc(h.name)} - ${esc(h.community)}</option>`).join("")}
-        </select></label>
+  openModal(`
+    <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 18px;">💧 Programar Entrega</h2>
+    <form id="dForm">
+      <label>Família <select id="sFam" required><option value="">Selecione...</option>${state.households.map(h => `<option value="${h.id}">${esc(h.name)} - ${esc(h.community)}</option>`).join("")}</select></label>
+      <label>Motorista <select id="sMot" required><option value="">Selecione...</option>${state.drivers.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join("")}</select></label>
+      <label>Data Prevista <input id="sDate" type="date" required></label>
+      <label>Volume (Litros) <input id="sLit" type="number" value="5000" required></label>
+      <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <button type="button" class="secondary" id="canD" style="flex: 1;">Voltar</button>
+        <button type="submit" class="primary" style="flex: 2;">Confirmar Agendamento</button>
+      </div>
+    </form>
+  `);
+  $("canD").onclick = closeModal;
 
-        <label>Selecione o Motorista <select id="selMot" required>
-          <option value="">Escolha o motorista...</option>
-          ${state.drivers.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join("")}
-        </select></label>
-
-        <label>Data Prevista <input id="selDate" type="date" required></label>
-        <label>Volume (Litros) <input id="selLit" type="number" value="5000" required></label>
-        
-        <div class="actions" style="margin-top: 20px;">
-          <button type="submit" class="primary full-width">Confirmar Agendamento</button>
-        </div>
-      </form>
-    </div>
-  `;
-
-  $("selFam").onchange = e => {
-    const fam = state.households.find(h => h.id === e.target.value);
-    if (fam && fam.defaultLiters) $("selLit").value = fam.defaultLiters;
+  $("sFam").onchange = e => {
+    const f = state.households.find(h => h.id === e.target.value);
+    if (f && f.defaultLiters) $("sLit").value = f.defaultLiters;
   };
 
-  $("delForm").onsubmit = async e => {
+  $("dForm").onsubmit = async e => {
     e.preventDefault();
-    const famId = $("selFam").value;
-    const motId = $("selMot").value;
-    const fam = state.households.find(h => h.id === famId);
-    const mot = state.drivers.find(d => d.id === motId);
-
-    if (!fam || !mot) {
-      alert("Selecione a família e o motorista.");
-      return;
-    }
-
+    const f = state.households.find(h => h.id === $("sFam").value);
+    const m = state.drivers.find(d => d.id === $("sMot").value);
     try {
       await addDoc(collection(db, "deliveries"), {
-        householdId: famId,
-        recipientName: fam.name,
-        community: fam.community,
-        address: fam.address,
-        driverUid: motId,
-        driverName: mot.name,
-        scheduledDate: $("selDate").value,
-        plannedLiters: Number($("selLit").value),
-        status: "scheduled",
-        createdAt: serverTimestamp()
+        householdId: f.id, recipientName: f.name, community: f.community, address: f.address,
+        driverUid: m.id, driverName: m.name, scheduledDate: $("sDate").value, plannedLiters: Number($("sLit").value),
+        status: "scheduled", createdAt: serverTimestamp()
       });
-      toast("Entrega agendada com sucesso!");
+      closeModal();
+      toast("Entrega agendada!");
       renderAdmin();
-    } catch(err) {
-      alert("Erro ao agendar: " + err.message);
-    }
+    } catch(err) { alert("Erro: " + err.message); }
   };
 }
 
-function renderAdminDeliveries(statusFilter, title) {
-  const content = $("adminContent");
-  if (!content) return;
-  content.innerHTML = `
-    <div class="card">
-      <h2>📋 ${title}</h2>
-      <div class="grid" style="margin-top: 15px;">
-        ${state.deliveries.map(d => `
-          <div class="item">
-            <h3>💧 ${esc(d.recipientName)}</h3>
-            <p style="margin-top: 6px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
-            <p><b>Motorista:</b> ${esc(d.driverName || '—')} · <span class="pill ${d.status}">${d.status}</span></p>
-          </div>
-        `).join("") || "<p class='small'>Nenhuma entrega encontrada.</p>"}
-      </div>
-    </div>
-  `;
-}
-
-/* =========================================================
-   PAINEL DO MOTORISTA E BENEFICIÁRIO
-========================================================= */
-
+/* PAINÉIS SECUNDÁRIOS */
 async function renderDriver() {
-  $("driverPanel").innerHTML = `
-    <div class="card">
-      <h2>🚚 Minhas Entregas Atribuídas</h2>
-      <div id="driverList" style="margin-top: 15px;"><p class="small">Carregando entregas...</p></div>
-    </div>
-  `;
+  $("driverPanel").innerHTML = `<div class="card"><h2 style="font-size: 20px; font-weight: 800;">🚚 Minhas Entregas</h2><div id="dList" class="records-grid" style="margin-top:16px;"></div></div>`;
   try {
     const snap = await getDocs(query(collection(db, "deliveries"), where("driverUid", "==", state.user.uid)));
-    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    $("driverList").innerHTML = items.map(d => `
-      <div class="item">
-        <h3>💧 ${esc(d.recipientName)}</h3>
-        <p style="margin-top: 6px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
-        <span class="pill ${d.status}">${d.status}</span>
-      </div>
-    `).join("") || "<p class='small'>Nenhuma entrega programada para você no momento.</p>";
-  } catch(e) {}
+    $("dList").innerHTML = snap.docs.map(d => {
+      const item = d.data();
+      return `<div class="record-card"><div class="record-header"><div class="record-title">💧 ${esc(item.recipientName)}</div><span class="pill ${item.status}">${item.status}</span></div><p class="small"><b>Data:</b> ${dateOnly(item.scheduledDate)} · <b>Litros:</b> ${item.plannedLiters}L</p></div>`;
+    }).join("") || "<p class='small'>Nenhuma entrega atribuída.</p>";
+  } catch(e){}
 }
 
 async function renderRecipient() {
-  $("recipientPanel").innerHTML = `
-    <div class="card">
-      <h2>🏡 Minhas Entregas de Água</h2>
-      <div id="recList" style="margin-top: 15px;"><p class="small">Buscando histórico...</p></div>
-    </div>
-  `;
+  $("recipientPanel").innerHTML = `<div class="card"><h2 style="font-size: 20px; font-weight: 800;">🏡 Abastecimentos da Família</h2><div id="rList" class="records-grid" style="margin-top:16px;"></div></div>`;
   try {
-    const hId = state.profile.householdId;
-    const snap = await getDocs(query(collection(db, "deliveries"), where("householdId", "==", hId)));
-    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    $("recList").innerHTML = items.map(d => `
-      <div class="item">
-        <h3>💧 Abastecimento em ${dateOnly(d.scheduledDate)}</h3>
-        <p style="margin-top: 6px;"><b>Volume:</b> ${d.plannedLiters} L · <b>Motorista:</b> ${esc(d.driverName || "—")}</p>
-        <span class="pill ${d.status}">${d.status}</span>
-      </div>
-    `).join("") || "<p class='small'>Nenhum abastecimento registrado para sua família ainda.</p>";
-  } catch(e) {}
+    const snap = await getDocs(query(collection(db, "deliveries"), where("householdId", "==", state.profile.householdId)));
+    $("rList").innerHTML = snap.docs.map(d => {
+      const item = d.data();
+      return `<div class="record-card"><div class="record-header"><div class="record-title">💧 Entrega em ${dateOnly(item.scheduledDate)}</div><span class="pill ${item.status}">${item.status}</span></div><p class="small"><b>Volume:</b> ${item.plannedLiters}L · <b>Motorista:</b> ${esc(item.driverName || '—')}</p></div>`;
+    }).join("") || "<p class='small'>Nenhum abastecimento encontrado.</p>";
+  } catch(e){}
 }
