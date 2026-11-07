@@ -2,11 +2,8 @@ import { auth, db, firebaseConfig } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, signOut as signOutSecondary } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const $ = id => document.getElementById(id);
-const storage = getStorage();
-
 const state = { 
   user: null, 
   profile: null, 
@@ -14,7 +11,7 @@ const state = {
   deliveries: [], 
   drivers: [], 
   vehicles: [],
-  filters: { category: "", driver: "", vehicle: "", date: "" }
+  filters: { category: null, driver: "todos", vehicle: "todos", date: "" }
 };
 
 let secondaryApp = null, secondaryAuth = null;
@@ -23,13 +20,13 @@ try {
   secondaryAuth = getAuth(secondaryApp);
 } catch (e) {}
 
-/* MÁSCARAS DE ENTRADA INTELIGENTES */
+/* MÁSCARAS E VALIDAÇÕES */
 function applyPhoneMask(input) {
-  input.addEventListener("input", e => {
-    let v = e.target.value.replace(/\D/g, "").substring(0, 11);
+  input.oninput = e => {
+    let v = e.target.value.replace(/\D/g, "").slice(0, 11);
     if (v.length > 10) {
       v = v.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
-    } else if (v.length > 5) {
+    } else if (v.length > 6) {
       v = v.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
     } else if (v.length > 2) {
       v = v.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
@@ -37,17 +34,17 @@ function applyPhoneMask(input) {
       v = v.replace(/^(\d*)/, "($1");
     }
     e.target.value = v;
-  });
+  };
 }
 
 function applyPlateMask(input) {
-  input.addEventListener("input", e => {
-    let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").substring(0, 7);
+  input.oninput = e => {
+    let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
     if (v.length > 3) {
-      v = v.substring(0, 3) + "-" + v.substring(3);
+      v = v.slice(0, 3) + "-" + v.slice(3);
     }
     e.target.value = v;
-  });
+  };
 }
 
 function normalizePhone(val) {
@@ -123,7 +120,7 @@ if ($("loginForm")) {
       const email = loginIdentifierToEmail($("loginEmail").value.trim());
       await signInWithEmailAndPassword(auth, email, $("loginPassword").value);
     } catch (err) {
-      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique seu telefone/senha.";
+      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique seu telefone e senha.";
     }
   };
 }
@@ -194,27 +191,30 @@ async function renderAdmin() {
 }
 
 function renderAdminDashboard() {
-  const scheduled = state.deliveries.filter(d => d.status === "scheduled").length;
-  const completed = state.deliveries.filter(d => d.status === "completed").length;
-  const pending = state.deliveries.filter(d => d.status === "pending_absent").length;
+  const scheduledCount = state.deliveries.filter(d => d.status === "scheduled").length;
+  const completedCount = state.deliveries.filter(d => d.status === "completed").length;
+  const pendingCount = state.deliveries.filter(d => d.status === "pending" || d.status === "awaiting_approval").length;
 
   $("adminPanel").innerHTML = `
     <div class="card">
       <div style="margin-bottom: 14px;">
         <h2 style="font-size: 18px; font-weight: 800; color: var(--text-title);">Visão Geral do Programa</h2>
-        <p class="small">Areia Branca/RN • Indicadores do Sistema</p>
+        <p class="small">Areia Branca/RN • Monitoramento Executivo</p>
       </div>
 
       <div class="stats-grid">
-        <div class="stat-card"><span class="icon">📅</span><div class="title">Programadas</div><div class="value">${scheduled}</div></div>
-        <div class="stat-card"><span class="icon">✅</span><div class="title">Realizadas</div><div class="value">${completed}</div></div>
-        <div class="stat-card"><span class="icon">⏳</span><div class="title">Pendentes / Ausentes</div><div class="value">${pending}</div></div>
+        <div class="stat-card"><span class="icon">🏡</span><div class="title">Famílias</div><div class="value">${state.households.length}</div></div>
+        <div class="stat-card"><span class="icon">🚚</span><div class="title">Motoristas</div><div class="value">${state.drivers.length}</div></div>
+        <div class="stat-card"><span class="icon">🚛</span><div class="title">Veículos</div><div class="value">${state.vehicles.length}</div></div>
+        <div class="stat-card"><span class="icon">📅</span><div class="title">Programadas</div><div class="value">${scheduledCount}</div></div>
+        <div class="stat-card"><span class="icon">✅</span><div class="title">Realizadas</div><div class="value">${completedCount}</div></div>
+        <div class="stat-card"><span class="icon">⏳</span><div class="title">Pendentes / PIN</div><div class="value">${pendingCount}</div></div>
       </div>
     </div>
 
     <!-- BOTÕES DE CADASTRO -->
     <div class="card">
-      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">Cadastros e Operações</h2>
+      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">Cadastros e Agendamentos</h2>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
         <button class="primary" id="btnNewFam">🏡 Família</button>
         <button class="primary" id="btnNewMot">🚚 Motorista</button>
@@ -223,46 +223,42 @@ function renderAdminDashboard() {
       </div>
     </div>
 
-    <!-- FILTROS AVANÇADOS COM BOTÕES ESTILIZADOS -->
+    <!-- FILTROS COM ABAS ESTILIZADAS E OCULTOS ATÉ CLIQUE -->
     <div class="card">
-      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">Filtrar Registros</h2>
+      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">Consultar e Filtrar Registros</h2>
 
-      <div style="background: #f8fafc; padding: 16px; border-radius: 14px; border: 1px solid var(--border); margin-bottom: 16px;">
-        <label>Selecione a Categoria</label>
-        <div class="filter-options" id="catFilterButtons">
-          <button type="button" class="filter-btn active" data-cat="">Selecione...</button>
-          <button type="button" class="filter-btn" data-cat="familias">🏡 Famílias</button>
-          <button type="button" class="filter-btn" data-cat="motoristas">🚚 Motoristas</button>
-          <button type="button" class="filter-btn" data-cat="veiculos">🚛 Veículos</button>
-          <button type="button" class="filter-btn" data-cat="entregas">💧 Entregas</button>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
+        <button class="filter-tab-btn" data-cat="familias">🏡 Famílias Rurais</button>
+        <button class="filter-tab-btn" data-cat="motoristas">🚚 Motoristas</button>
+        <button class="filter-tab-btn" data-cat="veiculos">🚛 Veículos</button>
+        <button class="filter-tab-btn" data-cat="entregas">💧 Entregas</button>
+      </div>
+
+      <div id="filterOptionsContainer" class="hidden" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; background: #f8fafc; padding: 14px; border-radius: 14px; border: 1px solid var(--border); margin-bottom: 16px;">
+        <div>
+          <label>Filtrar por Motorista</label>
+          <select id="filterDriver" style="margin-bottom:0;">
+            <option value="todos">Todos os Motoristas</option>
+            ${state.drivers.map(d => `<option value="${d.name}">${esc(d.name)}</option>`).join("")}
+          </select>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px;">
-          <div>
-            <label>Motorista</label>
-            <select id="filterDriver" style="margin-bottom:0;">
-              <option value="">Todos</option>
-              ${state.drivers.map(d => `<option value="${d.name}">${esc(d.name)}</option>`).join("")}
-            </select>
-          </div>
+        <div>
+          <label>Filtrar por Veículo</label>
+          <select id="filterVehicle" style="margin-bottom:0;">
+            <option value="todos">Todos os Veículos</option>
+            ${state.vehicles.map(v => `<option value="${v.plate}">${esc(v.plate)}</option>`).join("")}
+          </select>
+        </div>
 
-          <div>
-            <label>Veículo</label>
-            <select id="filterVehicle" style="margin-bottom:0;">
-              <option value="">Todos</option>
-              ${state.vehicles.map(v => `<option value="${v.plate}">${esc(v.plate)}</option>`).join("")}
-            </select>
-          </div>
-
-          <div>
-            <label>Data</label>
-            <input id="filterDate" type="date" style="margin-bottom:0;">
-          </div>
+        <div>
+          <label>Filtrar por Data</label>
+          <input id="filterDate" type="date" style="margin-bottom:0;">
         </div>
       </div>
 
       <div id="dynamicRecords" class="records-grid">
-        <p class="small" style="text-align: center; grid-column: 1/-1; padding: 20px;">Selecione uma categoria acima para exibir os registros correspondentes.</p>
+        <p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Selecione uma categoria acima para exibir os registros.</p>
       </div>
     </div>
   `;
@@ -272,11 +268,12 @@ function renderAdminDashboard() {
   $("btnNewVei").onclick = () => showVehicleForm();
   $("btnNewAg").onclick = () => showDeliveryForm();
 
-  document.querySelectorAll("#catFilterButtons .filter-btn").forEach(btn => {
+  document.querySelectorAll(".filter-tab-btn").forEach(btn => {
     btn.onclick = (e) => {
-      document.querySelectorAll("#catFilterButtons .filter-btn").forEach(b => b.classList.remove("active"));
-      e.target.classList.add("active");
-      state.filters.category = e.target.dataset.cat;
+      document.querySelectorAll(".filter-tab-btn").forEach(b => b.classList.remove("active"));
+      e.currentTarget.classList.add("active");
+      state.filters.category = e.currentTarget.dataset.cat;
+      $("filterOptionsContainer").classList.remove("hidden");
       renderDynamicRecords();
     };
   });
@@ -292,11 +289,7 @@ function renderDynamicRecords() {
   container.innerHTML = "";
 
   const { category, driver, vehicle, date } = state.filters;
-  
-  if (!category) {
-    container.innerHTML = `<p class="small" style="text-align: center; grid-column: 1/-1; padding: 20px;">Selecione uma categoria acima para exibir os registros correspondentes.</p>`;
-    return;
-  }
+  if (!category) return;
 
   let count = 0;
 
@@ -306,7 +299,7 @@ function renderDynamicRecords() {
       const el = document.createElement("div");
       el.className = "record-card";
       el.innerHTML = `
-        <div class="record-header"><div class="record-title">🏡 Família: ${esc(h.name)}</div><span class="pill completed">Ativa</span></div>
+        <div class="record-header"><div class="record-title">🏡 ${esc(h.name)}</div><span class="pill completed">Ativa</span></div>
         <p class="small"><b>Telefone:</b> ${esc(h.phone)} · <b>Comunidade:</b> ${esc(h.community)}</p>
         <p class="small"><b>Cisterna:</b> ${h.defaultLiters || 5000} L</p>
         <div style="display: flex; gap: 8px; margin-top: 12px;">
@@ -324,18 +317,16 @@ function renderDynamicRecords() {
       };
       container.appendChild(el);
     });
-  }
-
-  if (category === "motoristas") {
-    state.drivers.filter(d => !driver || d.name === driver).forEach(m => {
+  } else if (category === "motoristas") {
+    state.drivers.filter(d => driver === "todos" || d.name === driver).forEach(m => {
       count++;
       const el = document.createElement("div");
       el.className = "record-card";
       el.style.borderColor = "#bae6fd";
       el.innerHTML = `
-        <div class="record-header"><div class="record-title">🚚 Motorista: ${esc(m.name)}</div><span class="pill scheduled">Ativo</span></div>
+        <div class="record-header"><div class="record-title">🚚 ${esc(m.name)}</div><span class="pill scheduled">Ativo</span></div>
         <p class="small"><b>Telefone:</b> ${esc(m.phone || '—')}</p>
-        <p class="small"><b>Veículo Vinculado:</b> ${esc(m.vehiclePlate || 'Nenhum')}</p>
+        <p class="small"><b>Veículo:</b> ${esc(m.vehiclePlate || 'Nenhum')}</p>
         <div style="display: flex; gap: 8px; margin-top: 12px;">
           <button class="secondary small" data-edit-mot="${m.id}">✏️ Alterar</button>
           <button class="danger small" data-del-mot="${m.id}">🗑️ Excluir</button>
@@ -351,18 +342,16 @@ function renderDynamicRecords() {
       };
       container.appendChild(el);
     });
-  }
-
-  if (category === "veiculos") {
-    state.vehicles.filter(v => !vehicle || v.plate === vehicle).forEach(v => {
+  } else if (category === "veiculos") {
+    state.vehicles.filter(v => vehicle === "todos" || v.plate === vehicle).forEach(v => {
       count++;
       const el = document.createElement("div");
       el.className = "record-card";
       el.style.borderColor = "#cbd5e1";
       el.innerHTML = `
-        <div class="record-header"><div class="record-title">🚛 Veículo: ${esc(v.plate)}</div><span class="pill scheduled">${v.capacity || 15000} L</span></div>
+        <div class="record-header"><div class="record-title">🚛 ${esc(v.plate)}</div><span class="pill scheduled">${v.capacity || 15000} L</span></div>
         <p class="small"><b>Modelo:</b> ${esc(v.model)}</p>
-        <p class="small"><b>Motorista Vinculado:</b> ${esc(v.driverName || 'Nenhum')}</p>
+        <p class="small"><b>Motorista:</b> ${esc(v.driverName || 'Nenhum')}</p>
         <div style="display: flex; gap: 8px; margin-top: 12px;">
           <button class="secondary small" data-edit-vei="${v.id}">✏️ Alterar</button>
           <button class="danger small" data-del-vei="${v.id}">🗑️ Excluir</button>
@@ -378,27 +367,25 @@ function renderDynamicRecords() {
       };
       container.appendChild(el);
     });
-  }
-
-  if (category === "entregas") {
+  } else if (category === "entregas") {
     state.deliveries
-      .filter(d => !driver || d.driverName === driver)
-      .filter(d => !vehicle || d.vehiclePlate === vehicle)
+      .filter(d => driver === "todos" || d.driverName === driver)
+      .filter(d => vehicle === "todos" || d.vehiclePlate === vehicle)
       .filter(d => !date || d.scheduledDate === date)
       .forEach(d => {
         count++;
-        const statusClass = d.status === 'completed' ? 'completed' : d.status === 'pending_absent' ? 'pending' : 'scheduled';
-        const statusText = d.status === 'completed' ? 'Realizada' : d.status === 'pending_absent' ? 'Pendente/Ausente' : 'Programada';
+        const statusClass = d.status === 'completed' ? 'completed' : d.status === 'pending' ? 'pending' : 'scheduled';
+        const statusText = d.status === 'completed' ? 'Realizada' : d.status === 'pending' ? 'Pendente / PIN' : 'Programada';
 
         const el = document.createElement("div");
         el.className = "record-card";
+        el.style.borderColor = d.status === "completed" ? "#a7f3d0" : d.status === "pending" ? "#fca5a5" : "#fef08a";
         el.innerHTML = `
-          <div class="record-header"><div class="record-title">💧 Entrega: ${esc(d.recipientName)}</div><span class="pill ${statusClass}">${statusText}</span></div>
-          <p class="small"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
+          <div class="record-header"><div class="record-title">💧 ${esc(d.recipientName)}</div><span class="pill ${statusClass}">${statusText}</span></div>
+          <p class="small"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Litros:</b> ${d.plannedLiters} L</p>
           <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
-          ${d.pin ? `<p class="small"><b>PIN:</b> ${d.pin}</p>` : ''}
-          ${d.photoUrl ? `<p class="small"><a href="${d.photoUrl}" target="_blank">📸 Ver Foto da Ausência</a></p>` : ''}
-          ${d.lat && d.lng ? `<p class="small">📍 <b>GPS:</b> ${d.lat.toFixed(4)}, ${d.lng.toFixed(4)}</p>` : ''}
+          ${d.pin ? `<p class="small" style="color:var(--primary); font-weight:700; margin-top:4px;">PIN Informado: ${d.pin}</p>` : ''}
+          ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700; margin-top:2px;">📍 GPS: ${d.lat.toFixed(4)}, ${d.lng.toFixed(4)}</p>` : ''}
           <div style="display: flex; gap: 8px; margin-top: 12px;">
             <button class="secondary small" data-edit-del="${d.id}">✏️ Alterar</button>
             <button class="danger small" data-del-del="${d.id}">🗑️ Excluir</button>
@@ -417,18 +404,18 @@ function renderDynamicRecords() {
   }
 
   if (count === 0) {
-    container.innerHTML = `<p class="small" style="grid-column: 1/-1; text-align:center;">Nenhum registro encontrado para os filtros selecionados.</p>`;
+    container.innerHTML = `<p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Nenhum registro encontrado para os filtros selecionados.</p>`;
   }
 }
 
-/* MODAIS DE CADASTRO COM MÁSCARAS */
+/* MODAIS DE CADASTRO COM VALIDAÇÃO DE DUPLICIDADE E MÁSCARAS */
 function showHouseholdForm(editId = null, data = null) {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">🏡 ${editId ? 'Editar' : 'Cadastrar'} Família Rural</h2>
     <form id="hForm">
       <label>Nome do Responsável <input id="hName" value="${data?.name || ''}" required></label>
       <label>Telefone / WhatsApp (Login) <input id="hPhone" type="tel" value="${data?.phone || ''}" placeholder="(84) 99999-9999" required></label>
-      <label>Senha ${editId ? '(Preencha apenas para alterar)' : 'Inicial'} <input id="hPassword" type="password" minlength="6" ${editId ? '' : 'required'}></label>
+      <label>Senha ${editId ? '(6 dígitos apenas para alterar)' : 'Inicial (6 dígitos)'} <input id="hPassword" type="password" maxlength="6" placeholder="123456" ${editId ? '' : 'required'}></label>
       <label>Comunidade <input id="hComm" value="${data?.community || ''}" required></label>
       <label>Endereço / Referência <input id="hAddr" value="${data?.address || ''}" required></label>
       <label>Volume Cisterna (Litros) <input id="hLit" type="number" value="${data?.defaultLiters || 5000}" required></label>
@@ -443,9 +430,19 @@ function showHouseholdForm(editId = null, data = null) {
 
   $("hForm").onsubmit = async e => {
     e.preventDefault();
+    const phone = $("hPhone").value.trim();
+    const pass = $("hPassword").value.trim();
+
+    if (pass && (pass.length !== 6 || !/^\d+$/.test(pass))) {
+      return alert("A senha deve conter exatamente 6 números.");
+    }
+
+    const exists = state.households.some(h => h.phone === phone && h.id !== editId);
+    if (exists) return alert("Já existe uma família cadastrada com este número de telefone!");
+
     const payload = {
       name: $("hName").value.trim(),
-      phone: $("hPhone").value.trim(),
+      phone,
       community: $("hComm").value.trim(),
       address: $("hAddr").value.trim(),
       defaultLiters: Number($("hLit").value)
@@ -456,10 +453,10 @@ function showHouseholdForm(editId = null, data = null) {
         await updateDoc(doc(db, "households", editId), payload);
         toast("Família atualizada!");
       } else {
-        const authEmail = phoneAuthEmail(payload.phone);
-        const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, $("hPassword").value);
+        const authEmail = phoneAuthEmail(phone);
+        const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, pass);
         const ref = await addDoc(collection(db, "households"), { ...payload, recipientUid: cred.user.uid, active: true, createdAt: serverTimestamp() });
-        await setDoc(doc(db, "users", cred.user.uid), { name: payload.name, phone: payload.phone, authEmail, role: "recipient", active: true, householdId: ref.id, createdAt: serverTimestamp() });
+        await setDoc(doc(db, "users", cred.user.uid), { name: payload.name, phone, authEmail, role: "recipient", active: true, householdId: ref.id, createdAt: serverTimestamp() });
         try { await signOutSecondary(secondaryAuth); } catch(e){}
         toast("Família cadastrada!");
       }
@@ -475,7 +472,7 @@ function showDriverForm(editId = null, data = null) {
     <form id="mForm">
       <label>Nome Completo <input id="mName" value="${data?.name || ''}" required></label>
       <label>Telefone / WhatsApp (Login) <input id="mPhone" type="tel" value="${data?.phone || ''}" placeholder="(84) 99999-9999" required></label>
-      <label>Senha ${editId ? '(Preencha para alterar)' : 'Inicial'} <input id="mPass" type="password" minlength="6" ${editId ? '' : 'required'}></label>
+      <label>Senha ${editId ? '(6 dígitos)' : 'Inicial (6 dígitos)'} <input id="mPass" type="password" maxlength="6" placeholder="123456" ${editId ? '' : 'required'}></label>
       <label>Vincular Veículo (Placa) 
         <select id="mVei">
           <option value="">Nenhum veículo vinculado</option>
@@ -493,9 +490,19 @@ function showDriverForm(editId = null, data = null) {
 
   $("mForm").onsubmit = async e => {
     e.preventDefault();
+    const phone = $("mPhone").value.trim();
+    const pass = $("mPass").value.trim();
+
+    if (pass && (pass.length !== 6 || !/^\d+$/.test(pass))) {
+      return alert("A senha deve conter exatamente 6 números.");
+    }
+
+    const exists = state.drivers.some(d => d.phone === phone && d.id !== editId);
+    if (exists) return alert("Já existe um motorista cadastrado com este telefone!");
+
     const payload = {
       name: $("mName").value.trim(),
-      phone: $("mPhone").value.trim(),
+      phone,
       vehiclePlate: $("mVei").value || ""
     };
 
@@ -504,8 +511,8 @@ function showDriverForm(editId = null, data = null) {
         await updateDoc(doc(db, "users", editId), payload);
         toast("Motorista atualizado!");
       } else {
-        const authEmail = phoneAuthEmail(payload.phone);
-        const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, $("mPass").value);
+        const authEmail = phoneAuthEmail(phone);
+        const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, pass);
         await setDoc(doc(db, "users", cred.user.uid), { ...payload, authEmail, role: "driver", active: true, createdAt: serverTimestamp() });
         try { await signOutSecondary(secondaryAuth); } catch(e){}
         toast("Motorista cadastrado!");
@@ -540,8 +547,13 @@ function showVehicleForm(editId = null, data = null) {
 
   $("vForm").onsubmit = async e => {
     e.preventDefault();
+    const plate = $("vPlate").value.trim().toUpperCase();
+
+    const exists = state.vehicles.some(v => v.plate === plate && v.id !== editId);
+    if (exists) return alert("Já existe um veículo cadastrado com esta placa!");
+
     const payload = {
-      plate: $("vPlate").value.trim().toUpperCase(),
+      plate,
       model: $("vModel").value.trim(),
       capacity: Number($("vCap").value),
       driverName: $("vMot").value || ""
@@ -572,7 +584,7 @@ function showDeliveryForm(editId = null, data = null) {
       <label>Volume (Litros) <input id="sLit" type="number" value="${data?.plannedLiters || 5000}" required></label>
       <div style="display: flex; gap: 10px; margin-top: 10px;">
         <button type="button" class="secondary" id="canD" style="flex: 1;">Voltar</button>
-        <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar' : 'Confirmar Agendamento'}</button>
+        <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar Alterações' : 'Confirmar Agendamento'}</button>
       </div>
     </form>
   `);
@@ -614,158 +626,163 @@ function showDeliveryForm(editId = null, data = null) {
   };
 }
 
-/* PAINEL DO MOTORISTA (PIN, FOTO, GPS) */
+/* PAINEL DO MOTORISTA (COM VALIDAÇÃO DE PIN E GPS) */
 async function renderDriver() {
   $("driverPanel").innerHTML = `
     <div class="card">
-      <h2 style="font-size: 18px; font-weight: 800;">🚚 Minhas Entregas Atribuídas</h2>
-      <div id="dList" class="records-grid" style="margin-top:16px;"></div>
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">🚚 Minhas Entregas e Confirmação por PIN</h2>
+      <div id="dList" class="records-grid"></div>
     </div>
   `;
   try {
     const snap = await getDocs(query(collection(db, "deliveries"), where("driverName", "==", state.profile.name)));
+    const deliveries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
     const container = $("dList");
     container.innerHTML = "";
 
-    snap.docs.forEach(docSnap => {
-      const item = { id: docSnap.id, ...docSnap.data() };
+    deliveries.forEach(item => {
       const el = document.createElement("div");
       el.className = "record-card";
       el.innerHTML = `
         <div class="record-header"><div class="record-title">💧 ${esc(item.recipientName)}</div><span class="pill ${item.status}">${item.status}</span></div>
-        <p class="small"><b>Data:</b> ${dateOnly(item.scheduledDate)} · <b>Litros:</b> ${item.plannedLiters}L</p>
-        <p class="small"><b>Comunidade:</b> ${esc(item.community)} · <b>Endereço:</b> ${esc(item.address)}</p>
+        <p class="small"><b>Data:</b> ${dateOnly(item.scheduledDate)} · <b>Volume:</b> ${item.plannedLiters} L</p>
+        <p class="small"><b>Comunidade:</b> ${esc(item.community)}</p>
         ${item.status === 'scheduled' ? `
-          <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;">
-            <input type="text" placeholder="Digite o PIN de 4 dígitos do morador" id="pinInput_${item.id}" maxlength="4" style="margin-bottom:0;">
-            <button class="primary small" data-confirm-pin="${item.id}">🔑 Confirmar com PIN</button>
-            <button class="danger small" data-absent="${item.id}">⚠️ Morador Ausente (Foto/Obs)</button>
+          <div style="margin-top: 14px; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
+            <label style="font-size: 11px; margin-bottom: 4px;">PIN do Morador</label>
+            <input type="text" maxlength="4" placeholder="4 dígitos" id="pinInput_${item.id}" style="margin-bottom: 8px; text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 4px;">
+            <button class="primary small" style="width: 100%; margin-bottom: 6px;" id="confPin_${item.id}">✅ Confirmar com PIN</button>
+            <button class="danger small" style="width: 100%;" id="ausenteBtn_${item.id}">⚠️ Morador Ausente (Foto/Obs)</button>
           </div>
-        ` : `<p class="small" style="margin-top:10px; color:var(--success);"><b>Operação Concluída</b></p>`}
+        ` : `<p class="small" style="color:var(--success); font-weight:700; margin-top:8px;">✅ Concluído</p>`}
       `;
 
       if (item.status === 'scheduled') {
-        el.querySelector(`[data-confirm-pin="${item.id}"]`).onclick = async () => {
-          const enteredPin = $(`pinInput_${item.id}`).value.trim();
-          if (enteredPin !== item.pin) {
-            alert("PIN incorreto!");
-            return;
-          }
-
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(async pos => {
-              await updateDoc(doc(db, "deliveries", item.id), {
-                status: "completed",
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                completedAt: serverTimestamp()
-              });
-              toast("Entrega confirmada com GPS!");
-              renderDriver();
-            }, () => {
-              alert("Não foi possível obter a localização GPS.");
-            });
-          } else {
-            alert("Geolocalização não suportada.");
-          }
-        };
-
-        el.querySelector(`[data-absent="${item.id}"]`).onclick = () => {
-          openModal(`
-            <h2>⚠️ Registrar Ausência de Morador</h2>
-            <form id="absentForm">
-              <label>Observação <textarea id="obsText" required placeholder="Explique o motivo..."></textarea></label>
-              <label>Foto do Local <input type="file" id="photoFile" accept="image/*" required></label>
-              <div style="display:flex; gap:10px; margin-top:10px;">
-                <button type="button" class="secondary" id="canAbs" style="flex:1;">Voltar</button>
-                <button type="submit" class="danger" style="flex:2;">Enviar Registro</button>
-              </div>
-            </form>
-          `);
-          $("canAbs").onclick = closeModal;
-
-          $("absentForm").onsubmit = async ev => {
-            ev.preventDefault();
-            const file = $("photoFile").files[0];
-            const obs = $("obsText").value.trim();
-            try {
-              const storageRef = ref(storage, `ausencias/${item.id}_${Date.now()}.jpg`);
-              await uploadBytes(storageRef, file);
-              const photoUrl = await getDownloadURL(storageRef);
-
-              await updateDoc(doc(db, "deliveries", item.id), {
-                status: "pending_absent",
-                note: obs,
-                photoUrl,
-                updatedAt: serverTimestamp()
-              });
-
-              closeModal();
-              toast("Ausência registrada com sucesso!");
-              renderDriver();
-            } catch(err) { alert("Erro ao enviar: " + err.message); }
-          };
-        };
+        el.querySelector(`#confPin_${item.id}`).onclick = () => confirmDeliveryWithPin(item.id, item.pin);
+        el.querySelector(`#ausenteBtn_${item.id}`).onclick = () => showAbsentModal(item.id);
       }
-
       container.appendChild(el);
     });
 
-    if (container.children.length === 0) {
-      container.innerHTML = `<p class="small">Nenhuma entrega programada no momento.</p>`;
-    }
+    if (deliveries.length === 0) container.innerHTML = `<p class="small">Nenhuma entrega atribuída.</p>`;
   } catch(e){}
 }
 
-/* PAINEL DO BENEFICIÁRIO (VISUALIZAR CADASTRO E GERAR PIN) */
+async function confirmDeliveryWithPin(deliveryId, expectedPin) {
+  const enteredPin = $(`pinInput_${deliveryId}`).value.trim();
+  if (enteredPin !== String(expectedPin)) {
+    return alert("PIN incorreto! Solicite o código correto ao morador.");
+  }
+
+  if (!navigator.geolocation) {
+    return alert("Geolocalização não suportada pelo navegador.");
+  }
+
+  toast("Capturando localização GPS...");
+
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    try {
+      await updateDoc(doc(db, "deliveries", deliveryId), {
+        status: "completed",
+        lat,
+        lng,
+        completedAt: serverTimestamp()
+      });
+      toast("Entrega confirmada com sucesso!");
+      renderDriver();
+    } catch (err) {
+      alert("Erro ao salvar: " + err.message);
+    }
+  }, () => {
+    alert("Não foi possível obter a localização GPS. Ative o GPS do aparelho.");
+  }, { enableHighAccuracy: true });
+}
+
+function showAbsentModal(deliveryId) {
+  openModal(`
+    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">⚠️ Registro de Morador Ausente</h2>
+    <form id="absentForm">
+      <label>Observação da Ocorrência <textarea id="obsText" rows="3" placeholder="Ex: Casa fechada, morador viajou..." required></textarea></label>
+      <label>Foto do Local / Comprovante <input id="obsPhoto" type="file" accept="image/*" required></label>
+      <button type="submit" class="primary full-width">Enviar para a Administração</button>
+    </form>
+  `);
+
+  $("absentForm").onsubmit = async e => {
+    e.preventDefault();
+    const note = $("obsText").value.trim();
+    const pin = Math.floor(1000 + Math.random() * 9000); // Gera PIN alternativo
+
+    try {
+      await updateDoc(doc(db, "deliveries", deliveryId), {
+        status: "pending",
+        pin,
+        note,
+        updatedAt: serverTimestamp()
+      });
+      closeModal();
+      toast("Ocorrência enviada ao administrador!");
+      renderDriver();
+    } catch (err) {
+      alert("Erro: " + err.message);
+    }
+  };
+}
+
+/* PAINEL DO BENEFICIÁRIO (COM GERAÇÃO DE PIN) */
 async function renderRecipient() {
-  const panel = $("recipientPanel");
-  panel.innerHTML = `<div class="card"><h2 style="font-size: 18px; font-weight: 800;">🏡 Informações da Família e Abastecimentos</h2><div id="recContainer" style="margin-top:16px;"><p class="small">Carregando...</p></div></div>`;
-  
+  const hId = state.profile.householdId;
+  const household = state.households.find(h => h.id === hId) || {};
+
+  $("recipientPanel").innerHTML = `
+    <div class="card">
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🏡 Meus Dados e Abastecimentos</h2>
+      <p class="small"><b>Responsável:</b> ${esc(state.profile.name)}</p>
+      <p class="small"><b>Comunidade:</b> ${esc(household.community || '—')}</p>
+      <p class="small"><b>Endereço:</b> ${esc(household.address || '—')}</p>
+      <p class="small"><b>Capacidade Cisterna:</b> ${household.defaultLiters || 5000} Litros</p>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">💧 Entregas Programadas</h2>
+      <div id="rList" class="records-grid"></div>
+    </div>
+  `;
+
   try {
-    const hSnap = await getDoc(doc(db, "households", state.profile.householdId));
-    const household = hSnap.exists() ? hSnap.data() : {};
+    const snap = await getDocs(query(collection(db, "deliveries"), where("householdId", "==", hId)));
+    const container = $("rList");
+    container.innerHTML = "";
 
-    const dSnap = await getDocs(query(collection(db, "deliveries"), where("householdId", "==", state.profile.householdId)));
-    
-    let html = `
-      <div style="background:#f8fafc; padding:16px; border-radius:14px; border:1px solid var(--border); margin-bottom:20px;">
-        <h3 style="font-size:15px; font-weight:800; margin-bottom:8px;">👤 Dados Cadastrais</h3>
-        <p class="small"><b>Responsável:</b> ${esc(household.name)}</p>
-        <p class="small"><b>Telefone:</b> ${esc(household.phone)}</p>
-        <p class="small"><b>Comunidade:</b> ${esc(household.community)}</p>
-        <p class="small"><b>Endereço:</b> ${esc(household.address)}</p>
-        <p class="small"><b>Volume Cisterna:</b> ${household.defaultLiters || 5000} Litros</p>
-      </div>
-      <h3 style="font-size:16px; font-weight:800; margin-bottom:12px;">💧 Agendamentos e Confirmação</h3>
-    `;
+    snap.docs.forEach(docSnap => {
+      const item = docSnap.data();
+      const deliveryId = docSnap.id;
 
-    dSnap.docs.forEach(docSnap => {
-      const item = { id: docSnap.id, ...docSnap.data() };
-      html += `
-        <div class="record-card" style="margin-bottom:12px;">
-          <div class="record-header"><div class="record-title">Entrega em ${dateOnly(item.scheduledDate)}</div><span class="pill ${item.status}">${item.status}</span></div>
-          <p class="small"><b>Volume:</b> ${item.plannedLiters}L · <b>Motorista:</b> ${esc(item.driverName || '—')}</p>
-          ${item.status === 'scheduled' ? `
-            <div style="margin-top:12px;">
-              ${item.pin ? `<p style="font-size:16px; font-weight:900; color:var(--primary); background:#e0f2fe; padding:8px; border-radius:8px; text-align:center;">PIN DE CONFIRMAÇÃO: ${item.pin}</p>` : `<button class="primary small" data-gen-pin="${item.id}">🔑 Gerar PIN para o Motorista</button>`}
-            </div>
-          ` : ''}
-        </div>
+      const el = document.createElement("div");
+      el.className = "record-card";
+      el.innerHTML = `
+        <div class="record-header"><div class="record-title">💧 Entrega em ${dateOnly(item.scheduledDate)}</div><span class="pill ${item.status}">${item.status}</span></div>
+        <p class="small"><b>Volume:</b> ${item.plannedLiters} L · <b>Motorista:</b> ${esc(item.driverName || '—')}</p>
+        ${item.pin ? `<div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:10px; border-radius:10px; margin-top:10px; text-align:center;"><p class="small" style="color:#166534; font-weight:700;">PIN Gerado: <span style="font-size:18px; letter-spacing:3px;">${item.pin}</span></p></div>` : `
+          <button class="primary small" style="width:100%; margin-top:12px;" id="genPin_${deliveryId}">🔑 Gerar PIN de Confirmação</button>
+        `}
       `;
+
+      if (!item.pin) {
+        el.querySelector(`#genPin_${deliveryId}`).onclick = async () => {
+          const pin = Math.floor(1000 + Math.random() * 9000);
+          await updateDoc(doc(db, "deliveries", deliveryId), { pin });
+          toast(`PIN gerado: ${pin}`);
+          renderRecipient();
+        };
+      }
+      container.appendChild(el);
     });
 
-    $("recContainer").innerHTML = html || "<p class='small'>Nenhum abastecimento encontrado.</p>";
-
-    document.querySelectorAll("[data-gen-pin]").forEach(btn => {
-      btn.onclick = async () => {
-        const deliveryId = btn.dataset.genPin;
-        const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
-        await updateDoc(doc(db, "deliveries", deliveryId), { pin: randomPin });
-        toast("PIN gerado com sucesso!");
-        renderRecipient();
-      };
-    });
-
-  } catch(e) { console.error(e); }
+    if (snap.docs.length === 0) container.innerHTML = `<p class="small">Nenhum abastecimento encontrado.</p>`;
+  } catch(e){}
 }
