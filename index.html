@@ -5,62 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Água para Todos - Areia Branca/RN</title>
   
-  <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0D2B5C">
+  <meta name="theme-color" content="#0284c7">
   
-  <!-- Estilos principais -->
+  <!-- Fonte Inter do Google Fonts para maior elegância -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <!-- STATUS DE CONEXÃO (TOPO) -->
+  <!-- STATUS DE CONEXÃO -->
   <div id="connectionStatus" class="connection-banner">Verificando conexão...</div>
 
   <!-- TELA DE LOGIN -->
   <div id="loginView" class="view-container">
     <div class="login-card">
       <div class="login-header">
-        <h1>Água para Todos</h1>
-        <p>Gestão de Abastecimento - Areia Branca/RN</p>
+        <h1>💧 Água para Todos</h1>
+        <p>Areia Branca • Rio Grande do Norte</p>
       </div>
 
       <form id="loginForm">
         <label for="loginEmail">E-mail ou Telefone</label>
-        <input id="loginEmail" type="text" placeholder="E-mail ou telefone do beneficiário" autocomplete="username" required>
+        <input id="loginEmail" type="text" placeholder="Ex: 84999999999 ou e-mail" autocomplete="username" required>
 
-        <label for="loginPassword">Senha</label>
-        <input id="loginPassword" type="password" placeholder="Sua senha de acesso" autocomplete="current-password" required>
+        <label for="loginPassword">Senha de Acesso</label>
+        <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password" required>
 
-        <button type="submit" id="btnSubmitLogin" class="primary full-width">Entrar no Sistema</button>
+        <button type="submit" id="btnSubmitLogin" class="primary full-width" style="width: 100%; margin-top: 6px;">Entrar no Sistema</button>
         <p id="loginMsg" class="error-msg"></p>
       </form>
     </div>
   </div>
 
-  <!-- APLICAÇÃO PRINCIPAL (PÃINEIS APÓS O LOGIN) -->
-  <div id="appView" class="view-container hidden">
+  <!-- APLICAÇÃO PRINCIPAL -->
+  <div id="appView" class="view-container hidden" style="background: transparent; flex-direction: column; justify-content: flex-start; padding: 0;">
     <header class="app-header">
       <div class="user-info">
         <h2 id="userName">Carregando...</h2>
-        <span id="userRole" class="pill">Cargo</span>
+        <span id="userRole" class="pill scheduled" style="display: inline-block; margin-top: 4px;">Cargo</span>
       </div>
-      <button id="logoutBtn" class="danger small">Sair</button>
+      <button id="logoutBtn" class="secondary small">🚪 Sair</button>
     </header>
 
     <main class="main-content">
-      <!-- Painel do Administrador -->
       <section id="adminPanel" class="panel hidden"></section>
-
-      <!-- Painel do Motorista -->
       <section id="driverPanel" class="panel hidden"></section>
-
-      <!-- Painel do Beneficiário -->
       <section id="recipientPanel" class="panel hidden"></section>
     </main>
   </div>
 
-  <!-- MODAL / TELA DEDICADA PARA FORMULÁRIOS E COMPROVANTES -->
+  <!-- MODAL -->
   <div id="modal" class="modal-overlay hidden">
     <div class="modal-card">
       <button id="closeModal" class="modal-close-btn">&times;</button>
@@ -68,10 +66,9 @@
     </div>
   </div>
 
-  <!-- NOTIFICAÇÕES TOAST -->
+  <!-- TOAST -->
   <div id="toast" class="toast"></div>
 
-  <!-- Script Principal da Aplicação (Módulo) -->
   <script type="module" src="app.js"></script>
 </body>
 </html>
