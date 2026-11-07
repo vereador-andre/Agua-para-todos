@@ -27,12 +27,12 @@ import {
 
 // Credenciais do Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyD-SUA_API_KEY_AQUI",
+  apiKey: "AIzaSyAAf5Tfvh0Ow-iusTMuvax5VlxBgjtVFeo",
   authDomain: "agua-para-todos-18167.firebaseapp.com",
   projectId: "agua-para-todos-18167",
-  storageBucket: "agua-para-todos-18167.appspot.com",
-  messagingSenderId: "1071477546876",
-  appId: "1:1071477546876:web:..."
+  storageBucket: "agua-para-todos-18167.firebasestorage.app",
+  messagingSenderId: "154424742994",
+  appId: "1:154424742994:web:46f14ccf8fc781e8867b8b"
 };
 
 let app = null;
