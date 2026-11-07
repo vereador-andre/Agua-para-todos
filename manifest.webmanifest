@@ -1,10 +1,21 @@
 {
-  "name": "Água para Todos",
+  "name": "Água para Todos - Areia Branca",
   "short_name": "Água para Todos",
-  "start_url": "./",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f7fb",
-  "theme_color": "#0D2B5C",
-  "lang": "pt-BR",
-  "icons": []
+  "background_color": "#03045e",
+  "theme_color": "#0077b6",
+  "description": "Sistema de controle e auditoria de abastecimento de água em carros-pipa",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='25' fill='%230077b6'/><text x='50' y='65' font-size='50' text-anchor='middle'>🚛</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='25' fill='%230077b6'/><text x='50' y='65' font-size='50' text-anchor='middle'>🚛</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
 }
