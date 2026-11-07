@@ -11,8 +11,7 @@ const state = {
   deliveries: [], 
   drivers: [], 
   vehicles: [],
-  filters: { category: null, driver: "todos", vehicle: "todos", date: "" },
-  hasSearched: false
+  filters: { category: null, searchTerm: "" }
 };
 
 let secondaryApp = null, secondaryAuth = null;
@@ -21,7 +20,7 @@ try {
   secondaryAuth = getAuth(secondaryApp);
 } catch (e) {}
 
-/* MÁSCARAS E TRATAMENTO DE TEXTO (MAIÚSCULAS SEM ACENTOS) */
+/* HIGIENIZAÇÃO DE TEXTO (MAIÚSCULAS SEM ACENTOS) */
 function sanitizeText(str = "") {
   return String(str)
     .normalize("NFD")
@@ -212,7 +211,7 @@ function renderAdminDashboard() {
   const pendingCount = state.deliveries.filter(d => d.status === "pending" || d.status === "awaiting_approval").length;
 
   $("adminPanel").innerHTML = `
-    <!-- VISÃO GERAL DAS ESTATÍSTICAS (CARTÕES CLICÁVEIS) -->
+    <!-- VISÃO GERAL DAS ESTATÍSTICAS -->
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <div>
@@ -251,51 +250,28 @@ function renderAdminDashboard() {
       </div>
     </div>
 
-    <!-- FILTROS E PESQUISA -->
+    <!-- FILTRAR E PESQUISAR REGISTROS EM TEMPO REAL -->
     <div class="card">
-      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">Filtrar Registros</h2>
+      <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">Filtrar e Pesquisar Registros</h2>
 
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;">
         <button class="filter-tab-btn" data-cat="familias">🏡 Famílias</button>
         <button class="filter-tab-btn" data-cat="motoristas">👤 Motoristas</button>
         <button class="filter-tab-btn" data-cat="veiculos">🚛 Veículos</button>
         <button class="filter-tab-btn" data-cat="entregas">🌊 Entregas</button>
       </div>
 
-      <div id="filterOptionsContainer" class="hidden" style="background: #f8fafc; padding: 14px; border-radius: 14px; border: 1px solid var(--border); margin-bottom: 16px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px;">
-          <div>
-            <label>Motorista</label>
-            <select id="filterDriver" style="margin-bottom:0;">
-              <option value="todos">Todos os Motoristas</option>
-              ${state.drivers.map(d => `<option value="${esc(d.name)}">${esc(d.name)}</option>`).join("")}
-            </select>
-          </div>
-
-          <div>
-            <label>Veículo</label>
-            <select id="filterVehicle" style="margin-bottom:0;">
-              <option value="todos">Todos os Veículos</option>
-              ${state.vehicles.map(v => `<option value="${esc(v.plate)}">${esc(v.plate)}</option>`).join("")}
-            </select>
-          </div>
-
-          <div>
-            <label>Data Prevista</label>
-            <input id="filterDate" type="date" style="margin-bottom:0;">
-          </div>
-        </div>
-
-        <button class="primary full-width" id="btnExecutarPesquisa" style="width: 100%;">🔎 Pesquisar Registros</button>
+      <div id="filterOptionsContainer" class="hidden" style="background: #f8fafc; padding: 14px; border-radius: 14px; border: 1px solid var(--border); margin-bottom: 14px;">
+        <label id="searchLabel">Digite para filtrar:</label>
+        <input id="searchInput" type="text" placeholder="Digite o nome, placa ou comunidade..." style="margin-bottom:0;">
       </div>
 
       <div id="dynamicRecords" class="records-grid">
-        <p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Selecione uma categoria acima e clique em "Pesquisar Registros".</p>
+        <p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Selecione uma categoria acima para iniciar a busca.</p>
       </div>
     </div>
   `;
 
-  // Eventos nos cartões da Visão Geral (Abrem Modais com os dados)
   $("cardFamilias").onclick = () => showCategoryModal("familias");
   $("cardMotoristas").onclick = () => showCategoryModal("motoristas");
   $("cardVeiculos").onclick = () => showCategoryModal("veiculos");
@@ -311,20 +287,156 @@ function renderAdminDashboard() {
     btn.onclick = (e) => {
       document.querySelectorAll(".filter-tab-btn").forEach(b => b.classList.remove("active"));
       e.currentTarget.classList.add("active");
-      state.filters.category = e.currentTarget.dataset.cat;
-      state.hasSearched = false;
+      const cat = e.currentTarget.dataset.cat;
+      state.filters.category = cat;
+      state.filters.searchTerm = "";
+      
       $("filterOptionsContainer").classList.remove("hidden");
-      $("dynamicRecords").innerHTML = `<p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Clique em "Pesquisar Registros" para carregar os dados.</p>`;
+      const sInput = $("searchInput");
+      sInput.value = "";
+      sInput.placeholder = cat === "familias" ? "Digite o nome da família ou comunidade..." :
+                           cat === "motoristas" ? "Digite o nome do motorista..." :
+                           cat === "veiculos" ? "Digite a placa ou modelo do veículo..." :
+                           "Digite o nome do morador ou motorista...";
+      
+      renderDynamicRecords();
     };
   });
 
-  $("btnExecutarPesquisa").onclick = () => {
-    state.filters.driver = $("filterDriver").value;
-    state.filters.vehicle = $("filterVehicle").value;
-    state.filters.date = $("filterDate").value;
-    state.hasSearched = true;
+  $("searchInput").oninput = (e) => {
+    state.filters.searchTerm = sanitizeText(e.target.value);
     renderDynamicRecords();
   };
+}
+
+/* RENDERIZAÇÃO DOS REGISTROS COM FILTRO INSTANTÂNEO EM TEMPO REAL */
+function renderDynamicRecords() {
+  const container = $("dynamicRecords");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const { category, searchTerm } = state.filters;
+  if (!category) return;
+
+  let count = 0;
+
+  if (category === "familias") {
+    state.households
+      .filter(h => !searchTerm || sanitizeText(h.name).includes(searchTerm) || sanitizeText(h.community).includes(searchTerm))
+      .forEach(h => {
+        count++;
+        const el = document.createElement("div");
+        el.className = "record-card";
+        el.innerHTML = `
+          <div class="record-header"><div class="record-title">🏡 ${esc(h.name)}</div><span class="pill completed">Ativa</span></div>
+          <p class="small"><b>Telefone:</b> ${esc(h.phone)} · <b>Comunidade:</b> ${esc(h.community)}</p>
+          <p class="small"><b>Endereço:</b> ${esc(h.address || '—')}</p>
+          <p class="small"><b>Cisterna:</b> ${h.defaultLiters || 5000} L</p>
+          <div style="display: flex; gap: 6px; margin-top: 12px;">
+            <button class="secondary small" data-edit-fam="${h.id}">✏️ Alterar</button>
+            <button class="danger small" data-del-fam="${h.id}">🗑️ Excluir</button>
+          </div>
+        `;
+        el.querySelector("[data-edit-fam]").onclick = () => showHouseholdForm(h.id, h);
+        el.querySelector("[data-del-fam]").onclick = async () => {
+          if (confirm(`Excluir a família ${h.name}?`)) {
+            await deleteDoc(doc(db, "households", h.id));
+            toast("Família excluída!");
+            renderAdmin();
+          }
+        };
+        container.appendChild(el);
+      });
+  } else if (category === "motoristas") {
+    state.drivers
+      .filter(d => !searchTerm || sanitizeText(d.name).includes(searchTerm))
+      .forEach(m => {
+        count++;
+        const el = document.createElement("div");
+        el.className = "record-card";
+        el.style.borderColor = "#bae6fd";
+        el.innerHTML = `
+          <div class="record-header"><div class="record-title">👤 ${esc(m.name)}</div><span class="pill scheduled">Ativo</span></div>
+          <p class="small"><b>Telefone:</b> ${esc(m.phone || '—')}</p>
+          <p class="small"><b>Veículo:</b> ${esc(m.vehiclePlate || 'Nenhum')}</p>
+          <div style="display: flex; gap: 6px; margin-top: 12px;">
+            <button class="secondary small" data-edit-mot="${m.id}">✏️ Alterar</button>
+            <button class="danger small" data-del-mot="${m.id}">🗑️ Excluir</button>
+          </div>
+        `;
+        el.querySelector("[data-edit-mot]").onclick = () => showDriverForm(m.id, m);
+        el.querySelector("[data-del-mot]").onclick = async () => {
+          if (confirm(`Excluir o motorista ${m.name}?`)) {
+            await deleteDoc(doc(db, "users", m.id));
+            toast("Motorista excluído!");
+            renderAdmin();
+          }
+        };
+        container.appendChild(el);
+      });
+  } else if (category === "veiculos") {
+    state.vehicles
+      .filter(v => !searchTerm || sanitizeText(v.plate).includes(searchTerm) || sanitizeText(v.model).includes(searchTerm))
+      .forEach(v => {
+        count++;
+        const el = document.createElement("div");
+        el.className = "record-card";
+        el.style.borderColor = "#cbd5e1";
+        el.innerHTML = `
+          <div class="record-header"><div class="record-title">🚛 ${esc(v.plate)}</div><span class="pill scheduled">${v.capacity || 15000} L</span></div>
+          <p class="small"><b>Modelo:</b> ${esc(v.model)}</p>
+          <p class="small"><b>Motorista:</b> ${esc(v.driverName || 'Nenhum')}</p>
+          <div style="display: flex; gap: 6px; margin-top: 12px;">
+            <button class="secondary small" data-edit-vei="${v.id}">✏️ Alterar</button>
+            <button class="danger small" data-del-vei="${v.id}">🗑️ Excluir</button>
+          </div>
+        `;
+        el.querySelector("[data-edit-vei]").onclick = () => showVehicleForm(v.id, v);
+        el.querySelector("[data-del-vei]").onclick = async () => {
+          if (confirm(`Excluir o veículo ${v.plate}?`)) {
+            await deleteDoc(doc(db, "vehicles", v.id));
+            toast("Veículo excluído!");
+            renderAdmin();
+          }
+        };
+        container.appendChild(el);
+      });
+  } else if (category === "entregas") {
+    state.deliveries
+      .filter(d => !searchTerm || sanitizeText(d.recipientName).includes(searchTerm) || sanitizeText(d.driverName).includes(searchTerm))
+      .forEach(d => {
+        count++;
+        const statusClass = d.status === 'completed' ? 'completed' : d.status === 'pending' ? 'pending' : 'scheduled';
+        const statusText = d.status === 'completed' ? 'Realizada' : d.status === 'pending' ? 'Pendente / PIN' : 'Programada';
+
+        const el = document.createElement("div");
+        el.className = "record-card";
+        el.style.borderColor = d.status === "completed" ? "#a7f3d0" : d.status === "pending" ? "#fca5a5" : "#fef08a";
+        el.innerHTML = `
+          <div class="record-header"><div class="record-title">🌊 ${esc(d.recipientName)}</div><span class="pill ${statusClass}">${statusText}</span></div>
+          <p class="small"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
+          <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
+          ${d.pin ? `<p class="small" style="color:var(--primary); font-weight:700; margin-top:2px;">PIN: ${d.pin}</p>` : ''}
+          <div style="display: flex; gap: 6px; margin-top: 12px;">
+            <button class="secondary small" data-edit-del="${d.id}">✏️ Alterar</button>
+            <button class="danger small" data-del-del="${d.id}">🗑️ Excluir</button>
+          </div>
+        `;
+        el.querySelector("[data-edit-del]").onclick = () => showDeliveryForm(d.id, d);
+        el.querySelector("[data-del-del]").onclick = async () => {
+          if (confirm("Excluir esta entrega?")) {
+            await deleteDoc(doc(db, "deliveries", d.id));
+            toast("Entrega excluída!");
+            renderAdmin();
+          }
+        };
+        container.appendChild(el);
+      });
+  }
+
+  if (count === 0) {
+    container.innerHTML = `<p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Nenhum registro encontrado para esta busca.</p>`;
+  }
 }
 
 /* MODAL DE DADOS RÁPIDOS DA VISÃO GERAL */
@@ -377,129 +489,6 @@ function showCategoryModal(type) {
   `);
 }
 
-function renderDynamicRecords() {
-  const container = $("dynamicRecords");
-  if (!container || !state.hasSearched) return;
-  container.innerHTML = "";
-
-  const { category, driver, vehicle, date } = state.filters;
-  let count = 0;
-
-  if (category === "familias") {
-    state.households.forEach(h => {
-      count++;
-      const el = document.createElement("div");
-      el.className = "record-card";
-      el.innerHTML = `
-        <div class="record-header"><div class="record-title">🏡 ${esc(h.name)}</div><span class="pill completed">Ativa</span></div>
-        <p class="small"><b>Telefone:</b> ${esc(h.phone)} · <b>Comunidade:</b> ${esc(h.community)}</p>
-        <p class="small"><b>Endereço:</b> ${esc(h.address || '—')}</p>
-        <p class="small"><b>Cisterna:</b> ${h.defaultLiters || 5000} L</p>
-        <div style="display: flex; gap: 6px; margin-top: 12px;">
-          <button class="secondary small" data-edit-fam="${h.id}">✏️ Alterar</button>
-          <button class="danger small" data-del-fam="${h.id}">🗑️ Excluir</button>
-        </div>
-      `;
-      el.querySelector("[data-edit-fam]").onclick = () => showHouseholdForm(h.id, h);
-      el.querySelector("[data-del-fam]").onclick = async () => {
-        if (confirm(`Excluir a família ${h.name}?`)) {
-          await deleteDoc(doc(db, "households", h.id));
-          toast("Família excluída!");
-          renderAdmin();
-        }
-      };
-      container.appendChild(el);
-    });
-  } else if (category === "motoristas") {
-    state.drivers.filter(d => driver === "todos" || d.name === driver).forEach(m => {
-      count++;
-      const el = document.createElement("div");
-      el.className = "record-card";
-      el.style.borderColor = "#bae6fd";
-      el.innerHTML = `
-        <div class="record-header"><div class="record-title">👤 ${esc(m.name)}</div><span class="pill scheduled">Ativo</span></div>
-        <p class="small"><b>Telefone:</b> ${esc(m.phone || '—')}</p>
-        <p class="small"><b>Veículo:</b> ${esc(m.vehiclePlate || 'Nenhum')}</p>
-        <div style="display: flex; gap: 6px; margin-top: 12px;">
-          <button class="secondary small" data-edit-mot="${m.id}">✏️ Alterar</button>
-          <button class="danger small" data-del-mot="${m.id}">🗑️ Excluir</button>
-        </div>
-      `;
-      el.querySelector("[data-edit-mot]").onclick = () => showDriverForm(m.id, m);
-      el.querySelector("[data-del-mot]").onclick = async () => {
-        if (confirm(`Excluir o motorista ${m.name}?`)) {
-          await deleteDoc(doc(db, "users", m.id));
-          toast("Motorista excluído!");
-          renderAdmin();
-        }
-      };
-      container.appendChild(el);
-    });
-  } else if (category === "veiculos") {
-    state.vehicles.filter(v => vehicle === "todos" || v.plate === vehicle).forEach(v => {
-      count++;
-      const el = document.createElement("div");
-      el.className = "record-card";
-      el.style.borderColor = "#cbd5e1";
-      el.innerHTML = `
-        <div class="record-header"><div class="record-title">🚛 ${esc(v.plate)}</div><span class="pill scheduled">${v.capacity || 15000} L</span></div>
-        <p class="small"><b>Modelo:</b> ${esc(v.model)}</p>
-        <p class="small"><b>Motorista:</b> ${esc(v.driverName || 'Nenhum')}</p>
-        <div style="display: flex; gap: 6px; margin-top: 12px;">
-          <button class="secondary small" data-edit-vei="${v.id}">✏️ Alterar</button>
-          <button class="danger small" data-del-vei="${v.id}">🗑️ Excluir</button>
-        </div>
-      `;
-      el.querySelector("[data-edit-vei]").onclick = () => showVehicleForm(v.id, v);
-      el.querySelector("[data-del-vei]").onclick = async () => {
-        if (confirm(`Excluir o veículo ${v.plate}?`)) {
-          await deleteDoc(doc(db, "vehicles", v.id));
-          toast("Veículo excluído!");
-          renderAdmin();
-        }
-      };
-      container.appendChild(el);
-    });
-  } else if (category === "entregas") {
-    state.deliveries
-      .filter(d => driver === "todos" || d.driverName === driver)
-      .filter(d => vehicle === "todos" || d.vehiclePlate === vehicle)
-      .filter(d => !date || d.scheduledDate === date)
-      .forEach(d => {
-        count++;
-        const statusClass = d.status === 'completed' ? 'completed' : d.status === 'pending' ? 'pending' : 'scheduled';
-        const statusText = d.status === 'completed' ? 'Realizada' : d.status === 'pending' ? 'Pendente / PIN' : 'Programada';
-
-        const el = document.createElement("div");
-        el.className = "record-card";
-        el.style.borderColor = d.status === "completed" ? "#a7f3d0" : d.status === "pending" ? "#fca5a5" : "#fef08a";
-        el.innerHTML = `
-          <div class="record-header"><div class="record-title">🌊 ${esc(d.recipientName)}</div><span class="pill ${statusClass}">${statusText}</span></div>
-          <p class="small"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L</p>
-          <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
-          ${d.pin ? `<p class="small" style="color:var(--primary); font-weight:700; margin-top:2px;">PIN: ${d.pin}</p>` : ''}
-          <div style="display: flex; gap: 6px; margin-top: 12px;">
-            <button class="secondary small" data-edit-del="${d.id}">✏️ Alterar</button>
-            <button class="danger small" data-del-del="${d.id}">🗑️ Excluir</button>
-          </div>
-        `;
-        el.querySelector("[data-edit-del]").onclick = () => showDeliveryForm(d.id, d);
-        el.querySelector("[data-del-del]").onclick = async () => {
-          if (confirm("Excluir esta entrega?")) {
-            await deleteDoc(doc(db, "deliveries", d.id));
-            toast("Entrega excluída!");
-            renderAdmin();
-          }
-        };
-        container.appendChild(el);
-      });
-  }
-
-  if (count === 0) {
-    container.innerHTML = `<p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Nenhum registro encontrado.</p>`;
-  }
-}
-
 /* MODAL DE AUDITORIA COMPLETA DE ENTREGAS */
 function showAuditModal() {
   openModal(`
@@ -523,7 +512,7 @@ function showAuditModal() {
   `);
 }
 
-/* CADASTRO DE FAMÍLIA (EXCLUSIVAMENTE TELEFONE, SEM ERRO DE E-MAIL) */
+/* CADASTRO DE FAMÍLIA */
 function showHouseholdForm(editId = null, data = null) {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">🏡 ${editId ? 'Editar' : 'Cadastrar'} Família Rural</h2>
@@ -607,7 +596,7 @@ function showHouseholdForm(editId = null, data = null) {
   };
 }
 
-/* CADASTRO DE MOTORISTA (EXCLUSIVAMENTE TELEFONE, SEM ERRO DE E-MAIL) */
+/* CADASTRO DE MOTORISTA */
 function showDriverForm(editId = null, data = null) {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">👤 ${editId ? 'Editar' : 'Cadastrar'} Motorista</h2>
