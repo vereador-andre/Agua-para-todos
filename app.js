@@ -374,18 +374,22 @@ function dateOnly(value) {
 }
 
 /* =========================================================
-   LOGIN
+   LOGIN (Com exibição exata do erro do Firebase)
 ========================================================= */
 
 if ($("loginForm")) {
   $("loginForm").onsubmit = async event => {
     event.preventDefault();
 
-    $("loginMsg").textContent = "";
+    if ($("loginMsg")) {
+      $("loginMsg").textContent = "";
+    }
 
     try {
       const identifier = $("loginEmail").value.trim();
       const email = loginIdentifierToEmail(identifier);
+
+      console.log("Tentando autenticar e-mail interno:", email);
 
       await signInWithEmailAndPassword(
         auth,
@@ -393,41 +397,15 @@ if ($("loginForm")) {
         $("loginPassword").value
       );
     } catch (error) {
-      console.error("Erro no login:", error);
+      console.error("Erro detalhado no login:", error);
 
       if ($("loginMsg")) {
-        $("loginMsg").textContent =
-          error.message &&
-          error.message.includes("telefone brasileiro válido")
-            ? error.message
-            : friendlyAuthError(error);
+        // Exibe o código exato e a mensagem do Firebase na tela
+        $("loginMsginnerHTML") = `Erro Firebase [${esc(error.code)}]: ${esc(error.message)}`;
+        $("loginMsg").textContent = `Erro [${error.code}]: ${error.message}`;
       }
     }
   };
-}
-
-function friendlyAuthError(error) {
-  const messages = {
-    "auth/invalid-credential":
-      "Telefone/e-mail ou senha inválidos.",
-    "auth/user-not-found":
-      "Usuário não encontrado.",
-    "auth/wrong-password":
-      "Senha incorreta.",
-    "auth/too-many-requests":
-      "Muitas tentativas. Aguarde alguns minutos.",
-    "auth/email-already-in-use":
-      "Este acesso já está cadastrado.",
-    "auth/invalid-email":
-      "O telefone ou e-mail informado é inválido.",
-    "auth/weak-password":
-      "A senha informada é muito fraca.",
-    "auth/network-request-failed":
-      "Falha de conexão. Verifique a internet."
-  };
-
-  return messages[error.code] ||
-    "Não foi possível entrar. Verifique os dados e tente novamente.";
 }
 
 /* =========================================================
@@ -491,7 +469,7 @@ onAuthStateChanged(auth, async user => {
 
     if (!profile) {
       toast(
-        "Usuário autenticado, mas sem perfil cadastrado."
+        "Usuário autenticado, mas sem perfil cadastrado na coleção users."
       );
       return;
     }
