@@ -370,6 +370,23 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 8px; }
 .pill.scheduled { background: var(--warning-bg); color: #92400e; }
 .pill.pending { background: var(--danger-bg); color: #991b1b; }
 
+.pin-display-box {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1.5px solid #6ee7b7;
+  padding: 14px;
+  border-radius: 14px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.pin-code-badge {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #047857;
+  margin-top: 4px;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;
