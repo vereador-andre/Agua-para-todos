@@ -6,7 +6,7 @@
   <title>Água para Todos • Controle de Abastecimento</title>
   
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0284c7">
+  <meta name="theme-color" content="#0077b6">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,9 +22,9 @@
   <div id="loginView" class="view-container">
     <div class="login-card">
       <div class="login-header">
-        <div class="logo-badge">🌊</div>
+        <div class="logo-badge">🚛💧</div>
         <h1>Água para Todos</h1>
-        <p>Prefeitura Municipal de Areia Branca/RN</p>
+        <p class="subtitle-slogan">Compromisso com a População</p>
       </div>
 
       <form id="loginForm">
@@ -39,6 +39,10 @@
         </button>
         <p id="loginMsg" class="error-msg" style="color: var(--danger); font-size: 13px; text-align: center; margin-top: 14px; font-weight: 600;"></p>
       </form>
+
+      <div class="login-footer-prefeitura">
+        Prefeitura Municipal
+      </div>
     </div>
   </div>
 
@@ -46,7 +50,7 @@
   <div id="appView" class="view-container hidden" style="background: transparent; flex-direction: column; justify-content: flex-start; padding: 0;">
     <header class="app-header">
       <div class="header-brand-title">
-        <span>🌊</span> CONTROLE DE ABASTECIMENTO
+        <span>🚛💧</span> CONTROLE DE ABASTECIMENTO
       </div>
 
       <div class="user-badge-central">
@@ -65,6 +69,11 @@
       <section id="recipientPanel" class="panel hidden"></section>
     </main>
   </div>
+
+  <!-- BOTÃO FLUTUANTE DE SUPORTE WHATSAPP (EM TODAS AS TELAS) -->
+  <a href="https://wa.me/5584999999999?text=Olá,%20preciso%20de%20suporte%20sobre%20o%20sistema%20Água%20para%20Todos." target="_blank" class="whatsapp-float-btn">
+    💬 Suporte WhatsApp
+  </a>
 
   <!-- MODAL -->
   <div id="modal" class="modal-overlay hidden">
