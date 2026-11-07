@@ -57,10 +57,11 @@ function phoneAuthEmail(phone) {
   return `usuario.${d}@agua-para-todos.app`;
 }
 
+// Identifica se o login é por E-mail (Admin) ou Telefone (Motoristas e Beneficiários)
 function loginIdentifierToEmail(id) {
   const v = String(id || "").trim();
-  if (v.includes("@")) return v.toLowerCase();
-  return phoneAuthEmail(v);
+  if (v.includes("@")) return v.toLowerCase(); // E-mail para Admin
+  return phoneAuthEmail(v); // Telefone para Morador/Motorista
 }
 
 function updateConnectionStatus() {
@@ -111,7 +112,7 @@ function dateOnly(v) {
   return new Date(v + "T12:00:00").toLocaleDateString("pt-BR");
 }
 
-/* LOGIN */
+/* LOGIN MISTO */
 if ($("loginForm")) {
   $("loginForm").onsubmit = async e => {
     e.preventDefault();
@@ -120,7 +121,7 @@ if ($("loginForm")) {
       const email = loginIdentifierToEmail($("loginEmail").value.trim());
       await signInWithEmailAndPassword(auth, email, $("loginPassword").value);
     } catch (err) {
-      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique seu telefone e senha.";
+      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique seu e-mail/telefone e senha.";
     }
   };
 }
@@ -196,6 +197,7 @@ function renderAdminDashboard() {
   const pendingCount = state.deliveries.filter(d => d.status === "pending" || d.status === "awaiting_approval").length;
 
   $("adminPanel").innerHTML = `
+    <!-- VISÃO GERAL COM CAIXA DE ENTREGAS UNIFICADA -->
     <div class="card">
       <div style="margin-bottom: 14px;">
         <h2 style="font-size: 18px; font-weight: 800; color: var(--text-title);">Visão Geral do Programa</h2>
@@ -206,9 +208,18 @@ function renderAdminDashboard() {
         <div class="stat-card"><span class="icon">🏡</span><div class="title">Famílias</div><div class="value">${state.households.length}</div></div>
         <div class="stat-card"><span class="icon">🚚</span><div class="title">Motoristas</div><div class="value">${state.drivers.length}</div></div>
         <div class="stat-card"><span class="icon">🚛</span><div class="title">Veículos</div><div class="value">${state.vehicles.length}</div></div>
-        <div class="stat-card"><span class="icon">📅</span><div class="title">Programadas</div><div class="value">${scheduledCount}</div></div>
-        <div class="stat-card"><span class="icon">✅</span><div class="title">Realizadas</div><div class="value">${completedCount}</div></div>
-        <div class="stat-card"><span class="icon">⏳</span><div class="title">Pendentes / PIN</div><div class="value">${pendingCount}</div></div>
+        
+        <!-- MESMA CAIXA UNIFICADA PARA ENTREGAS COM DETALHAMENTO -->
+        <div class="stat-card" style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); border-color: #7dd3fc;">
+          <span class="icon">💧</span>
+          <div class="title" style="color: #0369a1;">Total Entregas</div>
+          <div class="value" style="color: #0c4a6e;">${state.deliveries.length}</div>
+          <div style="margin-top: 8px; font-size: 11px; font-weight: 700; color: #0284c7; border-top: 1px dashed #7dd3fc; padding-top: 6px;">
+            <span>📅 Prog: ${scheduledCount}</span> • 
+            <span style="color:#059669;">✅ Real: ${completedCount}</span> • 
+            <span style="color:#dc2626;">⏳ Pend: ${pendingCount}</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -301,6 +312,7 @@ function renderDynamicRecords() {
       el.innerHTML = `
         <div class="record-header"><div class="record-title">🏡 ${esc(h.name)}</div><span class="pill completed">Ativa</span></div>
         <p class="small"><b>Telefone:</b> ${esc(h.phone)} · <b>Comunidade:</b> ${esc(h.community)}</p>
+        <p class="small"><b>Endereço:</b> ${esc(h.address || '—')}</p>
         <p class="small"><b>Cisterna:</b> ${h.defaultLiters || 5000} L</p>
         <div style="display: flex; gap: 8px; margin-top: 12px;">
           <button class="secondary small" data-edit-fam="${h.id}">✏️ Alterar</button>
@@ -408,7 +420,7 @@ function renderDynamicRecords() {
   }
 }
 
-/* MODAIS DE CADASTRO COM VALIDAÇÃO DE DUPLICIDADE E MÁSCARAS */
+/* FORMULÁRIOS COM CAMPO DE ENDEREÇO RESTAURADO */
 function showHouseholdForm(editId = null, data = null) {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">🏡 ${editId ? 'Editar' : 'Cadastrar'} Família Rural</h2>
@@ -417,7 +429,7 @@ function showHouseholdForm(editId = null, data = null) {
       <label>Telefone / WhatsApp (Login) <input id="hPhone" type="tel" value="${data?.phone || ''}" placeholder="(84) 99999-9999" required></label>
       <label>Senha ${editId ? '(6 dígitos apenas para alterar)' : 'Inicial (6 dígitos)'} <input id="hPassword" type="password" maxlength="6" placeholder="123456" ${editId ? '' : 'required'}></label>
       <label>Comunidade <input id="hComm" value="${data?.community || ''}" required></label>
-      <label>Endereço / Referência <input id="hAddr" value="${data?.address || ''}" required></label>
+      <label>Endereço / Ponto de Referência <input id="hAddr" value="${data?.address || ''}" placeholder="Ex: Próximo à caixa d'água principal" required></label>
       <label>Volume Cisterna (Litros) <input id="hLit" type="number" value="${data?.defaultLiters || 5000}" required></label>
       <div style="display: flex; gap: 10px; margin-top: 10px;">
         <button type="button" class="secondary" id="canH" style="flex: 1;">Voltar</button>
@@ -626,7 +638,7 @@ function showDeliveryForm(editId = null, data = null) {
   };
 }
 
-/* PAINEL DO MOTORISTA (COM VALIDAÇÃO DE PIN E GPS) */
+/* PAINÉIS SECUNDÁRIOS */
 async function renderDriver() {
   $("driverPanel").innerHTML = `
     <div class="card">
@@ -715,7 +727,7 @@ function showAbsentModal(deliveryId) {
   $("absentForm").onsubmit = async e => {
     e.preventDefault();
     const note = $("obsText").value.trim();
-    const pin = Math.floor(1000 + Math.random() * 9000); // Gera PIN alternativo
+    const pin = Math.floor(1000 + Math.random() * 9000);
 
     try {
       await updateDoc(doc(db, "deliveries", deliveryId), {
@@ -733,7 +745,7 @@ function showAbsentModal(deliveryId) {
   };
 }
 
-/* PAINEL DO BENEFICIÁRIO (COM GERAÇÃO DE PIN) */
+/* PAINEL DO BENEFICIÁRIO */
 async function renderRecipient() {
   const hId = state.profile.householdId;
   const household = state.households.find(h => h.id === hId) || {};
