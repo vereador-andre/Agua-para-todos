@@ -126,21 +126,23 @@ function dateOnly(v) {
   return new Date(v + "T12:00:00").toLocaleDateString("pt-BR");
 }
 
-/* LOGIN */
+/* LOGIN AJUSTADO */
 if ($("loginForm")) {
   $("loginForm").onsubmit = async e => {
     e.preventDefault();
     if ($("loginMsg")) $("loginMsg").textContent = "";
     try {
-      const email = loginIdentifierToEmail($("loginEmail").value.trim());
+      const rawInput = $("loginEmail").value.trim();
+      const email = loginIdentifierToEmail(rawInput);
       await signInWithEmailAndPassword(auth, email, $("loginPassword").value);
     } catch (err) {
-      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique suas credenciais.";
+      console.error(err);
+      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique o telefone/e-mail e a senha de 6 dígitos.";
     }
   };
 }
 
-/* AUTENTICAÇÃO */
+/* AUTENTICAÇÃO COM BUSCA RECURSIVA DE PERFIL */
 onAuthStateChanged(auth, async user => {
   if (!user) {
     state.user = null; state.profile = null;
@@ -156,9 +158,20 @@ onAuthStateChanged(auth, async user => {
   if ($("appView")) $("appView").classList.remove("hidden");
 
   try {
-    const snap = await getDoc(doc(db, "users", user.uid));
-    if (snap.exists()) state.profile = { id: snap.id, ...snap.data() };
-    if (!state.profile) { toast("Usuário sem perfil cadastrado."); return; }
+    // 1. Busca por UID direto
+    let snap = await getDoc(doc(db, "users", user.uid));
+    if (snap.exists()) {
+      state.profile = { id: snap.id, ...snap.data() };
+    } else {
+      // 2. Fallback de busca por E-mail técnico caso o UID divirja
+      const qUser = query(collection(db, "users"), where("authEmail", "==", user.email));
+      const snapQ = await getDocs(qUser);
+      if (!snapQ.empty) {
+        state.profile = { id: snapQ.docs[0].id, ...snapQ.docs[0].data() };
+      }
+    }
+
+    if (!state.profile) { toast("Usuário autenticado, mas perfil não encontrado."); return; }
 
     if ($("userName")) $("userName").textContent = state.profile.name || "USUÁRIO";
     if ($("userRole")) $("userRole").textContent = state.profile.role === "admin" ? "Administrador" : state.profile.role === "driver" ? "Motorista" : "Beneficiário";
@@ -166,6 +179,7 @@ onAuthStateChanged(auth, async user => {
 
     await renderByRole();
   } catch (err) {
+    console.error(err);
     toast("Erro ao carregar sessão.");
   }
 });
@@ -958,17 +972,16 @@ function showAbsentModal(deliveryId) {
 }
 
 /* =========================================================
-   PAINEL DA FAMÍLIA / BENEFICIÁRIO (ATUALIZADO)
+   PAINEL DA FAMÍLIA / BENEFICIÁRIO
 ========================================================= */
 async function renderRecipient() {
-  const userPhone = state.profile.phone;
+  const userPhone = normalizePhone(state.profile.phone);
   
-  // Localiza os dados da família cadastrada no Firestore
-  let household = state.households.find(h => h.id === state.profile.householdId || h.phone === userPhone);
+  let household = state.households.find(h => h.id === state.profile.householdId || normalizePhone(h.phone) === userPhone);
   
   if (!household && userPhone) {
     try {
-      const snapH = await getDocs(query(collection(db, "households"), where("phone", "==", userPhone)));
+      const snapH = await getDocs(query(collection(db, "households"), where("phone", "==", state.profile.phone)));
       if (!snapH.empty) {
         household = { id: snapH.docs[0].id, ...snapH.docs[0].data() };
       }
@@ -978,7 +991,6 @@ async function renderRecipient() {
   household = household || {};
 
   $("recipientPanel").innerHTML = `
-    <!-- CARTÃO DE DADOS DA FAMÍLIA -->
     <div class="card">
       <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🏡 Cadastro da Família Rural</h2>
       <p class="small"><b>Responsável:</b> ${esc(state.profile.name || household.name || '—')}</p>
@@ -988,7 +1000,6 @@ async function renderRecipient() {
       <p class="small"><b>Capacidade da Cisterna:</b> ${household.defaultLiters || 5000} Litros</p>
     </div>
 
-    <!-- LISTAGEM DE ENTREGAS DA FAMÍLIA -->
     <div class="card">
       <h2 style="font-size: 16px; font-weight: 800; margin-bottom: 14px;">🌊 Meus Abastecimentos e Códigos PIN</h2>
       <div id="rList" class="records-grid"></div>
