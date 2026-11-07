@@ -1,9 +1,9 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// Importações oficiais do SDK do Firebase (Versão 12 ou compatível via CDN)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
-// Your web app's Firebase configuration
 export const firebaseConfig = {
   apiKey: "AIzaSyAAf5Tfvh0Ow-iusTMuvax5VlxBgjtVFeo",
   authDomain: "agua-para-todos-18167.firebaseapp.com",
@@ -13,5 +13,10 @@ export const firebaseConfig = {
   appId: "1:154424742994:web:46f14ccf8fc781e8867b8b"
 };
 
-// Initialize Firebase
+// Inicializa a aplicação Firebase principal
 const app = initializeApp(firebaseConfig);
+
+// Exporta os serviços prontos para uso em outros módulos
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
