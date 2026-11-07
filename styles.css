@@ -1,10 +1,11 @@
 /* =========================================================
-   DESIGN SYSTEM EXEC HIGH-TECH - AREIA BRANCA/RN
+   DESIGN SYSTEM PREMIUM - ÁGUA PARA TODOS
 ========================================================= */
 :root {
-  --primary: #0284c7;
-  --primary-dark: #0369a1;
-  --primary-light: #e0f2fe;
+  --primary: #0077b6;
+  --primary-dark: #03045e;
+  --primary-light: #90e0ef;
+  --accent: #00b4d8;
   --bg-main: #f8fafc;
   --card-bg: #ffffff;
   --text-title: #0f172a;
@@ -17,10 +18,10 @@
   --warning-bg: #fef3c7;
   --danger: #ef4444;
   --danger-bg: #fee2e2;
-  --radius: 16px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-  --shadow-md: 0 10px 25px -5px rgba(0,0,0,0.08);
-  --shadow-lg: 0 20px 30px -10px rgba(2, 132, 199, 0.15);
+  --radius: 18px;
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 15px 35px -5px rgba(0, 119, 182, 0.15);
+  --shadow-lg: 0 25px 50px -12px rgba(3, 4, 94, 0.25);
 }
 
 * {
@@ -55,23 +56,26 @@ body {
 .no-scroll { overflow: hidden; }
 .small { font-size: 13px; color: var(--text-muted); }
 
-/* Login View */
+/* Tela de Login Moderna */
 .view-container {
   flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 20px;
-  background: radial-gradient(circle at top right, #0284c7 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #03045e 0%, #0077b6 50%, #00b4d8 100%);
+  position: relative;
 }
 
 .login-card {
-  background: var(--card-bg);
-  padding: 32px 24px;
-  border-radius: 24px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  padding: 36px 28px;
+  border-radius: 28px;
+  box-shadow: var(--shadow-lg);
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .login-header {
@@ -80,45 +84,62 @@ body {
 }
 
 .login-header .logo-badge {
-  width: 56px;
-  height: 56px;
-  background: var(--primary-light);
-  border-radius: 18px;
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%);
+  border-radius: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 36px;
   margin-bottom: 12px;
+  box-shadow: 0 10px 20px rgba(0, 119, 182, 0.3);
 }
 
 .login-header h1 {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text-title);
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--primary-dark);
+  letter-spacing: -0.5px;
 }
 
-.login-header p {
-  color: var(--text-muted);
+.login-header .subtitle-slogan {
+  color: var(--primary);
   font-size: 13px;
+  font-weight: 700;
   margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.login-footer-prefeitura {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 20px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 14px;
 }
 
 /* Forms */
 form label {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   color: var(--text-muted);
   margin-bottom: 6px;
 }
 
 form input, form select, form textarea {
   width: 100%;
-  padding: 12px 14px;
+  padding: 13px 16px;
   border: 1.5px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   font-size: 15px;
   margin-bottom: 14px;
   background: #f8fafc;
@@ -130,7 +151,7 @@ form input, form select, form textarea {
 form input:focus, form select:focus, form textarea:focus {
   border-color: var(--primary);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.12);
+  box-shadow: 0 0 0 4px rgba(0, 119, 182, 0.12);
   outline: none;
 }
 
@@ -170,8 +191,8 @@ form input:focus, form select:focus, form textarea:focus {
   justify-content: center;
   gap: 10px;
   background: #f1f5f9;
-  padding: 4px 12px;
-  border-radius: 20px;
+  padding: 6px 14px;
+  border-radius: 22px;
   border: 1px solid var(--border);
 }
 
@@ -189,7 +210,7 @@ form input:focus, form select:focus, form textarea:focus {
 
 .main-content {
   flex: 1;
-  padding: 16px 12px;
+  padding: 16px 12px 70px 12px;
   max-width: 1100px;
   width: 100%;
   margin: 0 auto;
@@ -236,7 +257,7 @@ form input:focus, form select:focus, form textarea:focus {
 button {
   cursor: pointer;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px 16px;
   font-size: 13px;
   font-weight: 700;
@@ -252,9 +273,9 @@ button:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 button:active { transform: translateY(0) scale(0.98); }
 
 button.primary {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(135deg, #0077b6 0%, #03045e 100%);
   color: white;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 10px 20px rgba(0, 119, 182, 0.3);
 }
 
 button.secondary {
@@ -284,14 +305,14 @@ button.logout-btn {
   white-space: nowrap;
 }
 
-button.small { padding: 6px 10px; font-size: 11px; border-radius: 8px; }
+button.small { padding: 6px 10px; font-size: 11px; border-radius: 10px; }
 
 .filter-tab-btn {
   background: #f1f5f9;
   color: var(--text-body);
   border: 1.5px solid var(--border);
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 12px;
   font-weight: 700;
   font-size: 12px;
   cursor: pointer;
@@ -308,7 +329,7 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 8px; }
 .live-suggestions-box {
   background: #ffffff;
   border: 1px solid var(--primary);
-  border-radius: 10px;
+  border-radius: 12px;
   max-height: 120px;
   overflow-y: auto;
   margin-top: -10px;
@@ -336,7 +357,7 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 8px; }
 .record-card {
   background: var(--card-bg);
   border: 1.5px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 16px;
   transition: all 0.2s ease;
   position: relative;
@@ -362,13 +383,14 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 8px; }
 .pill {
   font-size: 10px;
   font-weight: 800;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 20px;
   text-transform: uppercase;
 }
 .pill.completed { background: var(--success-bg); color: #065f46; }
 .pill.scheduled { background: var(--warning-bg); color: #92400e; }
-.pill.pending { background: var(--danger-bg); color: #991b1b; }
+.pill.pending { background: #fce7f3; color: #9d174d; }
+.pill.danger { background: var(--danger-bg); color: #991b1b; }
 
 .pin-display-box {
   background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
@@ -387,6 +409,27 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 8px; }
   margin-top: 4px;
 }
 
+/* Botão Flutuante de Suporte WhatsApp */
+.whatsapp-float-btn {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  background: #25d366;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+.whatsapp-float-btn:hover { transform: scale(1.05); color: white; }
+
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;
@@ -395,13 +438,13 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 8px; }
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 2000;
   padding: 16px;
 }
 
 .modal-card {
   background: white;
-  border-radius: 20px;
+  border-radius: 22px;
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
@@ -416,7 +459,7 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 8px; }
   top: 14px; right: 14px;
   background: #f1f5f9;
   border-radius: 50%;
-  width: 30px; height: 30px;
+  width: 32px; height: 32px;
   display: flex; align-items: center; justify-content: center;
   font-size: 18px; color: var(--text-muted);
   cursor: pointer; padding: 0;
@@ -429,11 +472,11 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 8px; }
   background: #0f172a;
   color: white;
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: 14px;
   font-size: 13px;
   font-weight: 700;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
   transition: transform 0.3s ease;
-  z-index: 2000;
+  z-index: 3000;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
