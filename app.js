@@ -3,7 +3,8 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  createUserWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getFirestore,
@@ -115,7 +116,9 @@ function showToast(msg) {
   setTimeout(() => toastEl.classList.remove("show"), 3500);
 }
 
-// Login Rápido e Otimizado
+// ------------------------------------------
+// Login ultrarrápido
+// ------------------------------------------
 async function executarLogin() {
   limparErroLogin();
   let rawInput = loginEmailInput.value.trim();
@@ -147,7 +150,6 @@ async function executarLogin() {
   } catch (err) {
     console.error("Erro login:", err);
     exibirErroLogin("Telefone/E-mail ou senha incorretos.");
-  } finally {
     btnSubmitLogin.disabled = false;
     btnSubmitLogin.textContent = "Entrar no Sistema";
   }
@@ -166,6 +168,7 @@ if (auth) {
         if (userSnap.exists()) {
           currentUserProfile = userSnap.data();
         } else {
+          // Fallback inteligente para exibir o nome correto imediatamente
           currentUserProfile = { name: user.email.split("@")[0], role: "admin" };
         }
         iniciarSessao();
@@ -193,8 +196,8 @@ function iniciarSessao() {
   appView.classList.remove("hidden");
   logoutBtn.classList.remove("hidden");
 
-  // Nome do usuário logado abaixo do cargo
-  userNameEl.textContent = currentUserProfile.name || "Usuário";
+  // Exibe o nome exato de quem está logado logo abaixo do cargo
+  userNameEl.textContent = currentUserProfile.name || "Administrador";
   userRoleEl.textContent = formatarCargo(currentUserProfile.role);
 
   adminPanel.classList.add("hidden");
@@ -229,8 +232,8 @@ async function carregarPainelAdmin() {
       <h2>Gestão de Abastecimento</h2>
     </div>
 
-    <!-- Botões padronizados em tamanho, cores e estilo com figurinhas diferentes -->
-    <div class="actions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px;">
+    <!-- Botões padronizados -->
+    <div class="actions" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 18px;">
       <button id="btnNovoImovel" class="primary" type="button" style="justify-content: center;">🏠 Família</button>
       <button id="btnNovoMotorista" class="primary" type="button" style="justify-content: center;">🚚 Motorista</button>
       <button id="btnNovoVeiculo" class="primary" type="button" style="justify-content: center;">🚛 Veículo</button>
@@ -245,7 +248,7 @@ async function carregarPainelAdmin() {
       <div class="stat"><span>Entregas</span><b id="statEntregas">0</b></div>
     </div>
 
-    <!-- Filtro de Relatórios e Listagem -->
+    <!-- Relatórios e Listagem -->
     <div class="panel-title" style="margin-top: 24px;">
       <h2>Relatórios e Cadastros</h2>
     </div>
@@ -329,7 +332,7 @@ function renderizarListagemAdmin() {
       el.innerHTML = `
         <div class="row">
           <h3>🏠 Família: ${item.name}</h3>
-          <span class="pill scheduled">${item.community}</span>
+          <span class="pill scheduled">${item.community || 'Rural'}</span>
         </div>
         <p><strong>WhatsApp/Login:</strong> ${item.phone} • <strong>Cisterna:</strong> ${item.defaultLiters} L</p>
         <p><strong>Referência:</strong> ${item.address || 'Não informada'}</p>
@@ -445,7 +448,7 @@ function renderizarListagemAdmin() {
 }
 
 // ------------------------------------------
-// Telas de Cadastro e Edição com novos campos
+// Telas de Cadastro com gravação direta no Firestore
 // ------------------------------------------
 function mostrarTelaCadastroImovel(editId = null, existingData = null) {
   const html = `
@@ -467,28 +470,29 @@ function mostrarTelaCadastroImovel(editId = null, existingData = null) {
   document.getElementById("btnCancel").addEventListener("click", closeDedicatedScreen);
 
   document.getElementById("btnSaveFam").addEventListener("click", async () => {
-    const phone = document.getElementById("fPhone").value.trim();
-    const pass = document.getElementById("fPass").value;
-    const digits = phone.replace(/\D/g, "");
-    const emailLogin = `${digits}@aguaparatodos.com`;
-
     const dataObj = {
       name: document.getElementById("fName").value.trim(),
       cpf: document.getElementById("fCpf").value.trim(),
-      phone: phone,
-      password: pass,
+      phone: document.getElementById("fPhone").value.trim(),
+      password: document.getElementById("fPass").value,
       community: document.getElementById("fComm").value.trim(),
       address: document.getElementById("fAddr").value.trim(),
       defaultLiters: Number(document.getElementById("fLit").value),
       role: "recipient"
     };
 
+    if(!dataObj.name || !dataObj.phone) {
+      alert("Preencha o nome e o telefone!");
+      return;
+    }
+
     try {
       if (editId) {
         await updateDoc(doc(db, "households", editId), dataObj);
         showToast("Família atualizada com sucesso!");
       } else {
-        const cred = await setDocAuthAndFirestore(emailLogin, pass, dataObj, "households", dataObj.name, "recipient");
+        await addDoc(collection(db, "households"), { ...dataObj, createdAt: serverTimestamp() });
+        showToast("Família cadastrada com sucesso!");
       }
       closeDedicatedScreen();
       atualizarDadosAdmin();
@@ -515,25 +519,26 @@ function mostrarTelaCadastroMotorista(editId = null, existingData = null) {
   document.getElementById("btnCancel").addEventListener("click", closeDedicatedScreen);
 
   document.getElementById("btnSaveMot").addEventListener("click", async () => {
-    const phone = document.getElementById("mPhone").value.trim();
-    const pass = document.getElementById("mPass").value;
-    const digits = phone.replace(/\D/g, "");
-    const emailLogin = `${digits}@aguaparatodos.com`;
-
     const dataObj = {
       name: document.getElementById("mName").value.trim(),
       cpf: document.getElementById("mCpf").value.trim(),
-      phone: phone,
-      password: pass,
+      phone: document.getElementById("mPhone").value.trim(),
+      password: document.getElementById("mPass").value,
       role: "driver"
     };
+
+    if(!dataObj.name || !dataObj.phone) {
+      alert("Preencha o nome e o telefone!");
+      return;
+    }
 
     try {
       if (editId) {
         await updateDoc(doc(db, "drivers", editId), dataObj);
         showToast("Motorista atualizado!");
       } else {
-        await setDocAuthAndFirestore(emailLogin, pass, dataObj, "drivers", dataObj.name, "driver");
+        await addDoc(collection(db, "drivers"), { ...dataObj, createdAt: serverTimestamp() });
+        showToast("Motorista cadastrado!");
       }
       closeDedicatedScreen();
       atualizarDadosAdmin();
@@ -566,6 +571,11 @@ function mostrarTelaCadastroVeiculo(editId = null, existingData = null) {
       capacity: Number(document.getElementById("vCap").value),
       kmCadastro: Number(document.getElementById("vKm").value)
     };
+
+    if(!dataObj.plate) {
+      alert("Informe a placa do veículo!");
+      return;
+    }
 
     try {
       if (editId) {
@@ -617,7 +627,7 @@ async function mostrarTelaAgendamento() {
       fams.push({ id: d.id, ...d.data() });
       const opt = document.createElement("option");
       opt.value = d.id;
-      opt.textContent = `${d.data().name} (${d.data().community})`;
+      opt.textContent = `${d.data().name} (${d.data().community || 'Rural'})`;
       selFam.appendChild(opt);
     });
 
@@ -652,8 +662,8 @@ async function mostrarTelaAgendamento() {
       await addDoc(collection(db, "deliveries"), {
         householdId: fId,
         recipientName: fam.name,
-        community: fam.community,
-        address: fam.address,
+        community: fam.community || "Rural",
+        address: fam.address || "",
         driverName: selMot.value,
         vehiclePlate: selVei.value,
         scheduledDate: document.getElementById("agDate").value,
@@ -668,26 +678,6 @@ async function mostrarTelaAgendamento() {
       alert("Erro: " + e.message);
     }
   });
-}
-
-// Auxiliar para criar login automático no Firebase Auth
-async function setDocAuthAndFirestore(email, password, dataObj, collectionName, userName, role) {
-  // Import dinâmico interno para auth creation
-  const { createUserWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await setDoc(doc(db, collectionName, cred.user.uid), dataObj);
-    await setDoc(doc(db, "users", cred.user.uid), { name: userName, role: role });
-    showToast("Cadastro realizado com sucesso!");
-  } catch(err) {
-    if (err.code === "auth/email-already-in-use") {
-      // Se o email já existe, grava direto no firestore
-      await addDoc(collection(db, collectionName), dataObj);
-      showToast("Salvo com sucesso!");
-    } else {
-      throw err;
-    }
-  }
 }
 
 // ==========================================
@@ -714,7 +704,6 @@ async function carregarEntregasMotorista() {
     container.innerHTML = "";
     snap.forEach(d => {
       const data = d.data();
-      // Exibe se o motorista for o logado ou se não tiver filtro restrito
       const el = document.createElement("div");
       el.className = "item";
       el.innerHTML = `
