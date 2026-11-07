@@ -179,7 +179,7 @@ async function renderByRole() {
     if ($("driverPanel")) $("driverPanel").classList.remove("hidden");
     await renderDriver();
   } else if (state.profile.role === "recipient") {
-    if ($("recipientPanel")) $("recipientPanel").classList.add("hidden"); // Beneficiário configuraremos a seguir
+    if ($("recipientPanel")) $("recipientPanel").classList.remove("hidden");
     await renderRecipient();
   }
 }
@@ -500,7 +500,7 @@ function showAuditModal() {
           <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
           <p class="small"><b>Data Agendada:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L ${d.alterReason ? `(Alterado: ${d.alterReason})` : ''}</p>
           <p class="small" style="color:var(--primary); font-weight:700;"><b>PIN do Registro:</b> ${d.pin || 'Não gerado'}</p>
-          ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700;">📍 GPS: Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)}</p>` : '<p class="small">📍 GPS: Sem registro</p>'}
+          ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700;">📍 GPS: Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)}</p>` : '<p class="small" style="color:var(--danger); font-weight:700;">📍 GPS: Não registrado</p>'}
           ${d.note ? `<p class="small" style="color:var(--danger); font-weight:700;">⚠️ Obs Ausência: ${esc(d.note)}</p>` : ''}
         </div>
       `).join("") || "<p class='small'>Nenhuma entrega cadastrada.</p>"}
@@ -794,7 +794,7 @@ function showDeliveryForm(editId = null, data = null) {
 }
 
 /* =========================================================
-   PAINEL DO MOTORISTA (ATUALIZADO E COMPLETO)
+   PAINEL DO MOTORISTA (COM CÂMERA OBRIGATÓRIA E GPS EXATO)
 ========================================================= */
 async function renderDriver() {
   $("driverPanel").innerHTML = `
@@ -819,7 +819,6 @@ async function renderDriver() {
         <p class="small"><b>Data:</b> ${dateOnly(item.scheduledDate)} · <b>Comunidade:</b> ${esc(item.community)}</p>
         <p class="small"><b>Endereço:</b> ${esc(item.address || '—')}</p>
 
-        <!-- ALTERAÇÃO DE VOLUME COM JUSTIFICATIVA OBRIGATÓRIA -->
         <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid var(--border);">
           <label style="font-size: 11px; margin-bottom: 4px;">Volume de Água (Litros)</label>
           <input type="number" id="volInput_${item.id}" value="${item.plannedLiters}" style="margin-bottom: 8px;">
@@ -904,7 +903,7 @@ async function confirmDeliveryWithPin(deliveryId, expectedPin) {
     }
   }, () => {
     alert("Não foi possível obter a localização GPS. Ative o GPS do aparelho.");
-  }, { enableHighAccuracy: true });
+  }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 }
 
 function showAbsentModal(deliveryId) {
@@ -916,34 +915,51 @@ function showAbsentModal(deliveryId) {
       <label>Foto do Local (Obrigatório Direto da Câmera) 
         <input id="obsPhoto" type="file" accept="image/*" capture="environment" required>
       </label>
-      <p class="small" style="color:var(--danger); margin-bottom:14px;">Nota: É obrigatório tirar a foto na hora usando a câmera do celular (fotos da galeria não são permitidas).</p>
+      <p class="small" style="color:var(--danger); margin-bottom:14px;">Nota: Use a câmera do aparelho para tirar a foto no local (fotos salvas na galeria são bloqueadas).</p>
 
-      <button type="submit" class="primary full-width" style="width:100%;">📤 Registrar Ausência e Gerar PIN para Morador</button>
+      <button type="submit" class="primary full-width" style="width:100%;">📤 Registrar Ausência com GPS e Gerar PIN</button>
     </form>
   `);
 
   $("absentForm").onsubmit = async e => {
     e.preventDefault();
-    const note = $("obsText".trim() || "Morador ausente no momento da entrega");
-    const pin = Math.floor(1000 + Math.random() * 9000);
+    const note = $("obsText").value.trim() || "Morador ausente";
 
-    try {
-      await updateDoc(doc(db, "deliveries", deliveryId), {
-        status: "pending",
-        pin,
-        note: $("obsText").value.trim(),
-        updatedAt: serverTimestamp()
-      });
-      closeModal();
-      toast("Ausência registrada! PIN gerado para validação posterior do morador.");
-      renderDriver();
-    } catch (err) {
-      alert("Erro: " + err.message);
+    if (!navigator.geolocation) {
+      return alert("Geolocalização obrigatória não suportada.");
     }
+
+    toast("Capturando GPS e registrando ausência...");
+
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const pin = Math.floor(1000 + Math.random() * 9000);
+
+      try {
+        await updateDoc(doc(db, "deliveries", deliveryId), {
+          status: "pending",
+          pin,
+          lat,
+          lng,
+          note,
+          updatedAt: serverTimestamp()
+        });
+        closeModal();
+        toast("Ausência registrada com GPS e PIN gerado com sucesso!");
+        renderDriver();
+      } catch (err) {
+        alert("Erro ao salvar: " + err.message);
+      }
+    }, () => {
+      alert("Erro ao capturar GPS. Verifique se o GPS está ativado no aparelho.");
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
   };
 }
 
-/* PAINEL DO BENEFICIÁRIO */
+/* =========================================================
+   PAINEL DO BENEFICIÁRIO
+========================================================= */
 async function renderRecipient() {
   const hId = state.profile.householdId;
   const household = state.households.find(h => h.id === hId) || {};
