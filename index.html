@@ -18,11 +18,11 @@
 
   <div id="connectionStatus" class="connection-banner hidden">Verificando rede...</div>
 
-  <!-- TELA DE LOGIN (ADMIN COM E-MAIL E SENHA) -->
+  <!-- TELA DE LOGIN (E-MAIL E SENHA PARA ADMIN / TELEFONE PARA OUTROS) -->
   <div id="loginView" class="view-container">
     <div class="login-card">
       <div class="login-header">
-        <div class="logo-badge">💧</div>
+        <div class="logo-badge">🌊</div>
         <h1>Água para Todos</h1>
         <p>Prefeitura Municipal de Areia Branca/RN</p>
       </div>
@@ -31,7 +31,7 @@
         <label for="loginEmail">Acesso de Usuário</label>
         <input id="loginEmail" type="text" placeholder="E-mail Admin ou Telefone Morador/Motorista" autocomplete="username" required>
 
-        <label for="loginPassword">Senha de Segurança</label>
+        <label for="loginPassword">Senha de Acesso</label>
         <input id="loginPassword" type="password" placeholder="Sua senha" autocomplete="current-password" required>
 
         <button type="submit" id="btnSubmitLogin" class="primary" style="width: 100%; margin-top: 8px;">
@@ -42,20 +42,18 @@
     </div>
   </div>
 
-  <!-- APLICAÇÃO PRINCIPAL -->
+  <!-- APLICAÇÃO PRINCIPAL (TOPO CENTRALIZADO E MODERNIZADO) -->
   <div id="appView" class="view-container hidden" style="background: transparent; flex-direction: column; justify-content: flex-start; padding: 0;">
     <header class="app-header">
       <div class="header-brand-title">
-        <span>💧</span> CONTROLE DE ABASTECIMENTO
+        <span>🌊</span> CONTROLE DE ABASTECIMENTO
       </div>
 
-      <div class="user-badge">
-        <div class="user-profile-wrapper">
-          <div class="user-avatar" id="userAvatar">🛡️</div>
-          <div class="user-info">
-            <h2 id="userName">Carregando...</h2>
-            <span id="userRole" class="pill scheduled" style="font-size: 8px; padding: 1px 4px;">Cargo</span>
-          </div>
+      <div class="user-badge-central">
+        <div class="user-info-inline">
+          <span id="userAvatar">🛡️</span>
+          <h2 id="userName">Carregando...</h2>
+          <span id="userRole" class="pill scheduled" style="font-size: 8px; padding: 1px 4px;">Cargo</span>
         </div>
         <button id="logoutBtn" class="logout-btn">🚪 Sair</button>
       </div>
