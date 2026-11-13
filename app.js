@@ -75,8 +75,15 @@ function phoneAuthEmail(phone) {
 
 function loginIdentifierToEmail(id) {
   const v = String(id || "").trim();
+  // Se contiver "@", é um e-mail de administrador ou cadastrado diretamente
   if (v.includes("@")) return v.toLowerCase();
-  return phoneAuthEmail(v);
+  
+  // Se for número de telefone (morador ou motorista), formata para o e-mail interno de autenticação
+  const d = normalizePhone(v);
+  if (d.length >= 10) {
+    return `usuario.${d}@agua-para-todos.app`;
+  }
+  return v.toLowerCase();
 }
 
 function updateConnectionStatus() {
@@ -136,7 +143,7 @@ function translateStatus(status) {
   }
 }
 
-/* LOGIN NORMAL RESTAURADO E ROBUSTO */
+/* LOGIN NORMAL CORRIGIDO E ROBUSTO */
 if ($("loginForm")) {
   $("loginForm").onsubmit = async e => {
     e.preventDefault();
@@ -144,10 +151,14 @@ if ($("loginForm")) {
     try {
       const rawInput = $("loginEmail").value.trim();
       const email = loginIdentifierToEmail(rawInput);
-      await signInWithEmailAndPassword(auth, email, $("loginPassword").value);
+      const password = $("loginPassword").value;
+      
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
-      console.error(err);
-      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique o telefone/e-mail e a senha de 6 dígitos.";
+      console.error("Erro de login:", err);
+      if ($("loginMsg")) {
+        $("loginMsg").textContent = "Acesso negado: Verifique o e-mail/telefone e a senha informados.";
+      }
     }
   };
 }
@@ -288,7 +299,7 @@ function showForgotPasswordModal() {
     }
   };
 
-  // Validação por E-mail na base de dados (Com tratativa de erro correta)
+  // Validação por E-mail na base de dados
   $("recoveryEmailForm").onsubmit = async e => {
     e.preventDefault();
     const errEl = $("recEmailErr");
