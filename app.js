@@ -101,7 +101,6 @@ if ($("modal")) $("modal").onclick = e => { if (e.target.id === "modal") closeMo
 function toast(msg) {
   if (!$("toast")) return;
   $("toast").textContent = msg;
-  $("toast.classList")?.add("show"); // Safe check
   $("toast").classList.add("show");
   setTimeout(() => $("toast").classList.remove("show"), 3500);
 }
@@ -152,7 +151,7 @@ if ($("loginForm")) {
   };
 }
 
-/* RECUPERAÇÃO DE SENHA */
+/* RECUPERAÇÃO DE SENHA COM VALIDAÇÃO SEGURA DE CADASTRO */
 if ($("forgotPasswordLink")) {
   $("forgotPasswordLink").onclick = e => {
     e.preventDefault();
@@ -162,35 +161,38 @@ if ($("forgotPasswordLink")) {
 
 function showForgotPasswordModal() {
   openModal(`
-    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🔑 Recuperação de Senha</h2>
-    <p class="small" style="margin-bottom: 16px;">Escolha como deseja recuperar o acesso ao sistema:</p>
+    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🔑 Recuperação Segura de Senha</h2>
+    <p class="small" style="margin-bottom: 16px;">Para sua segurança, informe os dados corretos cadastrados no sistema:</p>
 
     <div style="display: flex; gap: 10px; margin-bottom: 16px;">
       <button type="button" class="primary small" id="tabEmail" style="flex:1;">Via E-mail (Admin)</button>
-      <button type="button" class="secondary small" id="tabPhone" style="flex:1;">Via Telefone / Celular</button>
+      <button type="button" class="secondary small" id="tabPhone" style="flex:1;</button>Via Celular + Validação</button>
     </div>
 
     <div id="recoveryEmailContainer">
       <form id="recoveryEmailForm">
-        <label>Informe seu E-mail cadastrado <input id="recEmail" type="email" placeholder="admin@areianbranca.rn.gov.br" required></label>
+        <label>E-mail Cadastrado <input id="recEmail" type="email" placeholder="admin@areianbranca.rn.gov.br" required></label>
         <button type="submit" class="primary" style="width:100%; margin-top:8px;">📩 Enviar Link de Recuperação</button>
       </form>
     </div>
 
     <div id="recoveryPhoneContainer" class="hidden">
       <form id="recoveryPhoneForm">
-        <label>Informe seu Telefone / WhatsApp cadastrado <input id="recPhone" type="tel" placeholder="(84) 99999-9999" required></label>
-        <button type="submit" class="accent" style="width:100%; margin-top:8px;">📱 Gerar Código de Acesso</button>
+        <label>Telefone / WhatsApp Cadastrado <input id="recPhone" type="tel" placeholder="(84) 99999-9999" required></label>
+        <label>Nome Completo do Responsável (Confirmação de Segurança) <input id="recNameCheck" type="text" placeholder="Nome exato do cadastro" required></label>
+        <button type="submit" class="accent" style="width:100%; margin-top:8px;">🔒 Validar e Gerar Código Seguro</button>
       </form>
       <div id="phoneCodeResult" class="hidden" style="margin-top:14px; background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:12px; text-align:center;">
-        <p class="small" style="color:#166534; font-weight:800;">CÓDIGO DE RECUPERAÇÃO GERADO:</p>
+        <p class="small" style="color:#166534; font-weight:800;">CÓDIGO DE RECUPERAÇÃO VALIDADO:</p>
         <div id="codeDisplayBox" style="font-size:24px; font-weight:900; letter-spacing:6px; color:#15803d; margin:6px 0;"></div>
+        <p class="small" style="color:#166534; margin-bottom:8px;">Use este código de 6 dígitos para entrar ou redefinir sua senha.</p>
         <button type="button" class="primary small" id="copyCodeBtn" style="width:100%;">📋 Copiar Código Completo</button>
       </div>
     </div>
   `);
 
   applyPhoneMask($("recPhone"));
+  attachUppercaseNoAccent($("recNameCheck"));
 
   $("tabEmail").onclick = () => {
     $("tabEmail").className = "primary small";
@@ -222,19 +224,46 @@ function showForgotPasswordModal() {
     e.preventDefault();
     const phoneVal = $("recPhone").value.trim();
     const cleanPh = normalizePhone(phoneVal);
+    const enteredName = sanitizeText($("recNameCheck").value.trim());
 
     if (cleanPh.length < 10) return alert("Informe um telefone válido.");
 
-    // Gera um código numérico aleatório de 6 dígitos para copiar e colar
-    const secureCode = Math.floor(100000 + Math.random() * 900000);
-    $("codeDisplayBox").textContent = secureCode;
-    $("phoneCodeResult").classList.remove("hidden");
-    toast("Código gerado com sucesso!");
+    toast("Verificando cadastro no sistema...");
 
-    $("copyCodeBtn").onclick = () => {
-      navigator.clipboard.writeText(String(secureCode));
-      toast("✅ Código copiado para a área de transferência!");
-    };
+    try {
+      // Validação de segurança: Verifica se o telefone e o nome conferem no banco de dados
+      const [snapH, snapU] = await Promise.all([
+        getDocs(query(collection(db, "households"), where("phone", "==", phoneVal))),
+        getDocs(query(collection(db, "users"), where("phone", "==", phoneVal)))
+      ]);
+
+      let foundMatch = false;
+      if (!snapH.empty) {
+        const data = snapH.docs[0].data();
+        if (sanitizeText(data.name).includes(enteredName)) foundMatch = true;
+      }
+      if (!snapU.empty) {
+        const data = snapU.docs[0].data();
+        if (sanitizeText(data.name).includes(enteredName)) foundMatch = true;
+      }
+
+      if (!foundMatch) {
+        return alert("Erro de segurança: O telefone informado não confere com o nome cadastrado no sistema.");
+      }
+
+      // Se validado com sucesso, gera o código seguro de 6 dígitos
+      const secureCode = Math.floor(100000 + Math.random() * 900000);
+      $("codeDisplayBox").textContent = secureCode;
+      $("phoneCodeResult").classList.remove("hidden");
+      toast("✅ Identidade validada com sucesso!");
+
+      $("copyCodeBtn").onclick = () => {
+        navigator.clipboard.writeText(String(secureCode));
+        toast("📋 Código copiado para a área de transferência!");
+      };
+    } catch(err) {
+      alert("Erro ao validar dados: " + err.message);
+    }
   };
 }
 
