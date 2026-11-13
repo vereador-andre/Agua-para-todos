@@ -5,12 +5,12 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/12.19.0/firebas
 
 // TODO: Replace the following with your app's Firebase project configuration
 export const firebaseConfig = {
-  apiKey: "AIzaSyD-Exemplo-SuaApiKeyDoFirebaseAqui",
-  authDomain: "agua-para-todos-areia-branca.firebaseapp.com",
-  projectId: "agua-para-todos-areia-branca",
-  storageBucket: "agua-para-todos-areia-branca.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef123456789"
+  apiKey: "AIzaSyAAf5Tfvh0Ow-iusTMuvax5VlxBgjtVFeo",
+  authDomain: "agua-para-todos-18167.firebaseapp.com",
+  projectId: "agua-para-todos-18167",
+  storageBucket: "agua-para-todos-18167.firebasestorage.app",
+  messagingSenderId: "154424742994",
+  appId: "1:154424742994:web:46f14ccf8fc781e8867b8b"
 };
 
 // Initialize Firebase
