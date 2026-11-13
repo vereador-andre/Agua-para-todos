@@ -11,6 +11,7 @@ const state = {
   deliveries: [], 
   drivers: [], 
   vehicles: [],
+  resetRequests: [],
   filters: { category: null, searchTerm: "" }
 };
 
@@ -151,7 +152,7 @@ if ($("loginForm")) {
   };
 }
 
-/* RECUPERAÇÃO DE SENHA COM VALIDAÇÃO SEGURA DE CADASTRO */
+/* RECUPERAÇÃO DE SENHA SEGURA COM VALIDAÇÃO NA BASE DE DADOS */
 if ($("forgotPasswordLink")) {
   $("forgotPasswordLink").onclick = e => {
     e.preventDefault();
@@ -161,45 +162,45 @@ if ($("forgotPasswordLink")) {
 
 function showForgotPasswordModal() {
   openModal(`
-    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🔑 Recuperação Segura de Senha</h2>
-    <p class="small" style="margin-bottom: 16px;">Para sua segurança, informe os dados corretos cadastrados no sistema:</p>
+    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 10px;">🔑 Recuperação Segura de Senha</h2>
+    <p class="small" style="margin-bottom: 16px;">Informe seus dados cadastrados para validar seu acesso na base do programa:</p>
 
-    <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-      <button type="button" class="primary small" id="tabEmail" style="flex:1;">Via E-mail (Admin)</button>
-      <button type="button" class="secondary small" id="tabPhone" style="flex:1;</button>Via Celular + Validação</button>
+    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+      <button type="button" class="primary small" id="tabPhone" style="flex:1;">📱 Telefone (Família/Motorista)</button>
+      <button type="button" class="secondary small" id="tabEmail" style="flex:1;">📧 E-mail (Admin)</button>
     </div>
 
-    <div id="recoveryEmailContainer">
-      <form id="recoveryEmailForm">
-        <label>E-mail Cadastrado <input id="recEmail" type="email" placeholder="admin@areianbranca.rn.gov.br" required></label>
-        <button type="submit" class="primary" style="width:100%; margin-top:8px;">📩 Enviar Link de Recuperação</button>
-      </form>
-    </div>
-
-    <div id="recoveryPhoneContainer" class="hidden">
+    <!-- RECUPERAÇÃO POR TELEFONE -->
+    <div id="recoveryPhoneContainer">
       <form id="recoveryPhoneForm">
         <label>Telefone / WhatsApp Cadastrado <input id="recPhone" type="tel" placeholder="(84) 99999-9999" required></label>
-        <label>Nome Completo do Responsável (Confirmação de Segurança) <input id="recNameCheck" type="text" placeholder="Nome exato do cadastro" required></label>
-        <button type="submit" class="accent" style="width:100%; margin-top:8px;">🔒 Validar e Gerar Código Seguro</button>
+        <label>Confirme seu Nome Completo (para validação) <input id="recConfirmName" type="text" placeholder="Digite seu nome cadastrado" required></label>
+        <p id="recPhoneErr" class="small" style="color:var(--danger); font-weight:700; margin-bottom:10px;"></p>
+        <button type="submit" id="btnVerifyPhone" class="primary" style="width:100%;">🔍 Verificar Cadastro e Solicitar Senha</button>
       </form>
-      <div id="phoneCodeResult" class="hidden" style="margin-top:14px; background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:12px; text-align:center;">
-        <p class="small" style="color:#166534; font-weight:800;">CÓDIGO DE RECUPERAÇÃO VALIDADO:</p>
-        <div id="codeDisplayBox" style="font-size:24px; font-weight:900; letter-spacing:6px; color:#15803d; margin:6px 0;"></div>
-        <p class="small" style="color:#166534; margin-bottom:8px;">Use este código de 6 dígitos para entrar ou redefinir sua senha.</p>
-        <button type="button" class="primary small" id="copyCodeBtn" style="width:100%;">📋 Copiar Código Completo</button>
+
+      <div id="phoneSuccessBox" class="hidden" style="margin-top:14px; background:#f0fdf4; border:1.5px solid #86efac; padding:14px; border-radius:14px;">
+        <p class="small" style="color:#166534; font-weight:800;">✅ CADASTRO VALIDADO COM SUCESSO!</p>
+        <p class="small" style="color:#15803d; margin-top:6px;" id="validatedUserSummary"></p>
+        <p class="small" style="color:#334155; margin-top:8px;">Por segurança, uma solicitação oficial de redefinição de senha foi registrada para o Administrador. Clique abaixo para agilizar o recebimento da sua nova senha de 6 dígitos via WhatsApp:</p>
+        <a id="waResetLink" href="#" target="_blank" style="display:block; text-align:center; background:#25d366; color:#fff; font-weight:800; font-size:13px; padding:12px; border-radius:12px; text-decoration:none; margin-top:10px;">
+          💬 Solicitar Nova Senha no WhatsApp do Suporte
+        </a>
       </div>
+    </div>
+
+    <!-- RECUPERAÇÃO POR E-MAIL -->
+    <div id="recoveryEmailContainer" class="hidden">
+      <form id="recoveryEmailForm">
+        <label>E-mail Cadastrado <input id="recEmail" type="email" placeholder="seuemail@dominio.com.br" required></label>
+        <p id="recEmailErr" class="small" style="color:var(--danger); font-weight:700; margin-bottom:10px;"></p>
+        <button type="submit" id="btnVerifyEmail" class="primary" style="width:100%;">📩 Validar E-mail e Enviar Link</button>
+      </form>
     </div>
   `);
 
   applyPhoneMask($("recPhone"));
-  attachUppercaseNoAccent($("recNameCheck"));
-
-  $("tabEmail").onclick = () => {
-    $("tabEmail").className = "primary small";
-    $("tabPhone").className = "secondary small";
-    $("recoveryEmailContainer").classList.remove("hidden");
-    $("recoveryPhoneContainer").classList.add("hidden");
-  };
+  attachUppercaseNoAccent($("recConfirmName"));
 
   $("tabPhone").onclick = () => {
     $("tabPhone").className = "primary small";
@@ -208,61 +209,119 @@ function showForgotPasswordModal() {
     $("recoveryEmailContainer").classList.add("hidden");
   };
 
-  $("recoveryEmailForm").onsubmit = async e => {
+  $("tabEmail").onclick = () => {
+    $("tabEmail").className = "primary small";
+    $("tabPhone").className = "secondary small";
+    $("recoveryEmailContainer").classList.remove("hidden");
+    $("recoveryPhoneContainer").classList.add("hidden");
+  };
+
+  // Validação por Telefone + Nome na base de dados
+  $("recoveryPhoneForm").onsubmit = async e => {
     e.preventDefault();
-    const email = $("recEmail").value.trim();
+    const errEl = $("recPhoneErr");
+    errEl.textContent = "";
+    $("phoneSuccessBox").classList.add("hidden");
+
+    const rawPhone = $("recPhone").value.trim();
+    const cleanPhone = normalizePhone(rawPhone);
+    const inputName = sanitizeText($("recConfirmName").value.trim());
+
+    if (cleanPhone.length < 10) {
+      errEl.textContent = "Informe um número de telefone válido com DDD.";
+      return;
+    }
+
+    const btn = $("btnVerifyPhone");
+    btn.disabled = true;
+    btn.textContent = "Verificando na base de dados...";
+
     try {
-      await sendPasswordResetEmail(auth, email);
-      toast("E-mail de recuperação enviado com sucesso!");
-      closeModal();
-    } catch(err) {
-      alert("Erro ao enviar e-mail: Verifique se o endereço está correto.");
+      const generatedAuthEmail = `usuario.${cleanPhone}@agua-para-todos.app`;
+      const qUser = query(collection(db, "users"), where("authEmail", "==", generatedAuthEmail));
+      const snap = await getDocs(qUser);
+
+      if (snap.empty) {
+        errEl.textContent = "❌ Telefone não encontra-se na base de dados.";
+        btn.disabled = false;
+        btn.textContent = "🔍 Verificar Cadastro e Solicitar Senha";
+        return;
+      }
+
+      const userData = snap.docs[0].data();
+      const userId = snap.docs[0].id;
+      const dbName = sanitizeText(userData.name || "");
+
+      // Verifica se o primeiro nome ou nome completo confere para evitar consultas aleatórias
+      const firstInputWord = inputName.split(" ")[0];
+      const firstDbWord = dbName.split(" ")[0];
+
+      if (!dbName.includes(inputName) && firstInputWord !== firstDbWord) {
+        errEl.textContent = "❌ O nome informado não corresponde ao telefone cadastrado.";
+        btn.disabled = false;
+        btn.textContent = "🔍 Verificar Cadastro e Solicitar Senha";
+        return;
+      }
+
+      // Registra solicitação oficial de reset no Firestore para o Administrador visualizar
+      await addDoc(collection(db, "password_resets"), {
+        userId,
+        userName: userData.name,
+        phone: rawPhone,
+        role: userData.role,
+        status: "pending",
+        createdAt: serverTimestamp()
+      });
+
+      const roleLabel = userData.role === "driver" ? "Motorista" : "Família Beneficiária";
+      $("validatedUserSummary").innerHTML = `<b>Usuário:</b> ${esc(userData.name)} (${roleLabel})<br><b>Telefone:</b> ${esc(rawPhone)}`;
+
+      const waText = encodeURIComponent(`Olá! Esqueci minha senha do sistema Água para Todos.\n\n*Nome:* ${userData.name}\n*Perfil:* ${roleLabel}\n*Telefone de Acesso:* ${rawPhone}\n\nJá validei meu cadastro no aplicativo e solicito uma nova senha de 6 dígitos.`);
+      $("waResetLink").href = `https://wa.me/5584999999999?text=${waText}`;
+
+      $("phoneSuccessBox").classList.remove("hidden");
+      btn.textContent = "✅ Solicitação Registrada";
+      toast("Cadastro localizado! Solicitação enviada ao administrador.");
+    } catch (err) {
+      console.error(err);
+      errEl.textContent = "Erro ao consultar a base de dados. Tente novamente.";
+      btn.disabled = false;
+      btn.textContent = "🔍 Verificar Cadastro e Solicitar Senha";
     }
   };
 
-  $("recoveryPhoneForm").onsubmit = async e => {
+  // Validação por E-mail na base de dados
+  $("recoveryEmailForm").onsubmit = async e => {
     e.preventDefault();
-    const phoneVal = $("recPhone").value.trim();
-    const cleanPh = normalizePhone(phoneVal);
-    const enteredName = sanitizeText($("recNameCheck").value.trim());
+    const errEl = $("recEmailErr");
+    errEl.textContent = "";
 
-    if (cleanPh.length < 10) return alert("Informe um telefone válido.");
-
-    toast("Verificando cadastro no sistema...");
+    const email = $("recEmail").value.trim().toLowerCase();
+    const btn = $("btnVerifyEmail");
+    btn.disabled = true;
+    btn.textContent = "Verificando e-mail...";
 
     try {
-      // Validação de segurança: Verifica se o telefone e o nome conferem no banco de dados
-      const [snapH, snapU] = await Promise.all([
-        getDocs(query(collection(db, "households"), where("phone", "==", phoneVal))),
-        getDocs(query(collection(db, "users"), where("phone", "==", phoneVal)))
-      ]);
+      // Verifica se existe usuário cadastrado com este e-mail no Firestore
+      const qEmail = query(collection(db, "users"), where("email", "==", email));
+      const qAuthEmail = query(collection(db, "users"), where("authEmail", "==", email));
+      const [snap1, snap2] = await Promise.all([getDocs(qEmail), getDocs(qAuthEmail)]);
 
-      let foundMatch = false;
-      if (!snapH.empty) {
-        const data = snapH.docs[0].data();
-        if (sanitizeText(data.name).includes(enteredName)) foundMatch = true;
-      }
-      if (!snapU.empty) {
-        const data = snapU.docs[0].data();
-        if (sanitizeText(data.name).includes(enteredName)) foundMatch = true;
+      if (snap1.empty && snap2.empty) {
+        errEl.textContent = "❌ E-mail não encontra-se na base de dados.";
+        btn.disabled = false;
+        btn.textContent = "📩 Validar E-mail e Enviar Link";
+        return;
       }
 
-      if (!foundMatch) {
-        return alert("Erro de segurança: O telefone informado não confere com o nome cadastrado no sistema.");
-      }
-
-      // Se validado com sucesso, gera o código seguro de 6 dígitos
-      const secureCode = Math.floor(100000 + Math.random() * 900000);
-      $("codeDisplayBox").textContent = secureCode;
-      $("phoneCodeResult").classList.remove("hidden");
-      toast("✅ Identidade validada com sucesso!");
-
-      $("copyCodeBtn").onclick = () => {
-        navigator.clipboard.writeText(String(secureCode));
-        toast("📋 Código copiado para a área de transferência!");
-      };
-    } catch(err) {
-      alert("Erro ao validar dados: " + err.message);
+      await sendPasswordResetEmail(auth, email);
+      toast("✅ Link de redefinição enviado para o seu e-mail!");
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      errEl.textContent = "❌ E-mail não encontra-se na base de dados ou inválido.";
+      btn.disabled = false;
+      btn.textContent = "📩 Validar E-mail e Enviar Link";
     }
   };
 }
@@ -326,17 +385,19 @@ async function renderByRole() {
 ========================================================= */
 async function renderAdmin() {
   try {
-    const [snapF, snapD, snapM, snapV] = await Promise.all([
+    const [snapF, snapD, snapM, snapV, snapR] = await Promise.all([
       getDocs(collection(db, "households")),
       getDocs(query(collection(db, "deliveries"), limit(100))),
       getDocs(query(collection(db, "users"), where("role", "==", "driver"))),
-      getDocs(collection(db, "vehicles"))
+      getDocs(collection(db, "vehicles")),
+      getDocs(query(collection(db, "password_resets"), where("status", "==", "pending")))
     ]);
 
     state.households = snapF.docs.map(d => ({ id: d.id, ...d.data() }));
     state.deliveries = snapD.docs.map(d => ({ id: d.id, ...d.data() }));
     state.drivers = snapM.docs.map(d => ({ id: d.id, ...d.data() }));
     state.vehicles = snapV.docs.map(d => ({ id: d.id, ...d.data() }));
+    state.resetRequests = snapR.docs.map(d => ({ id: d.id, ...d.data() }));
 
     renderAdminDashboard();
   } catch (err) {
@@ -349,7 +410,21 @@ function renderAdminDashboard() {
   const completedCount = state.deliveries.filter(d => d.status === "completed").length;
   const pendingCount = state.deliveries.filter(d => d.status === "pending" || d.status === "disputed").length;
 
+  const resetAlertHtml = state.resetRequests.length > 0 ? `
+    <div class="card" style="background: #fef2f2; border: 1.5px solid #fca5a5;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 style="font-size:14px; font-weight:800; color:#991b1b;">🔑 Solicitações de Recuperação de Senha (${state.resetRequests.length})</h3>
+          <p class="small" style="color:#7f1d1d;">Usuários que validaram o telefone e aguardam nova senha</p>
+        </div>
+        <button class="danger small" id="btnVerResets">Ver Pedidos</button>
+      </div>
+    </div>
+  ` : '';
+
   $("adminPanel").innerHTML = `
+    ${resetAlertHtml}
+
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <div>
@@ -408,6 +483,8 @@ function renderAdminDashboard() {
     </div>
   `;
 
+  if ($("btnVerResets")) $("btnVerResets").onclick = showResetRequestsModal;
+
   $("cardFamilias").onclick = () => showCategoryModal("familias");
   $("cardMotoristas").onclick = () => showCategoryModal("motoristas");
   $("cardVeiculos").onclick = () => showCategoryModal("veiculos");
@@ -443,6 +520,35 @@ function renderAdminDashboard() {
     state.filters.searchTerm = sanitizeText(e.target.value);
     renderDynamicRecords();
   };
+}
+
+function showResetRequestsModal() {
+  openModal(`
+    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 14px;">🔑 Solicitações de Redefinição de Senha</h2>
+    <div style="max-height: 65vh; overflow-y: auto;">
+      ${state.resetRequests.map(r => `
+        <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;">
+          <b style="color:var(--text-title);">${esc(r.userName)}</b>
+          <span class="pill scheduled">${r.role === 'driver' ? 'Motorista' : 'Família'}</span>
+          <p class="small" style="margin-top:4px;"><b>Telefone:</b> ${esc(r.phone)}</p>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <a href="https://wa.me/55${normalizePhone(r.phone)}?text=${encodeURIComponent(`Olá ${r.userName}, recebemos sua solicitação de recuperação de senha no sistema Água para Todos.`)}" target="_blank" class="primary small" style="text-decoration:none; flex:1; text-align:center;">💬 Responder no WhatsApp</a>
+            <button class="secondary small" data-resolve-reset="${r.id}">✅ Concluir</button>
+          </div>
+        </div>
+      `).join("") || "<p class='small'>Nenhuma solicitação pendente.</p>"}
+    </div>
+  `);
+
+  document.querySelectorAll("[data-resolve-reset]").forEach(btn => {
+    btn.onclick = async e => {
+      const id = e.currentTarget.dataset.resolveReset;
+      await updateDoc(doc(db, "password_resets", id), { status: "resolved", resolvedAt: serverTimestamp() });
+      toast("Solicitação marcada como concluída!");
+      closeModal();
+      renderAdmin();
+    };
+  });
 }
 
 function renderDynamicRecords() {
@@ -654,7 +760,7 @@ function showAuditModal() {
 
 function showHouseholdForm(editId = null, data = null) {
   openModal(`
-    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">🏡 ${editId ? 'Editar' : 'Cadastrar'} Família Rural</h2>
+    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">🏡 ${editId ? 'Editar' : 'Cadastrar'} Família</h2>
     <form id="hForm">
       <label>Nome do Responsável <input id="hName" value="${data?.name || ''}" required></label>
       <div id="hNameSuggestions" class="live-suggestions-box hidden"></div>
