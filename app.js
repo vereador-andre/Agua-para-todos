@@ -21,7 +21,7 @@ try {
   secondaryAuth = getAuth(secondaryApp);
 } catch (e) {}
 
-/* HIGIENIZAÇÃO E MÁSCARAS */
+/* HIGIENIZAÇÃO DE TEXTO E MÁSCARAS */
 function sanitizeText(str = "") {
   return String(str)
     .normalize("NFD")
@@ -71,6 +71,12 @@ function phoneAuthEmail(phone) {
   const d = normalizePhone(phone);
   if (d.length < 10 || d.length > 11) throw new Error("Informe um telefone com DDD válido.");
   return `usuario.${d}@agua-para-todos.app`;
+}
+
+function loginIdentifierToEmail(id) {
+  const v = String(id || "").trim();
+  if (v.includes("@")) return v.toLowerCase();
+  return phoneAuthEmail(v);
 }
 
 function updateConnectionStatus() {
@@ -130,41 +136,23 @@ function translateStatus(status) {
   }
 }
 
-/* LOGIN ROBUSTO (SUPORTE A E-MAIL COM SENHA LIVRE OU TELEFONE COM SENHA DE 6 DÍGITOS) */
+/* LOGIN NORMAL RESTAURADO E ROBUSTO */
 if ($("loginForm")) {
   $("loginForm").onsubmit = async e => {
     e.preventDefault();
     if ($("loginMsg")) $("loginMsg").textContent = "";
-    
-    const rawInput = $("loginEmail").value.trim();
-    const password = $("loginPassword").value;
-    let authEmail = "";
-
     try {
-      if (rawInput.includes("@")) {
-        // É e-mail (Admin ou usuário cadastrado com e-mail)
-        authEmail = rawInput.toLowerCase();
-      } else {
-        // É telefone (Motorista ou Morador)
-        const cleanPhone = normalizePhone(rawInput);
-        if (cleanPhone.length < 10) {
-          $("loginMsg").textContent = "Informe um e-mail válido ou telefone com DDD.";
-          return;
-        }
-        authEmail = phoneAuthEmail(cleanPhone);
-      }
-
-      await signInWithEmailAndPassword(auth, authEmail, password);
+      const rawInput = $("loginEmail").value.trim();
+      const email = loginIdentifierToEmail(rawInput);
+      await signInWithEmailAndPassword(auth, email, $("loginPassword").value);
     } catch (err) {
       console.error(err);
-      if ($("loginMsg")) {
-        $("loginMsg").textContent = "Acesso negado: Verifique o e-mail/telefone e a senha informada.";
-      }
+      if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique o telefone/e-mail e a senha de 6 dígitos.";
     }
   };
 }
 
-/* RECUPERAÇÃO DE SENHA */
+/* RECUPERAÇÃO DE SENHA CORRIGIDA E SEGURA */
 if ($("forgotPasswordLink")) {
   $("forgotPasswordLink").onclick = e => {
     e.preventDefault();
@@ -186,7 +174,7 @@ function showForgotPasswordModal() {
     <div id="recoveryPhoneContainer">
       <form id="recoveryPhoneForm">
         <label>Telefone / WhatsApp Cadastrado <input id="recPhone" type="tel" placeholder="(84) 99999-9999" required></label>
-        <label>Confirme seu Nome Completo <input id="recConfirmName" type="text" placeholder="Digite seu nome cadastrado" required></label>
+        <label>Confirme seu Nome Completo (para validação) <input id="recConfirmName" type="text" placeholder="Digite seu nome cadastrado" required></label>
         <p id="recPhoneErr" class="small" style="color:var(--danger); font-weight:700; margin-bottom:10px;"></p>
         <button type="submit" id="btnVerifyPhone" class="primary" style="width:100%;">🔍 Verificar Cadastro e Solicitar Senha</button>
       </form>
@@ -194,9 +182,9 @@ function showForgotPasswordModal() {
       <div id="phoneSuccessBox" class="hidden" style="margin-top:14px; background:#f0fdf4; border:1.5px solid #86efac; padding:14px; border-radius:14px;">
         <p class="small" style="color:#166534; font-weight:800;">✅ CADASTRO VALIDADO COM SUCESSO!</p>
         <p class="small" style="color:#15803d; margin-top:6px;" id="validatedUserSummary"></p>
-        <p class="small" style="color:#334155; margin-top:8px;">Solicitação de nova senha registrada. Clique abaixo para enviar os dados direto para o WhatsApp do suporte:</p>
+        <p class="small" style="color:#334155; margin-top:8px;">Por segurança, uma solicitação oficial de redefinição de senha foi registrada para o Administrador. Clique abaixo para agilizar o recebimento da sua nova senha de 6 dígitos via WhatsApp:</p>
         <a id="waResetLink" href="#" target="_blank" style="display:block; text-align:center; background:#25d366; color:#fff; font-weight:800; font-size:13px; padding:12px; border-radius:12px; text-decoration:none; margin-top:10px;">
-          💬 Solicitar Nova Senha no WhatsApp
+          💬 Solicitar Nova Senha no WhatsApp do Suporte
         </a>
       </div>
     </div>
@@ -228,7 +216,7 @@ function showForgotPasswordModal() {
     $("recoveryPhoneContainer").classList.add("hidden");
   };
 
-  // Validação por Telefone
+  // Validação por Telefone + Nome na base de dados
   $("recoveryPhoneForm").onsubmit = async e => {
     e.preventDefault();
     const errEl = $("recPhoneErr");
@@ -249,12 +237,12 @@ function showForgotPasswordModal() {
     btn.textContent = "Verificando na base de dados...";
 
     try {
-      const generatedAuthEmail = phoneAuthEmail(cleanPhone);
+      const generatedAuthEmail = `usuario.${cleanPhone}@agua-para-todos.app`;
       const qUser = query(collection(db, "users"), where("authEmail", "==", generatedAuthEmail));
       const snap = await getDocs(qUser);
 
       if (snap.empty) {
-        errEl.textContent = "❌ E-mail ou telefone não encontra-se na base de dados.";
+        errEl.textContent = "❌ Este telefone não encontra-se na base de dados.";
         btn.disabled = false;
         btn.textContent = "🔍 Verificar Cadastro e Solicitar Senha";
         return;
@@ -286,21 +274,21 @@ function showForgotPasswordModal() {
       const roleLabel = userData.role === "driver" ? "Motorista" : "Família Beneficiária";
       $("validatedUserSummary").innerHTML = `<b>Usuário:</b> ${esc(userData.name)} (${roleLabel})<br><b>Telefone:</b> ${esc(rawPhone)}`;
 
-      const waText = encodeURIComponent(`Olá! Esqueci minha senha do sistema Água para Todos.\n\n*Nome:* ${userData.name}\n*Perfil:* ${roleLabel}\n*Telefone:* ${rawPhone}\n\nValidei meu cadastro e solicito nova senha de 6 dígitos.`);
+      const waText = encodeURIComponent(`Olá! Esqueci minha senha do sistema Água para Todos.\n\n*Nome:* ${userData.name}\n*Perfil:* ${roleLabel}\n*Telefone de Acesso:* ${rawPhone}\n\nJá validei meu cadastro no aplicativo e solicito uma nova senha de 6 dígitos.`);
       $("waResetLink").href = `https://wa.me/5584999999999?text=${waText}`;
 
       $("phoneSuccessBox").classList.remove("hidden");
       btn.textContent = "✅ Solicitação Registrada";
-      toast("Cadastro localizado com sucesso!");
+      toast("Cadastro localizado! Solicitação enviada ao administrador.");
     } catch (err) {
       console.error(err);
-      errEl.textContent = "❌ E-mail ou telefone não encontra-se na base de dados.";
+      errEl.textContent = "Erro ao consultar a base de dados. Tente novamente.";
       btn.disabled = false;
       btn.textContent = "🔍 Verificar Cadastro e Solicitar Senha";
     }
   };
 
-  // Validação por E-mail
+  // Validação por E-mail na base de dados (Com tratativa de erro correta)
   $("recoveryEmailForm").onsubmit = async e => {
     e.preventDefault();
     const errEl = $("recEmailErr");
@@ -312,29 +300,30 @@ function showForgotPasswordModal() {
     btn.textContent = "Verificando e-mail...";
 
     try {
-      const qEmail = query(collection(db, "users"), where("authEmail", "==", email));
-      const snap = await getDocs(qEmail);
+      const qEmail = query(collection(db, "users"), where("email", "==", email));
+      const qAuthEmail = query(collection(db, "users"), where("authEmail", "==", email));
+      const [snap1, snap2] = await Promise.all([getDocs(qEmail), getDocs(qAuthEmail)]);
 
-      if (snap.empty) {
-        errEl.textContent = "❌ E-mail ou telefone não encontra-se na base de dados.";
+      if (snap1.empty && snap2.empty) {
+        errEl.textContent = "❌ E-mail não encontra-se na base de dados.";
         btn.disabled = false;
         btn.textContent = "📩 Validar E-mail e Enviar Link";
         return;
       }
 
       await sendPasswordResetEmail(auth, email);
-      toast("✅ Link de redefinição enviado para o e-mail!");
+      toast("✅ Link de redefinição enviado para o seu e-mail!");
       closeModal();
     } catch (err) {
       console.error(err);
-      errEl.textContent = "❌ E-mail ou telefone não encontra-se na base de dados.";
+      errEl.textContent = "❌ E-mail não encontra-se na base de dados ou é inválido.";
       btn.disabled = false;
       btn.textContent = "📩 Validar E-mail e Enviar Link";
     }
   };
 }
 
-/* AUTENTICAÇÃO */
+/* AUTENTICAÇÃO COM BUSCA RECURSIVA DE PERFIL */
 onAuthStateChanged(auth, async user => {
   if (!user) {
     state.user = null; state.profile = null;
@@ -422,8 +411,8 @@ function renderAdminDashboard() {
     <div class="card" style="background: #fef2f2; border: 1.5px solid #fca5a5;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
-          <h3 style="font-size:14px; font-weight:800; color:#991b1b;">🔑 Solicitações de Senha (${state.resetRequests.length})</h3>
-          <p class="small" style="color:#7f1d1d;">Usuários que validaram o cadastro e aguardam nova senha</p>
+          <h3 style="font-size:14px; font-weight:800; color:#991b1b;">🔑 Solicitações de Recuperação de Senha (${state.resetRequests.length})</h3>
+          <p class="small" style="color:#7f1d1d;">Usuários que validaram o telefone e aguardam nova senha</p>
         </div>
         <button class="danger small" id="btnVerResets">Ver Pedidos</button>
       </div>
@@ -532,7 +521,7 @@ function renderAdminDashboard() {
 
 function showResetRequestsModal() {
   openModal(`
-    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 14px;">🔑 Solicitações de Senha</h2>
+    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 14px;">🔑 Solicitações de Redefinição de Senha</h2>
     <div style="max-height: 65vh; overflow-y: auto;">
       ${state.resetRequests.map(r => `
         <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:10px;">
@@ -540,7 +529,7 @@ function showResetRequestsModal() {
           <span class="pill scheduled">${r.role === 'driver' ? 'Motorista' : 'Família'}</span>
           <p class="small" style="margin-top:4px;"><b>Telefone:</b> ${esc(r.phone)}</p>
           <div style="display:flex; gap:8px; margin-top:8px;">
-            <a href="https://wa.me/55${normalizePhone(r.phone)}?text=${encodeURIComponent(`Olá ${r.userName}, recebemos sua solicitação de recuperação de senha no sistema Água para Todos.`)}" target="_blank" class="primary small" style="text-decoration:none; flex:1; text-align:center;">💬 WhatsApp</a>
+            <a href="https://wa.me/55${normalizePhone(r.phone)}?text=${encodeURIComponent(`Olá ${r.userName}, recebemos sua solicitação de recuperação de senha no sistema Água para Todos.`)}" target="_blank" class="primary small" style="text-decoration:none; flex:1; text-align:center;">💬 Responder no WhatsApp</a>
             <button class="secondary small" data-resolve-reset="${r.id}">✅ Concluir</button>
           </div>
         </div>
@@ -552,7 +541,7 @@ function showResetRequestsModal() {
     btn.onclick = async e => {
       const id = e.currentTarget.dataset.resolveReset;
       await updateDoc(doc(db, "password_resets", id), { status: "resolved", resolvedAt: serverTimestamp() });
-      toast("Solicitação concluída!");
+      toast("Solicitação marcada como concluída!");
       closeModal();
       renderAdmin();
     };
