@@ -140,6 +140,26 @@ function translateStatus(status) {
   }
 }
 
+/* COMPRADOR / EXCLUSÃO SEGURA CUSTOMIZADA */
+function confirmSecureDelete(itemName, callback) {
+  openModal(`
+    <div style="text-align:center; padding:10px;">
+      <div style="font-size:36px; margin-bottom:8px;">⚠️</div>
+      <h2 style="font-size:18px; font-weight:800; color:var(--danger); margin-bottom:10px;">Atenção: Confirmação de Exclusão</h2>
+      <p class="small" style="margin-bottom:16px; color:#334155;">Deseja realmente excluir <b>${esc(itemName)}</b>?<br>Esta ação é permanente e <b>não será possível recuperar</b> os dados após a exclusão.</p>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="secondary" id="btnCancelDel" style="flex:1;">Cancelar</button>
+        <button type="button" class="danger" id="btnConfirmDel" style="flex:1;">Sim, Excluir</button>
+      </div>
+    </div>
+  `);
+  $("btnCancelDel").onclick = closeModal;
+  $("btnConfirmDel").onclick = () => {
+    closeModal();
+    callback();
+  };
+}
+
 /* LOGIN NORMAL */
 if ($("loginForm")) {
   $("loginForm").onsubmit = async e => {
@@ -387,7 +407,7 @@ async function renderAdmin() {
   try {
     const [snapF, snapD, snapM, snapV, snapR] = await Promise.all([
       getDocs(collection(db, "households")),
-      getDocs(query(collection(db, "deliveries"), limit(200))),
+      getDocs(query(collection(db, "deliveries"), limit(300))),
       getDocs(query(collection(db, "users"), where("role", "==", "driver"))),
       getDocs(collection(db, "vehicles")),
       getDocs(query(collection(db, "password_resets"), where("status", "==", "pending")))
@@ -522,42 +542,51 @@ function renderAdminDashboard() {
   };
 }
 
-/* =========================================================
-   NOVA FUNÇÃO: RELATÓRIO COMPLETO COM FOTOS, GPS E PERÍODOS
-========================================================= */
+/* RELATÓRIO OTIMIZADO PARA IMPRESSÃO (PDF) E PLANILHA (CSV) */
 function showAdvancedReportModal() {
   const todayStr = new Date().toISOString().split("T")[0];
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   openModal(`
-    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">📊 Relatório Completo e Auditoria Operacional</h2>
-    <p class="small" style="margin-bottom: 14px;">Filtre entregas por período, motorista ou família, visualize fotos, localizações GPS e exporte dados.</p>
+    <div id="printableReportArea">
+      <style>
+        @media print {
+          body * { visibility: hidden; }
+          #printableReportArea, #printableReportArea * { visibility: visible; }
+          #printableReportArea { position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; }
+          .no-print { display: none !important; }
+        }
+      </style>
 
-    <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:14px; display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
-      <label class="small"><b>Início:</b> <input type="date" id="repStartDate" value="${thirtyDaysAgo}" style="margin-bottom:0;"></label>
-      <label class="small"><b>Fim:</b> <input type="date" id="repEndDate" value="${todayStr}" style="margin-bottom:0;"></label>
-      <label class="small"><b>Motorista:</b> 
-        <select id="repDriver" style="margin-bottom:0;">
-          <option value="">Todos os Motoristas</option>
-          ${state.drivers.map(d => `<option value="${esc(d.name)}">${esc(d.name)}</option>`).join("")}
-        </select>
-      </label>
-      <label class="small"><b>Família:</b> 
-        <select id="repHousehold" style="margin-bottom:0;">
-          <option value="">Todas as Famílias</option>
-          ${state.households.map(h => `<option value="${esc(h.name)}">${esc(h.name)} (${esc(h.community)})</option>`).join("")}
-        </select>
-      </label>
-    </div>
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">📊 Relatório Completo e Auditoria Operacional</h2>
+      <p class="small no-print" style="margin-bottom: 14px;">Filtre entregas por período, motorista ou família, visualize fotos, localizações GPS e exporte dados.</p>
 
-    <div style="display:flex; gap:8px; margin-bottom:14px;">
-      <button class="primary small" id="btnApplyRep" style="flex:1;">🔍 Filtrar Dados</button>
-      <button class="accent small" id="btnExportPDF" style="flex:1;">🖨️ Gerar PDF / Imprimir</button>
-      <button class="secondary small" id="btnExportCSV" style="flex:1;">📊 Exportar Planilha (CSV)</button>
-    </div>
+      <div class="no-print" style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:14px; display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
+        <label class="small"><b>Início:</b> <input type="date" id="repStartDate" value="${thirtyDaysAgo}" style="margin-bottom:0;"></label>
+        <label class="small"><b>Fim:</b> <input type="date" id="repEndDate" value="${todayStr}" style="margin-bottom:0;"></label>
+        <label class="small"><b>Motorista:</b> 
+          <select id="repDriver" style="margin-bottom:0;">
+            <option value="">Todos os Motoristas</option>
+            ${state.drivers.map(d => `<option value="${esc(d.name)}">${esc(d.name)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="small"><b>Família:</b> 
+          <select id="repHousehold" style="margin-bottom:0;">
+            <option value="">Todas as Famílias</option>
+            ${state.households.map(h => `<option value="${esc(h.name)}">${esc(h.name)} (${esc(h.community)})</option>`).join("")}
+          </select>
+        </label>
+      </div>
 
-    <div id="reportResultContainer" style="max-height: 50vh; overflow-y: auto;">
-      <p class="small" style="text-align:center; padding:20px;">Clique em "Filtrar Dados" para carregar o relatório.</p>
+      <div class="no-print" style="display:flex; gap:8px; margin-bottom:14px;">
+        <button class="primary small" id="btnApplyRep" style="flex:1;">🔍 Filtrar Dados</button>
+        <button class="accent small" id="btnExportPDF" style="flex:1;">🖨️ Imprimir / Salvar PDF</button>
+        <button class="secondary small" id="btnExportCSV" style="flex:1;">📊 Exportar Planilha Excel</button>
+      </div>
+
+      <div id="reportResultContainer" style="max-height: 50vh; overflow-y: auto;">
+        <p class="small" style="text-align:center; padding:20px;">Clique em "Filtrar Dados" para carregar o relatório.</p>
+      </div>
     </div>
   `);
 
@@ -587,7 +616,7 @@ function showAdvancedReportModal() {
     container.innerHTML = filtered.map(d => {
       const st = translateStatus(d.status);
       return `
-        <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px;">
+        <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px; page-break-inside: avoid;">
           <div style="display:flex; justify-content:space-between;">
             <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
             <span class="pill ${st.class}">${st.text}</span>
@@ -606,16 +635,16 @@ function showAdvancedReportModal() {
   };
 
   $("btnApplyRep").onclick = runFilter;
-  runFilter(); // Executa ao abrir
+  runFilter();
 
   $("btnExportPDF").onclick = () => {
     window.print();
   };
 
   $("btnExportCSV").onclick = () => {
-    let csv = "Morador,Comunidade,Data,Motorista,Veiculo,Volume(L),Status,Latitude,Longitude\n";
+    let csv = "\uFEFFMorador;Comunidade;Data;Motorista;Veiculo;Volume(L);Status;Latitude;Longitude\n";
     state.deliveries.forEach(d => {
-      csv += `"${d.recipientName}","${d.community || ''}","${d.scheduledDate || ''}","${d.driverName || ''}","${d.vehiclePlate || ''}",${d.plannedLiters || 0},"${d.status}",${d.lat || ''},${d.lng || ''}\n`;
+      csv += `"${d.recipientName || ''}";"${d.community || ''}";"${d.scheduledDate || ''}";"${d.driverName || ''}";"${d.vehiclePlate || ''}";${d.plannedLiters || 0};"${d.status || ''}";"${d.lat || ''}";"${d.lng || ''}"\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -623,7 +652,7 @@ function showAdvancedReportModal() {
     a.href = url;
     a.download = `relatorio_agua_para_todos_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
-    toast("Planilha CSV exportada com sucesso!");
+    toast("Planilha CSV formatada exportada com sucesso!");
   };
 }
 
@@ -684,12 +713,12 @@ function renderDynamicRecords() {
           </div>
         `;
         el.querySelector("[data-edit-fam]").onclick = () => showHouseholdForm(h.id, h);
-        el.querySelector("[data-del-fam]").onclick = async () => {
-          if (confirm(`Excluir a família ${h.name}?`)) {
+        el.querySelector("[data-del-fam]").onclick = () => {
+          confirmSecureDelete(`a família ${h.name}`, async () => {
             await deleteDoc(doc(db, "households", h.id));
             toast("Família excluída!");
             renderAdmin();
-          }
+          });
         };
         container.appendChild(el);
       });
@@ -711,12 +740,12 @@ function renderDynamicRecords() {
           </div>
         `;
         el.querySelector("[data-edit-mot]").onclick = () => showDriverForm(m.id, m);
-        el.querySelector("[data-del-mot]").onclick = async () => {
-          if (confirm(`Excluir o motorista ${m.name}?`)) {
+        el.querySelector("[data-del-mot]").onclick = () => {
+          confirmSecureDelete(`o motorista ${m.name}`, async () => {
             await deleteDoc(doc(db, "users", m.id));
             toast("Motorista excluído!");
             renderAdmin();
-          }
+          });
         };
         container.appendChild(el);
       });
@@ -738,12 +767,12 @@ function renderDynamicRecords() {
           </div>
         `;
         el.querySelector("[data-edit-vei]").onclick = () => showVehicleForm(v.id, v);
-        el.querySelector("[data-del-vei]").onclick = async () => {
-          if (confirm(`Excluir o veículo ${v.plate}?`)) {
+        el.querySelector("[data-del-vei]").onclick = () => {
+          confirmSecureDelete(`o veículo ${v.plate}`, async () => {
             await deleteDoc(doc(db, "vehicles", v.id));
             toast("Veículo excluído!");
             renderAdmin();
-          }
+          });
         };
         container.appendChild(el);
       });
@@ -769,12 +798,12 @@ function renderDynamicRecords() {
           </div>
         `;
         el.querySelector("[data-edit-del]").onclick = () => showDeliveryForm(d.id, d);
-        el.querySelector("[data-del-del]").onclick = async () => {
-          if (confirm("Excluir esta entrega?")) {
+        el.querySelector("[data-del-del]").onclick = () => {
+          confirmSecureDelete(`a entrega para ${d.recipientName}`, async () => {
             await deleteDoc(doc(db, "deliveries", d.id));
             toast("Entrega excluída!");
             renderAdmin();
-          }
+          });
         };
         container.appendChild(el);
       });
@@ -1210,7 +1239,7 @@ async function renderDriver() {
       container.appendChild(el);
     });
 
-    if (deliveries.length === 0) container.innerHTML = `<p class="small">Nenhuma entrega atribuída a você.</p>`;
+    if (deliveries.length === 0) container.innerHTML = `<p class="small">Nenhuma entrega atribuída a bạn.</p>`;
   } catch(e){}
 }
 
@@ -1271,62 +1300,96 @@ function showAbsentModal(deliveryId) {
       return alert("Geolocalização obrigatória não suportada.");
     }
 
-    toast("Processando foto e GPS...");
+    toast("Processando e comprimindo foto...");
 
-    // Converte a foto em base64 para armazenamento direto e seguro no Firestore
     const file = fileInput.files[0];
-    const reader = new FileReader();
-    
-    reader.onload = async function(uploadEvent) {
-      const photoUrl = uploadEvent.target.result;
-
-      navigator.geolocation.getCurrentPosition(async pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const pin = Math.floor(1000 + Math.random() * 9000);
-
-        try {
-          await updateDoc(doc(db, "deliveries", deliveryId), {
-            status: "pending",
-            pin,
-            lat,
-            lng,
-            note,
-            photoUrl,
-            updatedAt: serverTimestamp()
-          });
-          closeModal();
-          toast("Ausência registrada com foto e GPS com sucesso!");
-          renderDriver();
-        } catch (err) {
-          alert("Erro ao salvar: " + err.message);
-        }
-      }, () => {
-        alert("Erro ao capturar GPS. Verifique se o GPS está ativado.");
-      }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-    };
-
-    if (file) {
-      reader.readAsDataURL(file);
-    } else {
-      alert("Por favor, tire ou selecione a foto do local.");
+    if (!file) {
+      return alert("Por favor, tire ou selecione a foto do local.");
     }
+
+    // Redimensionamento e compressão em Canvas para garantir tamanho inferior a 500KB (dentro do limite do Firestore)
+    const reader = new FileReader();
+    reader.onload = function(uploadEvent) {
+      const img = new Image();
+      img.onload = async function() {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Comprime para JPEG com qualidade 0.7
+        const compressedPhotoUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+        toast("Capturando GPS...");
+        navigator.geolocation.getCurrentPosition(async pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const pin = Math.floor(1000 + Math.random() * 9000);
+
+          try {
+            await updateDoc(doc(db, "deliveries", deliveryId), {
+              status: "pending",
+              pin,
+              lat,
+              lng,
+              note,
+              photoUrl: compressedPhotoUrl,
+              updatedAt: serverTimestamp()
+            });
+            closeModal();
+            toast("Ausência registrada com sucesso!");
+            renderDriver();
+          } catch (err) {
+            alert("Erro ao salvar no banco: " + err.message);
+          }
+        }, () => {
+          alert("Erro ao capturar GPS. Verifique se o GPS está ativado.");
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+      };
+      img.src = uploadEvent.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 }
 
 /* =========================================================
-   PAINEL DA FAMÍLIA / BENEFICIÁRIO
+   PAINEL DA FAMÍLIA / BENEFICIÁRIO (CORRIGIDO LOGIN POR TELEFONE)
 ========================================================= */
 async function renderRecipient() {
   const userPhone = normalizePhone(state.profile.phone);
   
   let household = state.households.find(h => h.id === state.profile.householdId || normalizePhone(h.phone) === userPhone);
   
-  if (!household && userPhone) {
+  if (!household) {
     try {
       const snapH = await getDocs(query(collection(db, "households"), where("phone", "==", state.profile.phone)));
       if (!snapH.empty) {
         household = { id: snapH.docs[0].id, ...snapH.docs[0].data() };
+      } else {
+        // Tenta buscar por telefone normalizado
+        const allH = await getDocs(collection(db, "households"));
+        const found = allH.docs.find(d => normalizePhone(d.data().phone) === userPhone);
+        if (found) {
+          household = { id: found.id, ...found.data() };
+        }
       }
     } catch (e) {}
   }
@@ -1455,7 +1518,7 @@ async function renderRecipient() {
         };
 
         el.querySelector(`#sendDispute_${deliveryId}`).onclick = async () => {
-          const reason = el.querySelector(`#disputeInput_${deliveryId}` ).value.trim();
+          const reason = el.querySelector(`#disputeInput_${deliveryId}`).value.trim();
           if (!reason) return alert("Informe o motivo do não recebimento.");
           await updateDoc(doc(db, "deliveries", deliveryId), { status: "disputed", disputeReason: reason });
           toast("Contestação enviada ao administrador!");
