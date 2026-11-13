@@ -12,6 +12,7 @@ const state = {
   drivers: [], 
   vehicles: [],
   resetRequests: [],
+  filteredReportData: [],
   filters: { category: null, searchTerm: "" }
 };
 
@@ -140,16 +141,16 @@ function translateStatus(status) {
   }
 }
 
-/* COMPRADOR / EXCLUSÃO SEGURA CUSTOMIZADA */
+/* CONFIRMAÇÃO SEGURA DE EXCLUSÃO */
 function confirmSecureDelete(itemName, callback) {
   openModal(`
     <div style="text-align:center; padding:10px;">
-      <div style="font-size:36px; margin-bottom:8px;">⚠️</div>
-      <h2 style="font-size:18px; font-weight:800; color:var(--danger); margin-bottom:10px;">Atenção: Confirmação de Exclusão</h2>
-      <p class="small" style="margin-bottom:16px; color:#334155;">Deseja realmente excluir <b>${esc(itemName)}</b>?<br>Esta ação é permanente e <b>não será possível recuperar</b> os dados após a exclusão.</p>
+      <div style="font-size:38px; margin-bottom:8px;">⚠️</div>
+      <h2 style="font-size:18px; font-weight:800; color:var(--danger); margin-bottom:10px;">Atenção: Exclusão Irreversível</h2>
+      <p class="small" style="margin-bottom:16px; color:#334155;">Você está prestes a excluir <b>${esc(itemName)}</b>.<br>Tem certeza que deseja continuar? <b>Não será possível recuperar</b> estes dados posteriormente.</p>
       <div style="display:flex; gap:10px;">
         <button type="button" class="secondary" id="btnCancelDel" style="flex:1;">Cancelar</button>
-        <button type="button" class="danger" id="btnConfirmDel" style="flex:1;">Sim, Excluir</button>
+        <button type="button" class="danger" id="btnConfirmDel" style="flex:1;">🗑️ Sim, Excluir Definitivamente</button>
       </div>
     </div>
   `);
@@ -164,15 +165,16 @@ function confirmSecureDelete(itemName, callback) {
 if ($("loginForm")) {
   $("loginForm").onsubmit = async e => {
     e.preventDefault();
-    if ($("loginMsg")) $("loginMsg").textContent = "";
+    if ($("loginMsg")) $("loginMsg").textContent = "Verificando acesso...";
     try {
       const rawInput = $("loginEmail").value.trim();
       const email = loginIdentifierToEmail(rawInput);
-      const password = $("loginPassword").value;
+      const password = $("loginPassword").value.trim();
       
       await signInWithEmailAndPassword(auth, email, password);
+      if ($("loginMsg")) $("loginMsg").textContent = "";
     } catch (err) {
-      console.error("Erro de login:", err);
+      console.error("Erro de login:", err.code, err.message);
       if ($("loginMsg")) {
         $("loginMsg").textContent = "Acesso negado: Verifique o e-mail/telefone e a senha informados.";
       }
@@ -370,6 +372,14 @@ onAuthStateChanged(auth, async user => {
       const snapQ = await getDocs(qUser);
       if (!snapQ.empty) {
         state.profile = { id: snapQ.docs[0].id, ...snapQ.docs[0].data() };
+      } else {
+        // Fallback caso o usuário seja morador cadastrado na coleção households com e-mail de telefone
+        const phoneDigits = user.email.replace("usuario.", "").replace("@agua-para-todos.app", "");
+        const allH = await getDocs(collection(db, "households"));
+        const foundH = allH.docs.find(d => normalizePhone(d.data().phone) === phoneDigits);
+        if (foundH) {
+          state.profile = { id: user.uid, name: foundH.data().name, phone: foundH.data().phone, role: "recipient", householdId: foundH.id };
+        }
       }
     }
 
@@ -401,13 +411,70 @@ async function renderByRole() {
 }
 
 /* =========================================================
+   BACKUP AUTOMÁTICO DIÁRIO E EXPORTAÇÃO DE SEGURANÇA
+========================================================= */
+async function checkAndRunDailyBackup() {
+  const todayStr = new Date().toISOString().split("T")[0];
+  const lastBackupDate = localStorage.getItem("agua_para_todos_last_backup");
+
+  if (lastBackupDate !== todayStr && state.deliveries.length > 0) {
+    try {
+      await setDoc(doc(db, "system_backups", todayStr), {
+        date: todayStr,
+        createdAt: serverTimestamp(),
+        totalHouseholds: state.households.length,
+        totalDrivers: state.drivers.length,
+        totalVehicles: state.vehicles.length,
+        totalDeliveries: state.deliveries.length,
+        snapshotJson: JSON.stringify({
+          households: state.households,
+          drivers: state.drivers,
+          vehicles: state.vehicles,
+          deliveries: state.deliveries.map(d => ({ ...d, photoUrl: d.photoUrl ? "[FOTO_ANEXADA]" : "" }))
+        })
+      });
+      localStorage.setItem("agua_para_todos_last_backup", todayStr);
+      toast(`✅ Backup automático diário (${dateOnly(todayStr)}) salvo na nuvem!`);
+    } catch (e) {
+      console.warn("Aviso no backup automático:", e);
+    }
+  }
+}
+
+function downloadFullBackupFile() {
+  const todayStr = new Date().toISOString().split("T")[0];
+  const backupData = {
+    sistema: "Água para Todos - Areia Branca/RN",
+    dataBackup: new Date().toLocaleString("pt-BR"),
+    resumo: {
+      familias: state.households.length,
+      motoristas: state.drivers.length,
+      veiculos: state.vehicles.length,
+      entregas: state.deliveries.length
+    },
+    familias: state.households,
+    motoristas: state.drivers,
+    veiculos: state.vehicles,
+    entregas: state.deliveries
+  };
+
+  const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `BACKUP_COMPLETO_AGUA_PARA_TODOS_${todayStr}.json`;
+  a.click();
+  toast("📦 Arquivo de backup completo baixado com sucesso!");
+}
+
+/* =========================================================
    PAINEL DO ADMINISTRADOR
 ========================================================= */
 async function renderAdmin() {
   try {
     const [snapF, snapD, snapM, snapV, snapR] = await Promise.all([
       getDocs(collection(db, "households")),
-      getDocs(query(collection(db, "deliveries"), limit(300))),
+      getDocs(query(collection(db, "deliveries"), limit(500))),
       getDocs(query(collection(db, "users"), where("role", "==", "driver"))),
       getDocs(collection(db, "vehicles")),
       getDocs(query(collection(db, "password_resets"), where("status", "==", "pending")))
@@ -420,6 +487,7 @@ async function renderAdmin() {
     state.resetRequests = snapR.docs.map(d => ({ id: d.id, ...d.data() }));
 
     renderAdminDashboard();
+    checkAndRunDailyBackup();
   } catch (err) {
     console.error(err);
   }
@@ -446,12 +514,15 @@ function renderAdminDashboard() {
     ${resetAlertHtml}
 
     <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
         <div>
           <h2 style="font-size: 18px; font-weight: 800; color: var(--text-title);">Visão Geral do Programa</h2>
           <p class="small">Areia Branca/RN • Clique nos quadros para ver os dados</p>
         </div>
-        <button class="accent small" id="btnRelatorioGeral">📊 Relatório Completo (Fotos, GPS & Períodos)</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="secondary small" id="btnBackupNow" title="Baixar cópia completa de segurança">💾 Backup Completo</button>
+          <button class="accent small" id="btnRelatorioGeral">📊 Relatório Completo (Fotos, GPS & Períodos)</button>
+        </div>
       </div>
 
       <div class="stats-grid">
@@ -504,6 +575,7 @@ function renderAdminDashboard() {
   `;
 
   if ($("btnVerResets")) $("btnVerResets").onclick = showResetRequestsModal;
+  if ($("btnBackupNow")) $("btnBackupNow").onclick = downloadFullBackupFile;
 
   $("cardFamilias").onclick = () => showCategoryModal("familias");
   $("cardMotoristas").onclick = () => showCategoryModal("motoristas");
@@ -542,28 +614,29 @@ function renderAdminDashboard() {
   };
 }
 
-/* RELATÓRIO OTIMIZADO PARA IMPRESSÃO (PDF) E PLANILHA (CSV) */
+/* =========================================================
+   RELATÓRIO COMPLETO: IMPRESSÃO PDF PROFISSIONAL + EXCEL XLS FORMATADO
+========================================================= */
 function showAdvancedReportModal() {
   const todayStr = new Date().toISOString().split("T")[0];
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   openModal(`
-    <div id="printableReportArea">
-      <style>
-        @media print {
-          body * { visibility: hidden; }
-          #printableReportArea, #printableReportArea * { visibility: visible; }
-          #printableReportArea { position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; }
-          .no-print { display: none !important; }
-        }
-      </style>
+    <div>
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 6px;">📊 Relatório Completo e Auditoria Operacional</h2>
+      <p class="small" style="margin-bottom: 12px;">Filtre por período (15 dias, mês, anual ou datas livres), motorista ou família, veja fotos/GPS e exporte.</p>
 
-      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">📊 Relatório Completo e Auditoria Operacional</h2>
-      <p class="small no-print" style="margin-bottom: 14px;">Filtre entregas por período, motorista ou família, visualize fotos, localizações GPS e exporte dados.</p>
+      <!-- ATALHOS RÁPIDOS DE PERÍODO -->
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+        <button type="button" class="secondary small" id="btnPreset15">📅 Últimos 15 dias</button>
+        <button type="button" class="secondary small" id="btnPresetMonth">📅 Mês Atual</button>
+        <button type="button" class="secondary small" id="btnPresetYear">📅 Ano Atual</button>
+        <button type="button" class="secondary small" id="btnPresetAll">🌐 Todo o Período</button>
+      </div>
 
-      <div class="no-print" style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:14px; display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
-        <label class="small"><b>Início:</b> <input type="date" id="repStartDate" value="${thirtyDaysAgo}" style="margin-bottom:0;"></label>
-        <label class="small"><b>Fim:</b> <input type="date" id="repEndDate" value="${todayStr}" style="margin-bottom:0;"></label>
+      <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:12px; display:grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap:8px;">
+        <label class="small"><b>Data Inicial:</b> <input type="date" id="repStartDate" value="${thirtyDaysAgo}" style="margin-bottom:0;"></label>
+        <label class="small"><b>Data Final:</b> <input type="date" id="repEndDate" value="${todayStr}" style="margin-bottom:0;"></label>
         <label class="small"><b>Motorista:</b> 
           <select id="repDriver" style="margin-bottom:0;">
             <option value="">Todos os Motoristas</option>
@@ -578,17 +651,38 @@ function showAdvancedReportModal() {
         </label>
       </div>
 
-      <div class="no-print" style="display:flex; gap:8px; margin-bottom:14px;">
-        <button class="primary small" id="btnApplyRep" style="flex:1;">🔍 Filtrar Dados</button>
-        <button class="accent small" id="btnExportPDF" style="flex:1;">🖨️ Imprimir / Salvar PDF</button>
-        <button class="secondary small" id="btnExportCSV" style="flex:1;">📊 Exportar Planilha Excel</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+        <button class="primary small" id="btnApplyRep" style="flex:1;">🔍 Filtrar</button>
+        <button class="accent small" id="btnExportPDF" style="flex:1;">🖨️ Imprimir / PDF Oficial</button>
+        <button class="secondary small" id="btnExportExcel" style="flex:1;">📊 Exportar Excel (.xls)</button>
       </div>
 
-      <div id="reportResultContainer" style="max-height: 50vh; overflow-y: auto;">
-        <p class="small" style="text-align:center; padding:20px;">Clique em "Filtrar Dados" para carregar o relatório.</p>
-      </div>
+      <div id="repSummaryBar" style="background:#e0f2fe; border:1px solid #7dd3fc; padding:8px 12px; border-radius:10px; margin-bottom:12px; font-size:12px; font-weight:700; color:#0c4a6e;"></div>
+
+      <div id="reportResultContainer" style="max-height: 45vh; overflow-y: auto;"></div>
     </div>
   `);
+
+  const setPresetDates = (daysBack, mode = "days") => {
+    const now = new Date();
+    $("repEndDate").value = now.toISOString().split("T")[0];
+    if (mode === "all") {
+      $("repStartDate").value = "";
+      $("repEndDate").value = "";
+    } else if (mode === "month") {
+      $("repStartDate").value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+    } else if (mode === "year") {
+      $("repStartDate").value = new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
+    } else {
+      $("repStartDate").value = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    }
+    runFilter();
+  };
+
+  $("btnPreset15").onclick = () => setPresetDates(15);
+  $("btnPresetMonth").onclick = () => setPresetDates(0, "month");
+  $("btnPresetYear").onclick = () => setPresetDates(0, "year");
+  $("btnPresetAll").onclick = () => setPresetDates(0, "all");
 
   const runFilter = () => {
     const start = $("repStartDate").value;
@@ -605,6 +699,14 @@ function showAdvancedReportModal() {
       return true;
     });
 
+    state.filteredReportData = filtered;
+
+    const totalLitros = filtered.reduce((acc, cur) => acc + (Number(cur.plannedLiters) || 0), 0);
+    const totalRealizadas = filtered.filter(d => d.status === "completed").length;
+    const totalAusencias = filtered.filter(d => d.status === "pending" || d.status === "disputed").length;
+
+    $("repSummaryBar").innerHTML = `Registros: ${filtered.length} | Realizadas: ${totalRealizadas} | Pendentes/Ausências: ${totalAusencias} | Volume Total: ${totalLitros.toLocaleString("pt-BR")} L`;
+
     const container = $("reportResultContainer");
     container.innerHTML = "";
 
@@ -616,7 +718,7 @@ function showAdvancedReportModal() {
     container.innerHTML = filtered.map(d => {
       const st = translateStatus(d.status);
       return `
-        <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px; page-break-inside: avoid;">
+        <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px;">
           <div style="display:flex; justify-content:space-between;">
             <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
             <span class="pill ${st.class}">${st.text}</span>
@@ -624,11 +726,15 @@ function showAdvancedReportModal() {
           <p class="small" style="margin-top:4px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Comunidade:</b> ${esc(d.community || '—')}</p>
           <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')} · <b>Volume:</b> ${d.plannedLiters} L</p>
           
-          ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700; margin-top:4px;">📍 GPS: <a href="https://maps.google.com/?q=${d.lat},${d.lng}" target="_blank" style="color:var(--success);">Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)} (Abrir no Maps)</a></p>` : '<p class="small" style="color:var(--danger); font-weight:700;">📍 GPS: Não registrado</p>'}
+          ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700; margin-top:4px;">📍 GPS: <a href="https://maps.google.com/?q=${d.lat},${d.lng}" target="_blank" style="color:var(--success);">Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)} (Ver no Mapa)</a></p>` : '<p class="small" style="color:var(--danger); font-weight:700;">📍 GPS: Não registrado</p>'}
           
           ${d.note ? `<p class="small" style="color:var(--danger); font-weight:700; margin-top:2px;">⚠️ Ocorrência / Obs: ${esc(d.note)}</p>` : ''}
           ${d.disputeReason ? `<p class="small" style="color:var(--danger); font-weight:700; margin-top:2px;">❌ Contestação: ${esc(d.disputeReason)}</p>` : ''}
-          ${d.photoUrl ? `<div style="margin-top:8px;"><a href="${d.photoUrl}" target="_blank" class="secondary small" style="text-decoration:none; display:inline-block;">📷 Ver Foto Registrada no Local</a></div>` : ''}
+          ${d.photoUrl ? `
+            <div style="margin-top:8px;">
+              <img src="${d.photoUrl}" alt="Foto da ocorrência" style="max-width:160px; max-height:110px; border-radius:8px; border:1px solid #cbd5e1; display:block; margin-bottom:4px;">
+              <a href="${d.photoUrl}" download="foto_${d.id}.jpg" class="secondary small" style="text-decoration:none; display:inline-block;">📷 Baixar Foto em Alta</a>
+            </div>` : ''}
         </div>
       `;
     }).join("");
@@ -637,22 +743,207 @@ function showAdvancedReportModal() {
   $("btnApplyRep").onclick = runFilter;
   runFilter();
 
+  /* IMPRESSÃO / PDF OFICIAL LIMPO EM FOLHA A4 */
   $("btnExportPDF").onclick = () => {
-    window.print();
+    const rows = state.filteredReportData;
+    const start = $("repStartDate").value ? dateOnly($("repStartDate").value) : "Início";
+    const end = $("repEndDate").value ? dateOnly($("repEndDate").value) : "Hoje";
+    const driverFilter = $("repDriver").value || "Todos";
+    const familyFilter = $("repHousehold").value || "Todas";
+    const totalLitros = rows.reduce((acc, cur) => acc + (Number(cur.plannedLiters) || 0), 0);
+
+    const printWin = window.open("", "_blank", "width=1000,height=750");
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Relatório Oficial - Água para Todos</title>
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; margin: 20px; font-size: 12px; }
+          .header { border-bottom: 2px solid #0284c7; padding-bottom: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+          .header h1 { margin: 0; font-size: 18px; color: #0c4a6e; }
+          .header p { margin: 2px 0 0; color: #475569; font-size: 11px; }
+          .meta { background: #f1f5f9; padding: 10px; border-radius: 6px; margin-bottom: 14px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+          th { background: #0c4a6e; color: #ffffff; text-align: left; padding: 8px; font-size: 11px; border: 1px solid #0c4a6e; }
+          td { padding: 7px 8px; border: 1px solid #cbd5e1; vertical-align: top; font-size: 11px; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .badge { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; }
+          .st-completed { background: #dcfce7; color: #166534; }
+          .st-pending { background: #fef3c7; color: #92400e; }
+          .st-disputed { background: #fee2e2; color: #991b1b; }
+          .st-scheduled { background: #e0f2fe; color: #075985; }
+          .thumb { max-width: 90px; max-height: 70px; border-radius: 4px; border: 1px solid #94a3b8; }
+          .footer { text-align: right; font-size: 10px; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 8px; }
+          @media print { @page { size: A4 landscape; margin: 12mm; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>RELATÓRIO DE AUDITORIA E ABASTECIMENTO — ÁGUA PARA TODOS</h1>
+            <p>Município de Areia Branca/RN • Controle Logístico e Transparência</p>
+          </div>
+          <div style="text-align:right;">
+            <strong>Emissão:</strong> ${new Date().toLocaleString("pt-BR")}
+          </div>
+        </div>
+
+        <div class="meta">
+          <div><strong>Período:</strong> ${start} até ${end}</div>
+          <div><strong>Motorista:</strong> ${esc(driverFilter)}</div>
+          <div><strong>Família:</strong> ${esc(familyFilter)}</div>
+          <div><strong>Total Entregas:</strong> ${rows.length}</div>
+          <div><strong>Volume Total:</strong> ${totalLitros.toLocaleString("pt-BR")} Litros</div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Família Beneficiária</th>
+              <th>Comunidade</th>
+              <th>Motorista / Placa</th>
+              <th>Volume</th>
+              <th>Status</th>
+              <th>Localização GPS</th>
+              <th>Observações / Foto</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(d => {
+              const st = translateStatus(d.status);
+              return `
+                <tr>
+                  <td>${dateOnly(d.scheduledDate)}</td>
+                  <td><strong>${esc(d.recipientName)}</strong></td>
+                  <td>${esc(d.community || "—")}</td>
+                  <td>${esc(d.driverName || "—")}<br><small>${esc(d.vehiclePlate || "")}</small></td>
+                  <td>${(Number(d.plannedLiters) || 0).toLocaleString("pt-BR")} L</td>
+                  <td><span class="badge st-${d.status}">${st.text}</span></td>
+                  <td>${d.lat && d.lng ? `${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}` : "Não registrado"}</td>
+                  <td>
+                    ${d.note ? `<div>Obs: ${esc(d.note)}</div>` : ""}
+                    ${d.disputeReason ? `<div style="color:#b91c1c;">Contestação: ${esc(d.disputeReason)}</div>` : ""}
+                    ${d.photoUrl ? `<img src="${d.photoUrl}" class="thumb">` : "—"}
+                  </td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Documento gerado eletronicamente pelo Sistema Água para Todos • Areia Branca/RN
+        </div>
+        <script>
+          window.onload = function() { window.print(); };
+        </script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
   };
 
-  $("btnExportCSV").onclick = () => {
-    let csv = "\uFEFFMorador;Comunidade;Data;Motorista;Veiculo;Volume(L);Status;Latitude;Longitude\n";
-    state.deliveries.forEach(d => {
-      csv += `"${d.recipientName || ''}";"${d.community || ''}";"${d.scheduledDate || ''}";"${d.driverName || ''}";"${d.vehiclePlate || ''}";${d.plannedLiters || 0};"${d.status || ''}";"${d.lat || ''}";"${d.lng || ''}"\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  /* EXPORTAÇÃO EXCEL (.XLS) COM TABELA ESTRUTURADA, ESTILOS, FILTROS E LARGURA DE COLUNAS */
+  $("btnExportExcel").onclick = () => {
+    const rows = state.filteredReportData;
+    const totalLitros = rows.reduce((acc, cur) => acc + (Number(cur.plannedLiters) || 0), 0);
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    const excelHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Relatorio Entregas</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+          .title { font-size: 14pt; font-weight: bold; background-color: #0c4a6e; color: #ffffff; height: 32px; }
+          .subtitle { font-size: 10pt; background-color: #e0f2fe; color: #0c4a6e; font-weight: bold; }
+          th { background-color: #0284c7; color: #ffffff; font-weight: bold; border: 1px solid #000000; padding: 8px; text-align: left; }
+          td { border: 1px solid #cbd5e1; padding: 6px 8px; vertical-align: middle; }
+          .num { text-align: right; }
+          .st-completed { background-color: #dcfce7; color: #166534; font-weight: bold; }
+          .st-pending { background-color: #fef3c7; color: #92400e; font-weight: bold; }
+          .st-disputed { background-color: #fee2e2; color: #991b1b; font-weight: bold; }
+          .st-scheduled { background-color: #f1f5f9; color: #334155; }
+          .total-row { background-color: #f8fafc; font-weight: bold; border-top: 2px solid #0c4a6e; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <tr>
+            <td colspan="10" class="title">RELATÓRIO DE ABASTECIMENTO — PROGRAMA ÁGUA PARA TODOS (AREIA BRANCA/RN)</td>
+          </tr>
+          <tr>
+            <td colspan="10" class="subtitle">Gerado em: ${new Date().toLocaleString("pt-BR")} | Total de Registros: ${rows.length} | Volume Total: ${totalLitros.toLocaleString("pt-BR")} Litros</td>
+          </tr>
+          <tr><td colspan="10"></td></tr>
+          <tr x:autofilter="all">
+            <th style="width:95px;">Data</th>
+            <th style="width:220px;">Família Beneficiária</th>
+            <th style="width:160px;">Comunidade</th>
+            <th style="width:180px;">Motorista</th>
+            <th style="width:100px;">Veículo</th>
+            <th style="width:110px;">Volume (Litros)</th>
+            <th style="width:130px;">Status</th>
+            <th style="width:110px;">Latitude</th>
+            <th style="width:110px;">Longitude</th>
+            <th style="width:250px;">Observações / Foto Anexada</th>
+          </tr>
+          ${rows.map(d => {
+            const st = translateStatus(d.status);
+            const obsText = [
+              d.note ? `Obs: ${d.note}` : "",
+              d.disputeReason ? `Contestação: ${d.disputeReason}` : "",
+              d.photoUrl ? "[Foto Registrada no Sistema]" : ""
+            ].filter(Boolean).join(" | ");
+            return `
+              <tr>
+                <td>${dateOnly(d.scheduledDate)}</td>
+                <td>${esc(d.recipientName || "")}</td>
+                <td>${esc(d.community || "")}</td>
+                <td>${esc(d.driverName || "")}</td>
+                <td>${esc(d.vehiclePlate || "")}</td>
+                <td class="num">${Number(d.plannedLiters) || 0}</td>
+                <td class="st-${d.status}">${st.text}</td>
+                <td>${d.lat || ""}</td>
+                <td>${d.lng || ""}</td>
+                <td>${esc(obsText)}</td>
+              </tr>
+            `;
+          }).join("")}
+          <tr class="total-row">
+            <td colspan="5">TOTAL GERAL DO PERÍODO FILTRADO</td>
+            <td class="num">${totalLitros}</td>
+            <td colspan="4">${rows.length} entregas listadas</td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(["\uFEFF" + excelHtml], { type: "application/vnd.ms-excel;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `relatorio_agua_para_todos_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `Relatorio_Agua_Para_Todos_${todayStr}.xls`;
     a.click();
-    toast("Planilha CSV formatada exportada com sucesso!");
+    toast("📊 Planilha Excel (.xls) formatada e com filtros exportada!");
   };
 }
 
@@ -874,7 +1165,7 @@ function showHouseholdForm(editId = null, data = null) {
       <div id="hNameSuggestions" class="live-suggestions-box hidden"></div>
 
       <label>Telefone / WhatsApp (Login) <input id="hPhone" type="tel" value="${data?.phone || ''}" placeholder="(84) 99999-9999" required></label>
-      <label>Senha ${editId ? '(6 dígitos para alterar)' : 'Inicial (6 dígitos)'} <input id="hPassword" type="password" maxlength="6" placeholder="123456" ${editId ? '' : 'required'}></label>
+      <label>Senha ${editId ? '(6 dígitos para criar/alterar acesso)' : 'Inicial (6 dígitos)'} <input id="hPassword" type="password" maxlength="6" placeholder="123456" ${editId ? '' : 'required'}></label>
       <label>Comunidade <input id="hComm" value="${data?.community || ''}" required></label>
       <label>Endereço / Ponto de Referência <input id="hAddr" value="${data?.address || ''}" required></label>
       <label>Volume Cisterna (Litros) <input id="hLit" type="number" value="${data?.defaultLiters || 5000}" required></label>
@@ -908,13 +1199,14 @@ function showHouseholdForm(editId = null, data = null) {
   $("hForm").onsubmit = async e => {
     e.preventDefault();
     const phone = $("hPhone").value.trim();
+    const cleanPhone = normalizePhone(phone);
     const pass = $("hPassword").value.trim();
 
     if (pass && (pass.length !== 6 || !/^\d+$/.test(pass))) {
       return alert("A senha deve conter exatamente 6 números.");
     }
 
-    const exists = state.households.some(h => h.phone === phone && h.id !== editId);
+    const exists = state.households.some(h => normalizePhone(h.phone) === cleanPhone && h.id !== editId);
     if (exists) return alert("Já existe uma família cadastrada com este telefone!");
 
     const payload = {
@@ -926,11 +1218,18 @@ function showHouseholdForm(editId = null, data = null) {
     };
 
     try {
+      const authEmail = phoneAuthEmail(phone);
       if (editId) {
         await updateDoc(doc(db, "households", editId), payload);
+        if (pass) {
+          try {
+            const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, pass);
+            await signOutSecondary(secondaryAuth);
+            await setDoc(doc(db, "users", cred.user.uid), { name: payload.name, phone, authEmail, role: "recipient", active: true, householdId: editId }, { merge: true });
+          } catch (e) {}
+        }
         toast("Família atualizada!");
       } else {
-        const authEmail = phoneAuthEmail(phone);
         let uid = null;
         try {
           const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, pass);
@@ -992,13 +1291,14 @@ function showDriverForm(editId = null, data = null) {
   $("mForm").onsubmit = async e => {
     e.preventDefault();
     const phone = $("mPhone").value.trim();
+    const cleanPhone = normalizePhone(phone);
     const pass = $("mPass").value.trim();
 
     if (pass && (pass.length !== 6 || !/^\d+$/.test(pass))) {
       return alert("A senha deve conter exatamente 6 números.");
     }
 
-    const exists = state.drivers.some(d => d.phone === phone && d.id !== editId);
+    const exists = state.drivers.some(d => normalizePhone(d.phone) === cleanPhone && d.id !== editId);
     if (exists) return alert("Já existe um motorista cadastrado com este telefone!");
 
     const payload = {
@@ -1239,7 +1539,7 @@ async function renderDriver() {
       container.appendChild(el);
     });
 
-    if (deliveries.length === 0) container.innerHTML = `<p class="small">Nenhuma entrega atribuída a bạn.</p>`;
+    if (deliveries.length === 0) container.innerHTML = `<p class="small">Nenhuma entrega atribuída a você.</p>`;
   } catch(e){}
 }
 
@@ -1307,14 +1607,13 @@ function showAbsentModal(deliveryId) {
       return alert("Por favor, tire ou selecione a foto do local.");
     }
 
-    // Redimensionamento e compressão em Canvas para garantir tamanho inferior a 500KB (dentro do limite do Firestore)
     const reader = new FileReader();
     reader.onload = function(uploadEvent) {
       const img = new Image();
       img.onload = async function() {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 800;
+        const MAX_WIDTH = 700;
+        const MAX_HEIGHT = 700;
         let width = img.width;
         let height = img.height;
 
@@ -1335,8 +1634,7 @@ function showAbsentModal(deliveryId) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Comprime para JPEG com qualidade 0.7
-        const compressedPhotoUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const compressedPhotoUrl = canvas.toDataURL('image/jpeg', 0.65);
 
         toast("Capturando GPS...");
         navigator.geolocation.getCurrentPosition(async pos => {
@@ -1371,7 +1669,7 @@ function showAbsentModal(deliveryId) {
 }
 
 /* =========================================================
-   PAINEL DA FAMÍLIA / BENEFICIÁRIO (CORRIGIDO LOGIN POR TELEFONE)
+   PAINEL DA FAMÍLIA / BENEFICIÁRIO
 ========================================================= */
 async function renderRecipient() {
   const userPhone = normalizePhone(state.profile.phone);
@@ -1384,7 +1682,6 @@ async function renderRecipient() {
       if (!snapH.empty) {
         household = { id: snapH.docs[0].id, ...snapH.docs[0].data() };
       } else {
-        // Tenta buscar por telefone normalizado
         const allH = await getDocs(collection(db, "households"));
         const found = allH.docs.find(d => normalizePhone(d.data().phone) === userPhone);
         if (found) {
