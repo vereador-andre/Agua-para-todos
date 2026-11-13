@@ -75,10 +75,7 @@ function phoneAuthEmail(phone) {
 
 function loginIdentifierToEmail(id) {
   const v = String(id || "").trim();
-  // Se contiver "@", é um e-mail de administrador ou cadastrado diretamente
   if (v.includes("@")) return v.toLowerCase();
-  
-  // Se for número de telefone (morador ou motorista), formata para o e-mail interno de autenticação
   const d = normalizePhone(v);
   if (d.length >= 10) {
     return `usuario.${d}@agua-para-todos.app`;
@@ -143,7 +140,7 @@ function translateStatus(status) {
   }
 }
 
-/* LOGIN NORMAL CORRIGIDO E ROBUSTO */
+/* LOGIN NORMAL */
 if ($("loginForm")) {
   $("loginForm").onsubmit = async e => {
     e.preventDefault();
@@ -163,7 +160,7 @@ if ($("loginForm")) {
   };
 }
 
-/* RECUPERAÇÃO DE SENHA CORRIGIDA E SEGURA */
+/* RECUPERAÇÃO DE SENHA */
 if ($("forgotPasswordLink")) {
   $("forgotPasswordLink").onclick = e => {
     e.preventDefault();
@@ -181,7 +178,6 @@ function showForgotPasswordModal() {
       <button type="button" class="secondary small" id="tabEmail" style="flex:1;">📧 E-mail (Admin)</button>
     </div>
 
-    <!-- RECUPERAÇÃO POR TELEFONE -->
     <div id="recoveryPhoneContainer">
       <form id="recoveryPhoneForm">
         <label>Telefone / WhatsApp Cadastrado <input id="recPhone" type="tel" placeholder="(84) 99999-9999" required></label>
@@ -200,7 +196,6 @@ function showForgotPasswordModal() {
       </div>
     </div>
 
-    <!-- RECUPERAÇÃO POR E-MAIL -->
     <div id="recoveryEmailContainer" class="hidden">
       <form id="recoveryEmailForm">
         <label>E-mail Cadastrado <input id="recEmail" type="email" placeholder="seuemail@dominio.com.br" required></label>
@@ -227,7 +222,6 @@ function showForgotPasswordModal() {
     $("recoveryPhoneContainer").classList.add("hidden");
   };
 
-  // Validação por Telefone + Nome na base de dados
   $("recoveryPhoneForm").onsubmit = async e => {
     e.preventDefault();
     const errEl = $("recPhoneErr");
@@ -299,7 +293,6 @@ function showForgotPasswordModal() {
     }
   };
 
-  // Validação por E-mail na base de dados
   $("recoveryEmailForm").onsubmit = async e => {
     e.preventDefault();
     const errEl = $("recEmailErr");
@@ -334,7 +327,6 @@ function showForgotPasswordModal() {
   };
 }
 
-/* AUTENTICAÇÃO COM BUSCA RECURSIVA DE PERFIL */
 onAuthStateChanged(auth, async user => {
   if (!user) {
     state.user = null; state.profile = null;
@@ -395,7 +387,7 @@ async function renderAdmin() {
   try {
     const [snapF, snapD, snapM, snapV, snapR] = await Promise.all([
       getDocs(collection(db, "households")),
-      getDocs(query(collection(db, "deliveries"), limit(100))),
+      getDocs(query(collection(db, "deliveries"), limit(200))),
       getDocs(query(collection(db, "users"), where("role", "==", "driver"))),
       getDocs(collection(db, "vehicles")),
       getDocs(query(collection(db, "password_resets"), where("status", "==", "pending")))
@@ -439,7 +431,7 @@ function renderAdminDashboard() {
           <h2 style="font-size: 18px; font-weight: 800; color: var(--text-title);">Visão Geral do Programa</h2>
           <p class="small">Areia Branca/RN • Clique nos quadros para ver os dados</p>
         </div>
-        <button class="accent small" id="btnAuditoria">📊 Auditoria Geral</button>
+        <button class="accent small" id="btnRelatorioGeral">📊 Relatório Completo (Fotos, GPS & Períodos)</button>
       </div>
 
       <div class="stats-grid">
@@ -498,7 +490,7 @@ function renderAdminDashboard() {
   $("cardVeiculos").onclick = () => showCategoryModal("veiculos");
   $("cardEntregas").onclick = () => showCategoryModal("entregas");
 
-  $("btnAuditoria").onclick = showAuditModal;
+  $("btnRelatorioGeral").onclick = showAdvancedReportModal;
   $("btnNewFam").onclick = () => showHouseholdForm();
   $("btnNewMot").onclick = () => showDriverForm();
   $("btnNewVei").onclick = () => showVehicleForm();
@@ -527,6 +519,111 @@ function renderAdminDashboard() {
   $("searchInput").oninput = (e) => {
     state.filters.searchTerm = sanitizeText(e.target.value);
     renderDynamicRecords();
+  };
+}
+
+/* =========================================================
+   NOVA FUNÇÃO: RELATÓRIO COMPLETO COM FOTOS, GPS E PERÍODOS
+========================================================= */
+function showAdvancedReportModal() {
+  const todayStr = new Date().toISOString().split("T")[0];
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  openModal(`
+    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">📊 Relatório Completo e Auditoria Operacional</h2>
+    <p class="small" style="margin-bottom: 14px;">Filtre entregas por período, motorista ou família, visualize fotos, localizações GPS e exporte dados.</p>
+
+    <div style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:12px; margin-bottom:14px; display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
+      <label class="small"><b>Início:</b> <input type="date" id="repStartDate" value="${thirtyDaysAgo}" style="margin-bottom:0;"></label>
+      <label class="small"><b>Fim:</b> <input type="date" id="repEndDate" value="${todayStr}" style="margin-bottom:0;"></label>
+      <label class="small"><b>Motorista:</b> 
+        <select id="repDriver" style="margin-bottom:0;">
+          <option value="">Todos os Motoristas</option>
+          ${state.drivers.map(d => `<option value="${esc(d.name)}">${esc(d.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label class="small"><b>Família:</b> 
+        <select id="repHousehold" style="margin-bottom:0;">
+          <option value="">Todas as Famílias</option>
+          ${state.households.map(h => `<option value="${esc(h.name)}">${esc(h.name)} (${esc(h.community)})</option>`).join("")}
+        </select>
+      </label>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <button class="primary small" id="btnApplyRep" style="flex:1;">🔍 Filtrar Dados</button>
+      <button class="accent small" id="btnExportPDF" style="flex:1;">🖨️ Gerar PDF / Imprimir</button>
+      <button class="secondary small" id="btnExportCSV" style="flex:1;">📊 Exportar Planilha (CSV)</button>
+    </div>
+
+    <div id="reportResultContainer" style="max-height: 50vh; overflow-y: auto;">
+      <p class="small" style="text-align:center; padding:20px;">Clique em "Filtrar Dados" para carregar o relatório.</p>
+    </div>
+  `);
+
+  const runFilter = () => {
+    const start = $("repStartDate").value;
+    const end = $("repEndDate").value;
+    const selDriver = $("repDriver").value;
+    const selHousehold = $("repHousehold").value;
+
+    const filtered = state.deliveries.filter(d => {
+      const dDate = d.scheduledDate || "";
+      if (start && dDate < start) return false;
+      if (end && dDate > end) return false;
+      if (selDriver && d.driverName !== selDriver) return false;
+      if (selHousehold && d.recipientName !== selHousehold) return false;
+      return true;
+    });
+
+    const container = $("reportResultContainer");
+    container.innerHTML = "";
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<p class="small" style="text-align:center; padding:20px;">Nenhuma entrega encontrada para este período/filtros.</p>`;
+      return;
+    }
+
+    container.innerHTML = filtered.map(d => {
+      const st = translateStatus(d.status);
+      return `
+        <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between;">
+            <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
+            <span class="pill ${st.class}">${st.text}</span>
+          </div>
+          <p class="small" style="margin-top:4px;"><b>Data:</b> ${dateOnly(d.scheduledDate)} · <b>Comunidade:</b> ${esc(d.community || '—')}</p>
+          <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')} · <b>Volume:</b> ${d.plannedLiters} L</p>
+          
+          ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700; margin-top:4px;">📍 GPS: <a href="https://maps.google.com/?q=${d.lat},${d.lng}" target="_blank" style="color:var(--success);">Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)} (Abrir no Maps)</a></p>` : '<p class="small" style="color:var(--danger); font-weight:700;">📍 GPS: Não registrado</p>'}
+          
+          ${d.note ? `<p class="small" style="color:var(--danger); font-weight:700; margin-top:2px;">⚠️ Ocorrência / Obs: ${esc(d.note)}</p>` : ''}
+          ${d.disputeReason ? `<p class="small" style="color:var(--danger); font-weight:700; margin-top:2px;">❌ Contestação: ${esc(d.disputeReason)}</p>` : ''}
+          ${d.photoUrl ? `<div style="margin-top:8px;"><a href="${d.photoUrl}" target="_blank" class="secondary small" style="text-decoration:none; display:inline-block;">📷 Ver Foto Registrada no Local</a></div>` : ''}
+        </div>
+      `;
+    }).join("");
+  };
+
+  $("btnApplyRep").onclick = runFilter;
+  runFilter(); // Executa ao abrir
+
+  $("btnExportPDF").onclick = () => {
+    window.print();
+  };
+
+  $("btnExportCSV").onclick = () => {
+    let csv = "Morador,Comunidade,Data,Motorista,Veiculo,Volume(L),Status,Latitude,Longitude\n";
+    state.deliveries.forEach(d => {
+      csv += `"${d.recipientName}","${d.community || ''}","${d.scheduledDate || ''}","${d.driverName || ''}","${d.vehiclePlate || ''}",${d.plannedLiters || 0},"${d.status}",${d.lat || ''},${d.lng || ''}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio_agua_para_todos_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    toast("Planilha CSV exportada com sucesso!");
   };
 }
 
@@ -737,32 +834,6 @@ function showCategoryModal(type) {
   openModal(`
     <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">${title}</h2>
     <div style="max-height: 65vh; overflow-y: auto;">${html}</div>
-  `);
-}
-
-function showAuditModal() {
-  openModal(`
-    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">📊 Auditoria Completa de Entregas</h2>
-    <div style="max-height: 70vh; overflow-y: auto;">
-      ${state.deliveries.map(d => {
-        const st = translateStatus(d.status);
-        return `
-          <div style="background:#f8fafc; border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px;">
-            <div style="display:flex; justify-content:space-between;">
-              <b style="color:var(--text-title);">${esc(d.recipientName)}</b>
-              <span class="pill ${st.class}">${st.text}</span>
-            </div>
-            <p class="small" style="margin-top:4px;"><b>Comunidade:</b> ${esc(d.community)} · <b>Endereço:</b> ${esc(d.address || '—')}</p>
-            <p class="small"><b>Motorista:</b> ${esc(d.driverName || '—')} · <b>Veículo:</b> ${esc(d.vehiclePlate || '—')}</p>
-            <p class="small"><b>Data Agendada:</b> ${dateOnly(d.scheduledDate)} · <b>Volume:</b> ${d.plannedLiters} L ${d.alterReason ? `(Alterado: ${d.alterReason})` : ''}</p>
-            <p class="small" style="color:var(--primary); font-weight:700;"><b>PIN do Registro:</b> ${d.pin || 'Não gerado'}</p>
-            ${d.lat && d.lng ? `<p class="small" style="color:var(--success); font-weight:700;">📍 GPS: Lat ${d.lat.toFixed(5)}, Lng ${d.lng.toFixed(5)}</p>` : '<p class="small" style="color:var(--danger); font-weight:700;">📍 GPS: Não registrado</p>'}
-            ${d.note ? `<p class="small" style="color:var(--danger); font-weight:700;">⚠️ Obs Ausência: ${esc(d.note)}</p>` : ''}
-            ${d.disputeReason ? `<p class="small" style="color:var(--danger); font-weight:700;">❌ Contestação Morador: ${esc(d.disputeReason)}</p>` : ''}
-          </div>
-        `;
-      }).join("") || "<p class='small'>Nenhuma entrega cadastrada.</p>"}
-    </div>
   `);
 }
 
@@ -1185,45 +1256,61 @@ function showAbsentModal(deliveryId) {
       <label>Foto do Local (Obrigatório Direto da Câmera) 
         <input id="obsPhoto" type="file" accept="image/*" capture="environment" required>
       </label>
-      <p class="small" style="color:var(--danger); margin-bottom:14px;">Nota: Use a câmera do aparelho para tirar a foto no local (fotos salvas na galeria são bloqueadas).</p>
+      <p class="small" style="color:var(--danger); margin-bottom:14px;">Nota: Use a câmera do aparelho para tirar a foto no local.</p>
 
-      <button type="submit" class="primary full-width" style="width:100%;">📤 Registrar Ausência com GPS e Gerar PIN</button>
+      <button type="submit" class="primary full-width" style="width:100%;">📤 Registrar Ausência com GPS e Foto</button>
     </form>
   `);
 
   $("absentForm").onsubmit = async e => {
     e.preventDefault();
     const note = $("obsText").value.trim() || "Morador ausente";
-
+    const fileInput = $("obsPhoto");
+    
     if (!navigator.geolocation) {
       return alert("Geolocalização obrigatória não suportada.");
     }
 
-    toast("Capturando GPS e registrando ausência...");
+    toast("Processando foto e GPS...");
 
-    navigator.geolocation.getCurrentPosition(async pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      const pin = Math.floor(1000 + Math.random() * 9000);
+    // Converte a foto em base64 para armazenamento direto e seguro no Firestore
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = async function(uploadEvent) {
+      const photoUrl = uploadEvent.target.result;
 
-      try {
-        await updateDoc(doc(db, "deliveries", deliveryId), {
-          status: "pending",
-          pin,
-          lat,
-          lng,
-          note,
-          updatedAt: serverTimestamp()
-        });
-        closeModal();
-        toast("Ausência registrada com GPS e PIN gerado com sucesso!");
-        renderDriver();
-      } catch (err) {
-        alert("Erro ao salvar: " + err.message);
-      }
-    }, () => {
-      alert("Erro ao capturar GPS. Verifique se o GPS está ativado no aparelho.");
-    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+      navigator.geolocation.getCurrentPosition(async pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const pin = Math.floor(1000 + Math.random() * 9000);
+
+        try {
+          await updateDoc(doc(db, "deliveries", deliveryId), {
+            status: "pending",
+            pin,
+            lat,
+            lng,
+            note,
+            photoUrl,
+            updatedAt: serverTimestamp()
+          });
+          closeModal();
+          toast("Ausência registrada com foto e GPS com sucesso!");
+          renderDriver();
+        } catch (err) {
+          alert("Erro ao salvar: " + err.message);
+        }
+      }, () => {
+        alert("Erro ao capturar GPS. Verifique se o GPS está ativado.");
+      }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    };
+
+    if (file) {
+      reader.readAsDataURL(file);
+    } else {
+      alert("Por favor, tire ou selecione a foto do local.");
+    }
   };
 }
 
@@ -1368,7 +1455,7 @@ async function renderRecipient() {
         };
 
         el.querySelector(`#sendDispute_${deliveryId}`).onclick = async () => {
-          const reason = el.querySelector(`#disputeInput_${deliveryId}`).value.trim();
+          const reason = el.querySelector(`#disputeInput_${deliveryId}` ).value.trim();
           if (!reason) return alert("Informe o motivo do não recebimento.");
           await updateDoc(doc(db, "deliveries", deliveryId), { status: "disputed", disputeReason: reason });
           toast("Contestação enviada ao administrador!");
