@@ -1,22 +1,19 @@
-// Importações oficiais do SDK do Firebase (Versão 12 ou compatível via CDN)
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
+// TODO: Replace the following with your app's Firebase project configuration
 export const firebaseConfig = {
-  apiKey: "AIzaSyAAf5Tfvh0Ow-iusTMuvax5VlxBgjtVFeo",
-  authDomain: "agua-para-todos-18167.firebaseapp.com",
-  projectId: "agua-para-todos-18167",
-  storageBucket: "agua-para-todos-18167.firebasestorage.app",
-  messagingSenderId: "154424742994",
-  appId: "1:154424742994:web:46f14ccf8fc781e8867b8b"
+  apiKey: "AIzaSyD-Exemplo-SuaApiKeyDoFirebaseAqui",
+  authDomain: "agua-para-todos-areia-branca.firebaseapp.com",
+  projectId: "agua-para-todos-areia-branca",
+  storageBucket: "agua-para-todos-areia-branca.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:abcdef123456789"
 };
 
-// Inicializa a aplicação Firebase principal
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// Exporta os serviços prontos para uso em outros módulos
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
