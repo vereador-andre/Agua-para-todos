@@ -1,6 +1,6 @@
 import { auth, db, firebaseConfig } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, signOut as signOutSecondary } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut as signOutSecondary } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
@@ -101,6 +101,7 @@ if ($("modal")) $("modal").onclick = e => { if (e.target.id === "modal") closeMo
 function toast(msg) {
   if (!$("toast")) return;
   $("toast").textContent = msg;
+  $("toast.classList")?.add("show"); // Safe check
   $("toast").classList.add("show");
   setTimeout(() => $("toast").classList.remove("show"), 3500);
 }
@@ -126,7 +127,6 @@ function dateOnly(v) {
   return new Date(v + "T12:00:00").toLocaleDateString("pt-BR");
 }
 
-/* TRADUÇÃO DE STATUS PARA PORTUGUÊS */
 function translateStatus(status) {
   switch (status) {
     case 'completed': return { text: 'Realizada', class: 'completed' };
@@ -149,6 +149,92 @@ if ($("loginForm")) {
       console.error(err);
       if ($("loginMsg")) $("loginMsg").textContent = "Acesso negado: Verifique o telefone/e-mail e a senha de 6 dígitos.";
     }
+  };
+}
+
+/* RECUPERAÇÃO DE SENHA */
+if ($("forgotPasswordLink")) {
+  $("forgotPasswordLink").onclick = e => {
+    e.preventDefault();
+    showForgotPasswordModal();
+  };
+}
+
+function showForgotPasswordModal() {
+  openModal(`
+    <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🔑 Recuperação de Senha</h2>
+    <p class="small" style="margin-bottom: 16px;">Escolha como deseja recuperar o acesso ao sistema:</p>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+      <button type="button" class="primary small" id="tabEmail" style="flex:1;">Via E-mail (Admin)</button>
+      <button type="button" class="secondary small" id="tabPhone" style="flex:1;">Via Telefone / Celular</button>
+    </div>
+
+    <div id="recoveryEmailContainer">
+      <form id="recoveryEmailForm">
+        <label>Informe seu E-mail cadastrado <input id="recEmail" type="email" placeholder="admin@areianbranca.rn.gov.br" required></label>
+        <button type="submit" class="primary" style="width:100%; margin-top:8px;">📩 Enviar Link de Recuperação</button>
+      </form>
+    </div>
+
+    <div id="recoveryPhoneContainer" class="hidden">
+      <form id="recoveryPhoneForm">
+        <label>Informe seu Telefone / WhatsApp cadastrado <input id="recPhone" type="tel" placeholder="(84) 99999-9999" required></label>
+        <button type="submit" class="accent" style="width:100%; margin-top:8px;">📱 Gerar Código de Acesso</button>
+      </form>
+      <div id="phoneCodeResult" class="hidden" style="margin-top:14px; background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:12px; text-align:center;">
+        <p class="small" style="color:#166534; font-weight:800;">CÓDIGO DE RECUPERAÇÃO GERADO:</p>
+        <div id="codeDisplayBox" style="font-size:24px; font-weight:900; letter-spacing:6px; color:#15803d; margin:6px 0;"></div>
+        <button type="button" class="primary small" id="copyCodeBtn" style="width:100%;">📋 Copiar Código Completo</button>
+      </div>
+    </div>
+  `);
+
+  applyPhoneMask($("recPhone"));
+
+  $("tabEmail").onclick = () => {
+    $("tabEmail").className = "primary small";
+    $("tabPhone").className = "secondary small";
+    $("recoveryEmailContainer").classList.remove("hidden");
+    $("recoveryPhoneContainer").classList.add("hidden");
+  };
+
+  $("tabPhone").onclick = () => {
+    $("tabPhone").className = "primary small";
+    $("tabEmail").className = "secondary small";
+    $("recoveryPhoneContainer").classList.remove("hidden");
+    $("recoveryEmailContainer").classList.add("hidden");
+  };
+
+  $("recoveryEmailForm").onsubmit = async e => {
+    e.preventDefault();
+    const email = $("recEmail").value.trim();
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast("E-mail de recuperação enviado com sucesso!");
+      closeModal();
+    } catch(err) {
+      alert("Erro ao enviar e-mail: Verifique se o endereço está correto.");
+    }
+  };
+
+  $("recoveryPhoneForm").onsubmit = async e => {
+    e.preventDefault();
+    const phoneVal = $("recPhone").value.trim();
+    const cleanPh = normalizePhone(phoneVal);
+
+    if (cleanPh.length < 10) return alert("Informe um telefone válido.");
+
+    // Gera um código numérico aleatório de 6 dígitos para copiar e colar
+    const secureCode = Math.floor(100000 + Math.random() * 900000);
+    $("codeDisplayBox").textContent = secureCode;
+    $("phoneCodeResult").classList.remove("hidden");
+    toast("Código gerado com sucesso!");
+
+    $("copyCodeBtn").onclick = () => {
+      navigator.clipboard.writeText(String(secureCode));
+      toast("✅ Código copiado para a área de transferência!");
+    };
   };
 }
 
@@ -823,7 +909,7 @@ function showDeliveryForm(editId = null, data = null) {
 }
 
 /* =========================================================
-   PAINEL DO MOTORISTA (COM BLOQUEIO APÓS CONCLUSÃO/AUSÊNCIA)
+   PAINEL DO MOTORISTA
 ========================================================= */
 async function renderDriver() {
   $("driverPanel").innerHTML = `
@@ -1019,10 +1105,10 @@ async function renderRecipient() {
 
   $("recipientPanel").innerHTML = `
     <div class="card">
-      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🏡 Cadastro da Família Rural</h2>
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🏡 Cadastro da Família</h2>
       <p class="small"><b>Responsável:</b> ${esc(state.profile.name || household.name || '—')}</p>
       <p class="small"><b>Telefone/WhatsApp:</b> ${esc(state.profile.phone || household.phone || '—')}</p>
-      <p class="small"><b>Comunidade Rural:</b> ${esc(household.community || '—')}</p>
+      <p class="small"><b>Comunidade:</b> ${esc(household.community || '—')}</p>
       <p class="small"><b>Endereço / Ponto de Ref.:</b> ${esc(household.address || '—')}</p>
       <p class="small"><b>Capacidade da Cisterna:</b> ${household.defaultLiters || 5000} Litros</p>
     </div>
