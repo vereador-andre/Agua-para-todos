@@ -1,0 +1,16 @@
+{
+  "name": "Água para Todos - Areia Branca",
+  "short_name": "Água para Todos",
+  "start_url": "/Agua-para-todos/",
+  "scope": "/Agua-para-todos/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
