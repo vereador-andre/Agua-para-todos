@@ -1,7 +1,7 @@
 import { auth, db, firebaseConfig } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut as signOutSecondary } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where, limit, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
 const state = { 
@@ -15,6 +15,12 @@ const state = {
   filteredReportData: [],
   filters: { category: null, searchTerm: "" }
 };
+
+let unsubscribes = [];
+function clearListeners() {
+  unsubscribes.forEach(unsub => unsub());
+  unsubscribes = [];
+}
 
 let secondaryApp = null, secondaryAuth = null;
 try {
@@ -100,7 +106,10 @@ function updateConnectionStatus() {
 window.addEventListener("online", updateConnectionStatus);
 window.addEventListener("offline", updateConnectionStatus);
 
-if ($("logoutBtn")) $("logoutBtn").onclick = () => signOut(auth);
+if ($("logoutBtn")) $("logoutBtn").onclick = () => {
+  clearListeners();
+  signOut(auth);
+};
 if ($("closeModal")) $("closeModal").onclick = closeModal;
 if ($("modal")) $("modal").onclick = e => { if (e.target.id === "modal") closeModal(); };
 
@@ -350,6 +359,7 @@ function showForgotPasswordModal() {
 }
 
 onAuthStateChanged(auth, async user => {
+  clearListeners();
   if (!user) {
     state.user = null; state.profile = null;
     updateConnectionStatus();
@@ -399,13 +409,13 @@ async function renderByRole() {
   ["adminPanel", "driverPanel", "recipientPanel"].forEach(id => { if ($(id)) $(id).classList.add("hidden"); });
   if (state.profile.role === "admin") {
     if ($("adminPanel")) $("adminPanel").classList.remove("hidden");
-    await renderAdmin();
+    initAdminListeners();
   } else if (state.profile.role === "driver") {
     if ($("driverPanel")) $("driverPanel").classList.remove("hidden");
-    await renderDriver();
+    initDriverListeners();
   } else if (state.profile.role === "recipient") {
     if ($("recipientPanel")) $("recipientPanel").classList.remove("hidden");
-    await renderRecipient();
+    initRecipientListeners();
   }
 }
 
@@ -433,7 +443,6 @@ async function checkAndRunDailyBackup() {
         })
       });
       localStorage.setItem("agua_para_todos_last_backup", todayStr);
-      toast(`✅ Backup automático diário (${dateOnly(todayStr)}) salvo na nuvem!`);
     } catch (e) {
       console.warn("Aviso no backup automático:", e);
     }
@@ -467,32 +476,43 @@ function downloadFullBackupFile() {
 }
 
 /* =========================================================
-   PAINEL DO ADMINISTRADOR
+   PAINEL DO ADMINISTRADOR (EM TEMPO REAL)
 ========================================================= */
-async function renderAdmin() {
-  try {
-    const [snapF, snapD, snapM, snapV, snapR] = await Promise.all([
-      getDocs(collection(db, "households")),
-      getDocs(query(collection(db, "deliveries"), limit(500))),
-      getDocs(query(collection(db, "users"), where("role", "==", "driver"))),
-      getDocs(collection(db, "vehicles")),
-      getDocs(query(collection(db, "password_resets"), where("status", "==", "pending")))
-    ]);
-
+function initAdminListeners() {
+  const unsubF = onSnapshot(collection(db, "households"), snapF => {
     state.households = snapF.docs.map(d => ({ id: d.id, ...d.data() }));
-    state.deliveries = snapD.docs.map(d => ({ id: d.id, ...d.data() }));
-    state.drivers = snapM.docs.map(d => ({ id: d.id, ...d.data() }));
-    state.vehicles = snapV.docs.map(d => ({ id: d.id, ...d.data() }));
-    state.resetRequests = snapR.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAdminDashboard();
+  });
+  unsubscribes.push(unsubF);
 
+  const unsubD = onSnapshot(query(collection(db, "deliveries"), limit(500)), snapD => {
+    state.deliveries = snapD.docs.map(d => ({ id: d.id, ...d.data() }));
     renderAdminDashboard();
     checkAndRunDailyBackup();
-  } catch (err) {
-    console.error(err);
-  }
+  });
+  unsubscribes.push(unsubD);
+
+  const unsubM = onSnapshot(query(collection(db, "users"), where("role", "==", "driver")), snapM => {
+    state.drivers = snapM.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAdminDashboard();
+  });
+  unsubscribes.push(unsubM);
+
+  const unsubV = onSnapshot(collection(db, "vehicles"), snapV => {
+    state.vehicles = snapV.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAdminDashboard();
+  });
+  unsubscribes.push(unsubV);
+
+  const unsubR = onSnapshot(query(collection(db, "password_resets"), where("status", "==", "pending")), snapR => {
+    state.resetRequests = snapR.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAdminDashboard();
+  });
+  unsubscribes.push(unsubR);
 }
 
 function renderAdminDashboard() {
+  if (!state.profile || state.profile.role !== "admin") return;
   const scheduledCount = state.deliveries.filter(d => d.status === "scheduled").length;
   const completedCount = state.deliveries.filter(d => d.status === "completed").length;
   const pendingCount = state.deliveries.filter(d => d.status === "pending" || d.status === "disputed").length;
@@ -516,7 +536,7 @@ function renderAdminDashboard() {
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
         <div>
           <h2 style="font-size: 18px; font-weight: 800; color: var(--text-title);">Visão Geral do Programa</h2>
-          <p class="small">Areia Branca/RN • Clique nos quadros para ver os dados</p>
+          <p class="small">Areia Branca/RN • Sincronizado em tempo real</p>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="secondary small" id="btnBackupNow" title="Baixar cópia completa de segurança">💾 Backup Completo</button>
@@ -606,6 +626,13 @@ function renderAdminDashboard() {
       renderDynamicRecords();
     };
   });
+
+  if (state.filters.category) {
+    const activeBtn = document.querySelector(`.filter-tab-btn[data-cat="${state.filters.category}"]`);
+    if (activeBtn) activeBtn.classList.add("active");
+    $("filterOptionsContainer").classList.remove("hidden");
+    renderDynamicRecords();
+  }
 
   $("searchInput").oninput = (e) => {
     state.filters.searchTerm = sanitizeText(e.target.value);
@@ -967,7 +994,6 @@ function showResetRequestsModal() {
       await updateDoc(doc(db, "password_resets", id), { status: "resolved", resolvedAt: serverTimestamp() });
       toast("Solicitação marcada como concluída!");
       closeModal();
-      renderAdmin();
     };
   });
 }
@@ -1004,7 +1030,6 @@ function renderDynamicRecords() {
           confirmSecureDelete(`a família ${h.name}`, async () => {
             await deleteDoc(doc(db, "households", h.id));
             toast("Família excluída!");
-            renderAdmin();
           });
         };
         container.appendChild(el);
@@ -1031,7 +1056,6 @@ function renderDynamicRecords() {
           confirmSecureDelete(`o motorista ${m.name}`, async () => {
             await deleteDoc(doc(db, "users", m.id));
             toast("Motorista excluído!");
-            renderAdmin();
           });
         };
         container.appendChild(el);
@@ -1058,7 +1082,6 @@ function renderDynamicRecords() {
           confirmSecureDelete(`o veículo ${v.plate}`, async () => {
             await deleteDoc(doc(db, "vehicles", v.id));
             toast("Veículo excluído!");
-            renderAdmin();
           });
         };
         container.appendChild(el);
@@ -1089,7 +1112,6 @@ function renderDynamicRecords() {
           confirmSecureDelete(`a entrega para ${d.recipientName}`, async () => {
             await deleteDoc(doc(db, "deliveries", d.id));
             toast("Entrega excluída!");
-            renderAdmin();
           });
         };
         container.appendChild(el);
@@ -1165,7 +1187,7 @@ function showHouseholdForm(editId = null, data = null) {
       <label>Comunidade <input id="hComm" value="${data?.community || ''}" required></label>
       <label>Endereço / Ponto de Referência <input id="hAddr" value="${data?.address || ''}" required></label>
       <label>Volume Cisterna (Litros) <input id="hLit" type="number" value="${data?.defaultLiters || 5000}" required></label>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
         <button type="button" class="secondary" id="canH" style="flex: 1;">Voltar</button>
         <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar' : 'Cadastrar'}</button>
       </div>
@@ -1239,7 +1261,6 @@ function showHouseholdForm(editId = null, data = null) {
         toast("Família cadastrada com sucesso!");
       }
       closeModal();
-      renderAdmin();
     } catch(err) { alert("Erro ao salvar: " + err.message); }
   };
 }
@@ -1259,7 +1280,7 @@ function showDriverForm(editId = null, data = null) {
           ${state.vehicles.map(v => `<option value="${esc(v.plate)}" ${data?.vehiclePlate === v.plate ? 'selected' : ''}>${esc(v.plate)} - ${esc(v.model)}</option>`).join("")}
         </select>
       </label>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
         <button type="button" class="secondary" id="canM" style="flex: 1;">Voltar</button>
         <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar' : 'Salvar Motorista'}</button>
       </div>
@@ -1321,7 +1342,6 @@ function showDriverForm(editId = null, data = null) {
         toast("Motorista cadastrado!");
       }
       closeModal();
-      renderAdmin();
     } catch(err) { alert("Erro ao salvar: " + err.message); }
   };
 }
@@ -1341,7 +1361,7 @@ function showVehicleForm(editId = null, data = null) {
           ${state.drivers.map(m => `<option value="${esc(m.name)}" ${data?.driverName === m.name ? 'selected' : ''}>${esc(m.name)}</option>`).join("")}
         </select>
       </label>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
         <button type="button" class="secondary" id="canV" style="flex: 1;">Voltar</button>
         <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar' : 'Cadastrar Veículo'}</button>
       </div>
@@ -1389,7 +1409,6 @@ function showVehicleForm(editId = null, data = null) {
         toast("Veículo cadastrado!");
       }
       closeModal();
-      renderAdmin();
     } catch(err) { alert("Erro ao salvar: " + err.message); }
   };
 }
@@ -1403,7 +1422,7 @@ function showDeliveryForm(editId = null, data = null) {
       <label>Veículo <select id="sVei" required><option value="">Selecione...</option>${state.vehicles.map(v => `<option value="${esc(v.plate)}" ${data?.vehiclePlate === v.plate ? 'selected' : ''}>${esc(v.plate)}</option>`).join("")}</select></label>
       <label>Data Prevista <input id="sDate" type="date" value="${data?.scheduledDate || ''}" required></label>
       <label>Volume (Litros) <input id="sLit" type="number" value="${data?.plannedLiters || 5000}" required></label>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
         <button type="button" class="secondary" id="canD" style="flex: 1;">Voltar</button>
         <button type="submit" class="primary" style="flex: 2;">${editId ? 'Salvar Alterações' : 'Confirmar Agendamento'}</button>
       </div>
@@ -1442,15 +1461,24 @@ function showDeliveryForm(editId = null, data = null) {
         toast("Entrega agendada!");
       }
       closeModal();
-      renderAdmin();
     } catch(err) { alert("Erro: " + err.message); }
   };
 }
 
 /* =========================================================
-   PAINEL DO MOTORISTA
+   PAINEL DO MOTORISTA (EM TEMPO REAL)
 ========================================================= */
-async function renderDriver() {
+function initDriverListeners() {
+  const q = query(collection(db, "deliveries"), where("driverName", "==", state.profile.name));
+  const unsub = onSnapshot(q, snap => {
+    const deliveries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderDriverDashboard(deliveries);
+  });
+  unsubscribes.push(unsub);
+}
+
+function renderDriverDashboard(deliveries) {
+  if (!state.profile || state.profile.role !== "driver") return;
   $("driverPanel").innerHTML = `
     <div class="card">
       <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">👤 Minhas Entregas e Operações</h2>
@@ -1458,91 +1486,91 @@ async function renderDriver() {
     </div>
   `;
 
-  try {
-    const snap = await getDocs(query(collection(db, "deliveries"), where("driverName", "==", state.profile.name)));
-    const deliveries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const container = $("dList");
+  container.innerHTML = "";
 
-    const container = $("dList");
-    container.innerHTML = "";
+  deliveries.forEach(item => {
+    const st = translateStatus(item.status);
+    const isConcluded = item.status === 'completed' || item.status === 'pending' || item.status === 'disputed';
 
-    deliveries.forEach(item => {
-      const st = translateStatus(item.status);
-      const isConcluded = item.status === 'completed' || item.status === 'pending' || item.status === 'disputed';
+    const el = document.createElement("div");
+    el.className = "record-card";
+    el.style.borderColor = item.status === "completed" ? "#a7f3d0" : item.status === "pending" ? "#fbcfe8" : "#bae6fd";
 
-      const el = document.createElement("div");
-      el.className = "record-card";
-      el.style.borderColor = item.status === "completed" ? "#a7f3d0" : item.status === "pending" ? "#fbcfe8" : "#bae6fd";
+    el.innerHTML = `
+      <div class="record-header"><div class="record-title">🌊 ${esc(item.recipientName)}</div><span class="pill ${st.class}">${st.text}</span></div>
+      <p class="small"><b>Data:</b> ${dateOnly(item.scheduledDate)} · <b>Comunidade:</b> ${esc(item.community)}</p>
+      <p class="small"><b>Endereço:</b> ${esc(item.address || '—')}</p>
 
-      el.innerHTML = `
-        <div class="record-header"><div class="record-title">🌊 ${esc(item.recipientName)}</div><span class="pill ${st.class}">${st.text}</span></div>
-        <p class="small"><b>Data:</b> ${dateOnly(item.scheduledDate)} · <b>Comunidade:</b> ${esc(item.community)}</p>
-        <p class="small"><b>Endereço:</b> ${esc(item.address || '—')}</p>
-
-        ${!isConcluded ? `
-          <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid var(--border);">
-            <label style="font-size: 11px; margin-bottom: 4px;">Volume de Água (Litros)</label>
-            <input type="number" id="volInput_${item.id}" value="${item.plannedLiters}" style="margin-bottom: 8px;">
-            <div id="justDiv_${item.id}" class="hidden">
-              <label style="font-size: 11px; margin-bottom: 4px; color: var(--danger);">Justificativa da Alteração</label>
-              <input type="text" id="justInput_${item.id}" placeholder="Motivo da alteração de volume..." style="margin-bottom: 8px;">
-            </div>
-            <button class="secondary small" style="width:100%; margin-bottom:6px;" id="saveVol_${item.id}">💾 Atualizar Volume / Justificativa</button>
+      ${!isConcluded ? `
+        <div style="margin-top: 12px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid var(--border);">
+          <label style="font-size: 11px; margin-bottom: 4px;">Volume de Água (Litros)</label>
+          <input type="number" id="volInput_${item.id}" value="${item.plannedLiters}" style="margin-bottom: 8px;">
+          <div id="justDiv_${item.id}" class="hidden">
+            <label style="font-size: 11px; margin-bottom: 4px; color: var(--danger);">Justificativa da Alteração</label>
+            <input type="text" id="justInput_${item.id}" placeholder="Motivo da alteração de volume..." style="margin-bottom: 8px;">
           </div>
+          <button class="secondary small" style="width:100%; margin-bottom:6px;" id="saveVol_${item.id}">💾 Atualizar Volume / Justificativa</button>
+        </div>
 
-          <div style="margin-top: 12px; background: #f1f5f9; padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
-            <label style="font-size: 11px; margin-bottom: 4px;">PIN do Morador</label>
-            <input type="text" maxlength="4" placeholder="4 dígitos" id="pinInput_${item.id}" style="margin-bottom: 8px; text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 4px;">
-            <button class="primary small" style="width: 100%; margin-bottom: 6px;" id="confPin_${item.id}">✅ Confirmar Entrega (PIN + GPS)</button>
-            <button class="danger small" style="width: 100%;" id="ausenteBtn_${item.id}">⚠️ Morador Ausente (Ausência + Câmera)</button>
-          </div>
-        ` : `
-          <div style="margin-top:12px; background:#f1f5f9; border:1px solid var(--border); padding:10px; border-radius:10px; text-align:center;">
-            <p class="small" style="color:var(--text-title); font-weight:800;">🔒 Processo Concluído (${st.text})</p>
-            <p class="small" style="margin-top:2px;">Volume registrado: <b>${item.plannedLiters} L</b></p>
-            ${item.note ? `<p class="small" style="color:var(--danger); margin-top:2px;"><b>Obs:</b> ${esc(item.note)}</p>` : ''}
-          </div>
-        `}
-      `;
+        <div style="margin-top: 12px; background: #f1f5f9; padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
+          <label style="font-size: 11px; margin-bottom: 4px; color:var(--primary); font-weight:800;">PIN do Morador (Obrigatório)</label>
+          <input type="text" maxlength="4" placeholder="4 dígitos" id="pinInput_${item.id}" style="margin-bottom: 8px; text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 4px;">
+          <button class="primary small" style="width: 100%; margin-bottom: 6px;" id="confPin_${item.id}">✅ Confirmar Entrega (PIN + GPS)</button>
+          <button class="danger small" style="width: 100%;" id="ausenteBtn_${item.id}">⚠️ Morador Ausente (Ausência + Câmera)</button>
+        </div>
+      ` : `
+        <div style="margin-top:12px; background:#f1f5f9; border:1px solid var(--border); padding:10px; border-radius:10px; text-align:center;">
+          <p class="small" style="color:var(--text-title); font-weight:800;">🔒 Processo Concluído (${st.text})</p>
+          <p class="small" style="margin-top:2px;">Volume registrado: <b>${item.plannedLiters} L</b></p>
+          ${item.note ? `<p class="small" style="color:var(--danger); margin-top:2px;"><b>Obs:</b> ${esc(item.note)}</p>` : ''}
+        </div>
+      `}
+    `;
 
-      if (!isConcluded) {
-        const volInput = el.querySelector(`#volInput_${item.id}`);
-        const justDiv = el.querySelector(`#justDiv_${item.id}`);
-        volInput.oninput = () => {
-          if (Number(volInput.value) !== Number(item.plannedLiters)) {
-            justDiv.classList.remove("hidden");
-          } else {
-            justDiv.classList.add("hidden");
-          }
-        };
+    if (!isConcluded) {
+      const volInput = el.querySelector(`#volInput_${item.id}`);
+      const justDiv = el.querySelector(`#justDiv_${item.id}`);
+      volInput.oninput = () => {
+        if (Number(volInput.value) !== Number(item.plannedLiters)) {
+          justDiv.classList.remove("hidden");
+        } else {
+          justDiv.classList.add("hidden");
+        }
+      };
 
-        el.querySelector(`#saveVol_${item.id}`).onclick = async () => {
-          const newVol = Number(volInput.value);
-          let alterReason = item.alterReason || "";
-          if (newVol !== Number(item.plannedLiters)) {
-            const just = el.querySelector(`#justInput_${item.id}`).value.trim();
-            if (!just) return alert("Você alterou o volume. É obrigatório informar o motivo da alteração.");
-            alterReason = just;
-          }
-          await updateDoc(doc(db, "deliveries", item.id), { plannedLiters: newVol, alterReason });
-          toast("Volume atualizado!");
-          renderDriver();
-        };
+      el.querySelector(`#saveVol_${item.id}`).onclick = async () => {
+        const newVol = Number(volInput.value);
+        let alterReason = item.alterReason || "";
+        if (newVol !== Number(item.plannedLiters)) {
+          const just = el.querySelector(`#justInput_${item.id}`).value.trim();
+          if (!just) return alert("Você alterou o volume. É obrigatório informar o motivo da alteração.");
+          alterReason = just;
+        }
+        await updateDoc(doc(db, "deliveries", item.id), { plannedLiters: newVol, alterReason });
+        toast("Volume atualizado!");
+      };
 
-        el.querySelector(`#confPin_${item.id}`).onclick = () => confirmDeliveryWithPin(item.id, item.pin);
-        el.querySelector(`#ausenteBtn_${item.id}`).onclick = () => showAbsentModal(item.id);
-      }
+      el.querySelector(`#confPin_${item.id}`).onclick = () => confirmDeliveryWithPin(item.id, item.pin);
+      el.querySelector(`#ausenteBtn_${item.id}`).onclick = () => showAbsentModal(item.id);
+    }
 
-      container.appendChild(el);
-    });
+    container.appendChild(el);
+  });
 
-    if (deliveries.length === 0) container.innerHTML = `<p class="small">Nenhuma entrega atribuída a você.</p>`;
-  } catch(e){}
+  if (deliveries.length === 0) container.innerHTML = `<p class="small">Nenhuma entrega atribuída a você.</p>`;
 }
 
 async function confirmDeliveryWithPin(deliveryId, expectedPin) {
-  const enteredPin = $(`pinInput_${deliveryId}`).value.trim();
+  const pinInputEl = $(`pinInput_${deliveryId}`);
+  const enteredPin = pinInputEl ? pinInputEl.value.trim() : "";
+
+  if (!enteredPin) {
+    return alert("⚠️ O PIN de 4 dígitos é obrigatório para confirmar a entrega!");
+  }
+
   if (expectedPin && enteredPin !== String(expectedPin)) {
-    return alert("PIN incorreto! Solicite o código correto de 4 dígitos ao morador.");
+    return alert("❌ PIN incorreto! Solicite o código correto de 4 dígitos ao morador.");
   }
 
   if (!navigator.geolocation) {
@@ -1563,7 +1591,6 @@ async function confirmDeliveryWithPin(deliveryId, expectedPin) {
         completedAt: serverTimestamp()
       });
       toast("Entrega confirmada com sucesso!");
-      renderDriver();
     } catch (err) {
       alert("Erro ao salvar: " + err.message);
     }
@@ -1650,7 +1677,6 @@ function showAbsentModal(deliveryId) {
             });
             closeModal();
             toast("Ausência registrada com sucesso!");
-            renderDriver();
           } catch (err) {
             alert("Erro ao salvar no banco: " + err.message);
           }
@@ -1665,11 +1691,10 @@ function showAbsentModal(deliveryId) {
 }
 
 /* =========================================================
-   PAINEL DA FAMÍLIA / BENEFICIÁRIO
+   PAINEL DA FAMÍLIA / BENEFICIÁRIO (EM TEMPO REAL)
 ========================================================= */
-async function renderRecipient() {
+async function initRecipientListeners() {
   const userPhone = normalizePhone(state.profile.phone);
-  
   let household = state.households.find(h => h.id === state.profile.householdId || normalizePhone(h.phone) === userPhone);
   
   if (!household) {
@@ -1689,6 +1714,23 @@ async function renderRecipient() {
 
   household = household || {};
 
+  renderRecipientDashboardBase(household);
+
+  let qDeliveries;
+  if (household.id) {
+    qDeliveries = query(collection(db, "deliveries"), where("householdId", "==", household.id));
+  } else {
+    qDeliveries = query(collection(db, "deliveries"), where("recipientName", "==", state.profile.name));
+  }
+
+  const unsub = onSnapshot(qDeliveries, snap => {
+    renderRecipientDeliveries(snap.docs);
+  });
+  unsubscribes.push(unsub);
+}
+
+function renderRecipientDashboardBase(household) {
+  if (!state.profile || state.profile.role !== "recipient") return;
   $("recipientPanel").innerHTML = `
     <div class="card">
       <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">🏡 Cadastro da Família</h2>
@@ -1704,128 +1746,117 @@ async function renderRecipient() {
       <div id="rList" class="records-grid"></div>
     </div>
   `;
+}
 
-  try {
-    let qDeliveries;
-    if (household.id) {
-      qDeliveries = query(collection(db, "deliveries"), where("householdId", "==", household.id));
-    } else {
-      qDeliveries = query(collection(db, "deliveries"), where("recipientName", "==", state.profile.name));
-    }
+function renderRecipientDeliveries(docs) {
+  if (!state.profile || state.profile.role !== "recipient") return;
+  const container = $("rList");
+  if (!container) return;
+  container.innerHTML = "";
 
-    const snap = await getDocs(qDeliveries);
-    const container = $("rList");
-    container.innerHTML = "";
+  docs.forEach(docSnap => {
+    const item = docSnap.data();
+    const deliveryId = docSnap.id;
+    const st = translateStatus(item.status);
 
-    snap.docs.forEach(docSnap => {
-      const item = docSnap.data();
-      const deliveryId = docSnap.id;
-      const st = translateStatus(item.status);
+    const el = document.createElement("div");
+    el.className = "record-card";
+    el.style.borderColor = item.status === "completed" ? "#a7f3d0" : item.status === "disputed" ? "#fca5a5" : item.status === "pending" ? "#fbcfe8" : "#bae6fd";
+    
+    let actionHtml = "";
 
-      const el = document.createElement("div");
-      el.className = "record-card";
-      el.style.borderColor = item.status === "completed" ? "#a7f3d0" : item.status === "disputed" ? "#fca5a5" : item.status === "pending" ? "#fbcfe8" : "#bae6fd";
-      
-      let actionHtml = "";
-
-      if (item.status === 'completed') {
-        actionHtml = `
-          <div style="margin-top:10px; background:#d1fae5; border:1px solid #6ee7b7; padding:8px 12px; border-radius:10px; text-align:center;">
-            <p class="small" style="color:#065f46; font-weight:800;">✅ Abastecimento Concluído e Confirmado</p>
-          </div>
-        `;
-      } else if (item.status === 'disputed') {
-        actionHtml = `
-          <div style="margin-top:10px; background:#fee2e2; border:1px solid #fca5a5; padding:8px 12px; border-radius:10px; text-align:center;">
-            <p class="small" style="color:#991b1b; font-weight:800;">❌ Não Recebimento Registrado</p>
-            <p class="small" style="color:#7f1d1d; margin-top:2px;">Motivo: ${esc(item.disputeReason)}</p>
-          </div>
-        `;
-      } else if (item.status === 'pending') {
-        actionHtml = `
-          <div style="background:#fef3c7; border:1px solid #fde68a; padding:12px; border-radius:12px; margin-top:12px;">
-            <p class="small" style="color:#92400e; font-weight:800; text-align:center;">⚠️ MOTORISTA REGISTROU AUSÊNCIA</p>
-            <p class="small" style="margin-top:4px;"><b>Obs:</b> ${esc(item.note)}</p>
-            <p class="small" style="margin-top:2px; color:var(--primary);"><b>PIN de Confirmação:</b> <span style="font-size:16px; font-weight:900;">${item.pin}</span></p>
-            
-            <div style="display:flex; gap:8px; margin-top:10px;">
-              <button class="primary small" style="flex:1;" id="confirmAbsent_${deliveryId}">✅ Confirmar Recebimento</button>
-              <button class="danger small" style="flex:1;" id="disputeAbsent_${deliveryId}">❌ Não Recebi</button>
-            </div>
-            
-            <div id="disputeBox_${deliveryId}" class="hidden" style="margin-top:10px;">
-              <input type="text" id="disputeInput_${deliveryId}" placeholder="Informe o motivo do não recebimento..." style="margin-bottom:6px;">
-              <button class="danger small" style="width:100%;" id="sendDispute_${deliveryId}">📤 Enviar Contestação ao Admin</button>
-            </div>
-          </div>
-        `;
-      } else {
-        actionHtml = item.pin ? `
-          <div class="pin-display-box">
-            <p class="small" style="color:#047857; font-weight:800;">SEU CÓDIGO PIN PARA O MOTORISTA:</p>
-            <div class="pin-code-badge">${item.pin}</div>
-            <p class="small" style="color:#065f46; margin-top:4px;">Passe este número de 4 dígitos para o motorista no momento da entrega.</p>
-          </div>
-        ` : `
-          <div style="margin-top:12px;">
-            <label style="font-size:11px; margin-bottom:4px;">Observação Opcional para a Entrega</label>
-            <input type="text" id="moradorObs_${deliveryId}" placeholder="Ex: Portão lateral aberto..." style="margin-bottom:8px;">
-            <button class="primary small" style="width:100%;" id="genPin_${deliveryId}">🔑 Gerar PIN para o Motorista</button>
-          </div>
-        `;
-      }
-
-      el.innerHTML = `
-        <div class="record-header">
-          <div class="record-title">🌊 Entrega: ${dateOnly(item.scheduledDate)}</div>
-          <span class="pill ${st.class}">${st.text}</span>
+    if (item.status === 'completed') {
+      actionHtml = `
+        <div style="margin-top:10px; background:#d1fae5; border:1px solid #6ee7b7; padding:8px 12px; border-radius:10px; text-align:center;">
+          <p class="small" style="color:#065f46; font-weight:800;">✅ Abastecimento Concluído e Confirmado</p>
         </div>
-        <p class="small"><b>Volume Agendado:</b> ${item.plannedLiters} L</p>
-        <p class="small"><b>Motorista:</b> ${esc(item.driverName || '—')} (${esc(item.vehiclePlate || '—')})</p>
-        ${item.alterReason ? `<p class="small" style="color:var(--warning); font-weight:700; margin-top:2px;">ℹ️ Ajuste de Volume: ${esc(item.alterReason)}</p>` : ''}
-        ${actionHtml}
       `;
-
-      if (!item.pin && item.status === 'scheduled') {
-        el.querySelector(`#genPin_${deliveryId}`).onclick = async () => {
-          const obsMorador = el.querySelector(`#moradorObs_${deliveryId}`).value.trim();
-          const pin = Math.floor(1000 + Math.random() * 9000);
-          await updateDoc(doc(db, "deliveries", deliveryId), { pin, moradorObs: obsMorador });
-          toast(`PIN gerado: ${pin}`);
-          renderRecipient();
-        };
-      }
-
-      if (item.status === 'pending') {
-        el.querySelector(`#confirmAbsent_${deliveryId}`).onclick = async () => {
-          if (confirm("Deseja confirmar que a água foi efetivamente entregue?")) {
-            await updateDoc(doc(db, "deliveries", deliveryId), { status: "completed", completedAt: serverTimestamp() });
-            toast("Entrega confirmada com sucesso!");
-            renderRecipient();
-          }
-        };
-
-        const dispBox = el.querySelector(`#disputeBox_${deliveryId}`);
-        el.querySelector(`#disputeAbsent_${deliveryId}`).onclick = () => {
-          dispBox.classList.toggle("hidden");
-        };
-
-        el.querySelector(`#sendDispute_${deliveryId}`).onclick = async () => {
-          const reason = el.querySelector(`#disputeInput_${deliveryId}`).value.trim();
-          if (!reason) return alert("Informe o motivo do não recebimento.");
-          await updateDoc(doc(db, "deliveries", deliveryId), { status: "disputed", disputeReason: reason });
-          toast("Contestação enviada ao administrador!");
-          renderRecipient();
-        };
-      }
-
-      container.appendChild(el);
-    });
-
-    if (snap.docs.length === 0) {
-      container.innerHTML = `<p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Nenhum agendamento de abastecimento encontrado para seu cadastro.</p>`;
+    } else if (item.status === 'disputed') {
+      actionHtml = `
+        <div style="margin-top:10px; background:#fee2e2; border:1px solid #fca5a5; padding:8px 12px; border-radius:10px; text-align:center;">
+          <p class="small" style="color:#991b1b; font-weight:800;">❌ Não Recebimento Registrado</p>
+          <p class="small" style="color:#7f1d1d; margin-top:2px;">Motivo: ${esc(item.disputeReason)}</p>
+        </div>
+      `;
+    } else if (item.status === 'pending') {
+      actionHtml = `
+        <div style="background:#fef3c7; border:1px solid #fde68a; padding:12px; border-radius:12px; margin-top:12px;">
+          <p class="small" style="color:#92400e; font-weight:800; text-align:center;">⚠️ MOTORISTA REGISTROU AUSÊNCIA</p>
+          <p class="small" style="margin-top:4px;"><b>Obs:</b> ${esc(item.note)}</p>
+          <p class="small" style="margin-top:2px; color:var(--primary);"><b>PIN de Confirmação:</b> <span style="font-size:16px; font-weight:900;">${item.pin}</span></p>
+          
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="primary small" style="flex:1;" id="confirmAbsent_${deliveryId}">✅ Confirmar Recebimento</button>
+            <button class="danger small" style="flex:1;" id="disputeAbsent_${deliveryId}">❌ Não Recebi</button>
+          </div>
+          
+          <div id="disputeBox_${deliveryId}" class="hidden" style="margin-top:10px;">
+            <input type="text" id="disputeInput_${deliveryId}" placeholder="Informe o motivo do não recebimento..." style="margin-bottom:6px;">
+            <button class="danger small" style="width:100%;" id="sendDispute_${deliveryId}">📤 Enviar Contestação ao Admin</button>
+          </div>
+        </div>
+      `;
+    } else {
+      actionHtml = item.pin ? `
+        <div class="pin-display-box">
+          <p class="small" style="color:#047857; font-weight:800;">SEU CÓDIGO PIN PARA O MOTORISTA:</p>
+          <div class="pin-code-badge">${item.pin}</div>
+          <p class="small" style="color:#065f46; margin-top:4px;">Passe este número de 4 dígitos para o motorista no momento da entrega.</p>
+        </div>
+      ` : `
+        <div style="margin-top:12px;">
+          <label style="font-size:11px; margin-bottom:4px;">Observação Opcional para a Entrega</label>
+          <input type="text" id="moradorObs_${deliveryId}" placeholder="Ex: Portão lateral aberto..." style="margin-bottom:8px;">
+          <button class="primary small" style="width:100%;" id="genPin_${deliveryId}">🔑 Gerar PIN para o Motorista</button>
+        </div>
+      `;
     }
-  } catch(e) {
-    console.error(e);
+
+    el.innerHTML = `
+      <div class="record-header">
+        <div class="record-title">🌊 Entrega: ${dateOnly(item.scheduledDate)}</div>
+        <span class="pill ${st.class}">${st.text}</span>
+      </div>
+      <p class="small"><b>Volume Agendado:</b> ${item.plannedLiters} L</p>
+      <p class="small"><b>Motorista:</b> ${esc(item.driverName || '—')} (${esc(item.vehiclePlate || '—')})</p>
+      ${item.alterReason ? `<p class="small" style="color:var(--warning); font-weight:700; margin-top:2px;">ℹ️ Ajuste de Volume: ${esc(item.alterReason)}</p>` : ''}
+      ${actionHtml}
+    `;
+
+    if (!item.pin && item.status === 'scheduled') {
+      el.querySelector(`#genPin_${deliveryId}`).onclick = async () => {
+        const obsMorador = el.querySelector(`#moradorObs_${deliveryId}`).value.trim();
+        const pin = Math.floor(1000 + Math.random() * 9000);
+        await updateDoc(doc(db, "deliveries", deliveryId), { pin, moradorObs: obsMorador });
+        toast(`PIN gerado: ${pin}`);
+      };
+    }
+
+    if (item.status === 'pending') {
+      el.querySelector(`#confirmAbsent_${deliveryId}`).onclick = async () => {
+        if (confirm("Deseja confirmar que a água foi efetivamente entregue?")) {
+          await updateDoc(doc(db, "deliveries", deliveryId), { status: "completed", completedAt: serverTimestamp() });
+          toast("Entrega confirmada com sucesso!");
+        }
+      };
+
+      const dispBox = el.querySelector(`#disputeBox_${deliveryId}`);
+      el.querySelector(`#disputeAbsent_${deliveryId}`).onclick = () => {
+        dispBox.classList.toggle("hidden");
+      };
+
+      el.querySelector(`#sendDispute_${deliveryId}`).onclick = async () => {
+        const reason = el.querySelector(`#disputeInput_${deliveryId}`).value.trim();
+        if (!reason) return alert("Informe o motivo do não recebimento.");
+        await updateDoc(doc(db, "deliveries", deliveryId), { status: "disputed", disputeReason: reason });
+        toast("Contestação enviada ao administrador!");
+      };
+    }
+
+    container.appendChild(el);
+  });
+
+  if (docs.length === 0) {
+    container.innerHTML = `<p class="small" style="grid-column: 1/-1; text-align: center; padding: 20px;">Nenhum agendamento de abastecimento encontrado para seu cadastro.</p>`;
   }
 }
