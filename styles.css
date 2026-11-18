@@ -25,7 +25,7 @@
 }
 
 
-* {
+- {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -39,7 +39,6 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
 }
 
 .connection-banner {
@@ -64,61 +63,42 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 12px;
+  padding: 20px;
   background: linear-gradient(135deg, #03045e 0%, #0077b6 50%, #00b4d8 100%);
   position: relative;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* Quando a view de login estiver ativa, bloqueia rolagem e ocupa 100% da altura visível */
-body:has(#loginView:not(.hidden)) {
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
-}
-
-body:has(#loginView:not(.hidden)) .whatsapp-float-btn {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
 }
 
 .login-card {
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
-  padding: 24px 22px;
-  border-radius: 24px;
+  padding: 36px 28px;
+  border-radius: 28px;
   box-shadow: var(--shadow-lg);
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   border: 1px solid rgba(255, 255, 255, 0.4);
-  max-height: 100%;
-  box-sizing: border-box;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .login-header .logo-badge {
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%);
-  border-radius: 18px;
+  border-radius: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-  margin-bottom: 8px;
-  box-shadow: 0 8px 16px rgba(0, 119, 182, 0.3);
+  font-size: 36px;
+  margin-bottom: 12px;
+  box-shadow: 0 10px 20px rgba(0, 119, 182, 0.3);
 }
 
 .login-header h1 {
-  font-size: 21px;
+  font-size: 24px;
   font-weight: 900;
   color: var(--primary-dark);
   letter-spacing: -0.5px;
@@ -126,23 +106,23 @@ body:has(#loginView:not(.hidden)) .whatsapp-float-btn {
 
 .login-header .subtitle-slogan {
   color: var(--primary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  margin-top: 2px;
+  margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .login-footer-prefeitura {
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-muted);
-  margin-top: 14px;
+  margin-top: 20px;
   text-transform: uppercase;
   letter-spacing: 1px;
   border-top: 1px solid #e2e8f0;
-  padding-top: 10px;
+  padding-top: 14px;
 }
 
 /* Forms */
@@ -153,16 +133,16 @@ form label {
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 form input, form select, form textarea {
   width: 100%;
-  padding: 10px 14px;
+  padding: 13px 16px;
   border: 1.5px solid var(--border);
-  border-radius: 12px;
-  font-size: 14px;
-  margin-bottom: 10px;
+  border-radius: 14px;
+  font-size: 15px;
+  margin-bottom: 14px;
   background: #f8fafc;
   color: var(--text-title);
   font-weight: 600;
