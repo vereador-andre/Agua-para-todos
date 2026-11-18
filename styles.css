@@ -24,8 +24,7 @@
   --shadow-lg: 0 25px 50px -12px rgba(3, 4, 94, 0.25);
 }
 
-
-- {
+* {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -33,10 +32,15 @@
   -webkit-text-size-adjust: 100%;
 }
 
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--bg-main);
   color: var(--text-body);
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -57,48 +61,55 @@ body {
 .no-scroll { overflow: hidden; }
 .small { font-size: 13px; color: var(--text-muted); }
 
-/* Tela de Login Moderna */
+/* Tela de Login Compactada e Perfeita (Sem Rolagem) */
 .view-container {
   flex: 1;
+  width: 100vw;
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: 12px;
   background: linear-gradient(135deg, #03045e 0%, #0077b6 50%, #00b4d8 100%);
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow: hidden;
 }
 
 .login-card {
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
-  padding: 36px 28px;
-  border-radius: 28px;
+  padding: 24px 20px;
+  border-radius: 24px;
   box-shadow: var(--shadow-lg);
   width: 100%;
-  max-width: 420px;
+  max-width: 380px;
   border: 1px solid rgba(255, 255, 255, 0.4);
+  max-height: 96vh;
+  overflow-y: auto;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .login-header .logo-badge {
-  width: 72px;
-  height: 72px;
+  width: 56px;
+  height: 56px;
   background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%);
-  border-radius: 22px;
+  border-radius: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
-  margin-bottom: 12px;
-  box-shadow: 0 10px 20px rgba(0, 119, 182, 0.3);
+  font-size: 28px;
+  margin-bottom: 8px;
+  box-shadow: 0 8px 16px rgba(0, 119, 182, 0.3);
 }
 
 .login-header h1 {
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 900;
   color: var(--primary-dark);
   letter-spacing: -0.5px;
@@ -106,23 +117,23 @@ body {
 
 .login-header .subtitle-slogan {
   color: var(--primary);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  margin-top: 4px;
+  margin-top: 2px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .login-footer-prefeitura {
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
-  margin-top: 20px;
+  margin-top: 14px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   border-top: 1px solid #e2e8f0;
-  padding-top: 14px;
+  padding-top: 10px;
 }
 
 /* Forms */
@@ -133,16 +144,16 @@ form label {
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 form input, form select, form textarea {
   width: 100%;
-  padding: 13px 16px;
+  padding: 10px 14px;
   border: 1.5px solid var(--border);
-  border-radius: 14px;
-  font-size: 15px;
-  margin-bottom: 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  margin-bottom: 10px;
   background: #f8fafc;
   color: var(--text-title);
   font-weight: 600;
@@ -258,8 +269,8 @@ form input:focus, form select:focus, form textarea:focus {
 button {
   cursor: pointer;
   border: none;
-  border-radius: 14px;
-  padding: 12px 16px;
+  border-radius: 12px;
+  padding: 11px 14px;
   font-size: 13px;
   font-weight: 700;
   display: inline-flex;
@@ -276,7 +287,7 @@ button:active { transform: translateY(0) scale(0.98); }
 button.primary {
   background: linear-gradient(135deg, #0077b6 0%, #03045e 100%);
   color: white;
-  box-shadow: 0 10px 20px rgba(0, 119, 182, 0.3);
+  box-shadow: 0 8px 16px rgba(0, 119, 182, 0.3);
 }
 
 button.secondary {
@@ -410,22 +421,22 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 10px; }
   margin-top: 4px;
 }
 
-/* Botão Flutuante de Suporte WhatsApp */
+/* Botão Flutuante de Suporte WhatsApp (Discreto e Adaptado) */
 .whatsapp-float-btn {
   position: fixed;
-  bottom: 16px;
-  right: 16px;
+  bottom: 12px;
+  right: 12px;
   background: #25d366;
   color: white;
-  padding: 10px 16px;
-  border-radius: 30px;
-  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 24px;
+  font-size: 11px;
   font-weight: 800;
-  box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
+  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
   z-index: 1000;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   text-decoration: none;
   transition: transform 0.2s;
 }
@@ -481,3 +492,8 @@ button.small { padding: 6px 10px; font-size: 11px; border-radius: 10px; }
   z-index: 3000;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
+
+/* Esconde o botão do WhatsApp quando o painel principal estiver ativo se preferir, ou mantém fixo discreto */
+#loginView.hidden ~ .whatsapp-float-btn {
+  /* Mantém visível de forma elegante em todas as telas */
+}
