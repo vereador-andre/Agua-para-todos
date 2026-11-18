@@ -373,7 +373,6 @@ onAuthStateChanged(auth, async user => {
       if (!snapQ.empty) {
         state.profile = { id: snapQ.docs[0].id, ...snapQ.docs[0].data() };
       } else {
-        // Fallback caso o usuário seja morador cadastrado na coleção households com e-mail de telefone
         const phoneDigits = user.email.replace("usuario.", "").replace("@agua-para-todos.app", "");
         const allH = await getDocs(collection(db, "households"));
         const foundH = allH.docs.find(d => normalizePhone(d.data().phone) === phoneDigits);
@@ -626,7 +625,6 @@ function showAdvancedReportModal() {
       <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 6px;">📊 Relatório Completo e Auditoria Operacional</h2>
       <p class="small" style="margin-bottom: 12px;">Filtre por período (15 dias, mês, anual ou datas livres), motorista ou família, veja fotos/GPS e exporte.</p>
 
-      <!-- ATALHOS RÁPIDOS DE PERÍODO -->
       <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
         <button type="button" class="secondary small" id="btnPreset15">📅 Últimos 15 dias</button>
         <button type="button" class="secondary small" id="btnPresetMonth">📅 Mês Atual</button>
@@ -743,7 +741,6 @@ function showAdvancedReportModal() {
   $("btnApplyRep").onclick = runFilter;
   runFilter();
 
-  /* IMPRESSÃO / PDF OFICIAL LIMPO EM FOLHA A4 */
   $("btnExportPDF").onclick = () => {
     const rows = state.filteredReportData;
     const start = $("repStartDate").value ? dateOnly($("repStartDate").value) : "Início";
@@ -846,7 +843,6 @@ function showAdvancedReportModal() {
     printWin.document.close();
   };
 
-  /* EXPORTAÇÃO EXCEL (.XLS) COM TABELA ESTRUTURADA, ESTILOS, FILTROS E LARGURA DE COLUNAS */
   $("btnExportExcel").onclick = () => {
     const rows = state.filteredReportData;
     const totalLitros = rows.reduce((acc, cur) => acc + (Number(cur.plannedLiters) || 0), 0);
